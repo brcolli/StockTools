@@ -1,0 +1,14 @@
+Consumer shared key:
+BUYwpbmEi3A29cm9kOXeX9y8n
+
+Consumer secret key:
+MF5w3g6jmn7WnYM6DG8xtIWkdjnEhInnBSf5bU6HclTF4wSkJ9
+
+Access shared token:
+4149804506-DrTR0UhuQ8pWf16r9wm8NYdkGNSBWuib2Y8nUlw
+
+Access secret token:
+PYkfcY2w6tvovb4RMyCNpEAPyValmReJlaHUgC2KsWWzQ
+
+Bearer token:
+AAAAAAAAAAAAAAAAAAAAAHfLGwEAAAAA23M6%2FAOdV1Gp6xMLfN1txD8DUwM%3DlxzfwHEkS1xPDAcAMncrZKVOUJEL0csMBxQCKOFp89CLlcVo6v
