@@ -126,9 +126,9 @@ class Utils:
 
 if __name__ == '__main__':
 
-    min_vl = 1E6
-    min_mc = 3E8
-    min_lc = 1E1
+    min_vl = 1E6 # Minimum volume
+    min_mc = 3E8 # Minimum market cap
+    min_lc = 1E1 # Minimum last closed value
 
     def criteria (vl, mc, lc, cr): return vl >= min_vl and mc >= min_mc and lc >= min_lc and cr == 'USD'
 
