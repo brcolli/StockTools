@@ -102,6 +102,10 @@ class Utils:
 
         return start, end
 
+    @staticmethod
+    def time_str_to_datetime(time_str):
+        return datetime.datetime.strptime(time_str, '%y/%m/%d')
+
     '''
     Writes a pandas DataFrame to a csv in the current directory
     '''
