@@ -9,6 +9,6 @@ setup(
     author='benrc',
     author_email='',
     description='',
-    install_requires=['yahoo-earnings-calendar', 'yfinance', 'tweepy', 'pandas', 'datetime', 'PyQt5'],
+    install_requires=['yahoo-earnings-calendar', 'yfinance', 'tweepy', 'pandas', 'datetime', 'PyQt5', 'tda-api'],
     scripts=['UpcomingEarningsScanner/UpcomingEarningsScanner.py', 'NewsSentimentAnalysis/TwitterSentimentAnalysis.py']
 )
