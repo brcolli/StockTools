@@ -1,0 +1,25 @@
+/* Selection colors */
+QTabBar::tab:selected {
+    background: rgb(192, 192, 192);
+    margin-bottom: -1px
+}
+QTabBar::tab:!selected {
+    background: rgb(160, 160, 160);
+}
+
+/* Tab widget settings */
+QTabWidget::pane {
+  background: rgb(192, 192, 192);
+  border: 1px solid rgb(192, 192, 192);
+  top:-1px;
+}
+
+QTabBar::tab {
+  background: rgb(230, 230, 230);
+  border: 1px solid rgb(192, 192, 192);
+  padding: 10px;
+}
+
+QTabWidget::tab-bar {
+    right: 0px;
+}
