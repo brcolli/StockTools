@@ -135,8 +135,7 @@ class Utils:
         return query
 
 
-# Entry
-if __name__ == "__main__":
+def main():
 
     tw = TwitterManager()
 
@@ -144,7 +143,11 @@ if __name__ == "__main__":
     phrase = 'vaccine'
     query = Utils.ConstructQuery(phrase, filter_in=['images'], filter_out=['vine', 'retweets'])
     tweets = tw.PhraseSearchHistory(query, 10)
-    Utils.WriteDataFrameToCsv(tweets, phrase+'_tweet_history_search.csv')
+    Utils.WriteDataFrameToCsv(tweets, phrase + '_tweet_history_search.csv')
 
     # Start query stream
     tw.StartStream(['vaccine'])
+
+
+if __name__ == '__main__':
+    main()

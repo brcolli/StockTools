@@ -20,9 +20,13 @@ def replace_line_to_comma(filename):
     f2.close()
 
 
-if __name__ == '__main__':
+def main():
 
     Tk().withdraw()
     f_name = askopenfilename()
 
     replace_line_to_comma(f_name)
+
+
+if __name__ == '__main__':
+    main()

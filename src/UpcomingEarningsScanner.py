@@ -133,13 +133,13 @@ class Utils:
         return pd.read_csv(filename, index_col=[0])
 
 
-if __name__ == '__main__':
+def main(min_vl, min_mc, min_lc):
 
-    min_vl = 1E6 # Minimum volume
-    min_mc = 3E8 # Minimum market cap
-    min_lc = 1E1 # Minimum last closed value
+    # min_vl = 1E6  # Minimum volume
+    # min_mc = 3E8  # Minimum market cap
+    # min_lc = 1E1  # Minimum last closed value
 
-    def criteria (vl, mc, lc, cr): return vl >= min_vl and mc >= min_mc and lc >= min_lc
+    def criteria(vl, mc, lc, cr): return vl >= min_vl and mc >= min_mc and lc >= min_lc
 
     em = EarningsManager(criteria)
 
@@ -148,3 +148,7 @@ if __name__ == '__main__':
     d1 = Utils.time_str_to_datetime('2020/09/13')
     d2 = Utils.time_str_to_datetime('2020/09/19')
     em.get_earnings_in_range((d1, d2))
+
+
+if __name__ == '__main__':
+    main()

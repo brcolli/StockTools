@@ -1,7 +1,6 @@
-import subprocess
-import sys
+import importlib
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QAction, QTabWidget
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLineEdit, QTabWidget, QLabel
 from PyQt5.QtGui import QPalette, QColor
 
 
@@ -12,17 +11,42 @@ from PyQt5.QtGui import QPalette, QColor
 
 class UpComingEarningsScannerTab(QWidget):
 
-    def __init__(self):
+    def __init__(self, ues):
 
         super().__init__()
+        self.ues = ues
 
         vbox = QVBoxLayout()
 
-        get_earnings = QPushButton('Get earnings')
+        # @TODO refactor this
+        self.min_volume_label = QLabel(self)
+        self.min_volume_label.setText('Minimum volume:')
+        self.min_volume_edit = QLineEdit(self)
 
+        self.min_market_cap_label = QLabel(self)
+        self.min_market_cap_label.setText('Minimum market cap:')
+        self.min_market_cap_edit = QLineEdit(self)
+
+        self.min_last_closed_label = QLabel(self)
+        self.min_last_closed_label.setText('Minimum last closed:')
+        self.min_last_closed_edit = QLineEdit(self)
+
+        get_earnings = QPushButton('Get earnings')
+        get_earnings.clicked.connect(self.call_upcoming_earnings_scanner)
+
+        vbox.addWidget(self.min_volume_label)
+        vbox.addWidget(self.min_volume_edit)
+        vbox.addWidget(self.min_market_cap_label)
+        vbox.addWidget(self.min_market_cap_edit)
+        vbox.addWidget(self.min_last_closed_label)
+        vbox.addWidget(self.min_last_closed_edit)
         vbox.addWidget(get_earnings)
 
         self.setLayout(vbox)
+
+    def call_upcoming_earnings_scanner(self):
+        self.ues.main(int(self.min_volume_edit.text()), int(self.min_market_cap_edit.text()),
+                      int(self.min_last_closed_edit.text()))
 
 
 class TwitterSentimentAnalysis(QWidget):
@@ -62,7 +86,7 @@ class ShortInterestParser(QWidget):
 
 class QtManager:
 
-    def __init__(self):
+    def __init__(self, imports):
 
         self.app = QApplication([])
         self.window = QWidget()
@@ -84,7 +108,7 @@ class QtManager:
         tab_widget.setAutoFillBackground(True)
         tab_widget.setStyleSheet(ts)
 
-        tab_widget.addTab(UpComingEarningsScannerTab(), 'Upcoming Earnings Scanner')
+        tab_widget.addTab(UpComingEarningsScannerTab(imports['UpcomingEarningsScanner']), 'Upcoming Earnings Scanner')
         tab_widget.addTab(TwitterSentimentAnalysis(), 'Twitter Sentiment Analysis')
         tab_widget.addTab(ShortInterestParser(), 'Short Interest Parser')
 
@@ -123,8 +147,13 @@ class QtManager:
             return f.read()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
 
-    qtm = QtManager()
+    modules = ['UpcomingEarningsScanner', 'TwitterSentimentAnalysis', 'OptionsFlow', 'ShortInterestParser']
+    mod_imports = {}
+    for mod in modules:
+        mod_imports[mod] = importlib.import_module(mod)
+
+    qtm = QtManager(mod_imports)
 
     qtm.run_app()
