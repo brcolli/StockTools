@@ -1,5 +1,9 @@
+import importlib
 import tweepy
 import pandas as pd
+
+
+Utils = importlib.import_module('utilities').Utils
 
 
 class TwitterManager:
@@ -44,7 +48,8 @@ class TwitterManager:
         for tweet in data:
 
             temp_dict = {}
-            temp_dict.update({tweet_keys[0]:tweet.created_at, tweet_keys[1]:tweet.user.name, tweet_keys[2]:tweet.text})
+            temp_dict.update({tweet_keys[0]: tweet.created_at, tweet_keys[1]: tweet.user.name,
+                              tweet_keys[2]: tweet.text})
 
             tweets.append(temp_dict)
 
@@ -52,13 +57,39 @@ class TwitterManager:
 
         return df
 
+    '''
+    Constructs a proper advanced twitter search query given certain operations.
+    Refer to https://developer.twitter.com/en/docs/twitter-api/v1/rules-and-filtering/overview/standard-operators
+    '''
+    @staticmethod
+    def ConstructTwitterQuery(phrase, filter_in=[], filter_out=[], exact_phrase=''):
+
+        # Specify query phrasing
+        query = ''
+        if exact_phrase != '':
+            query += '"' + exact_phrase + '" '
+
+        query += phrase + ' OR ' + phrase.upper() + ' OR ' + phrase.capitalize()
+
+        # Add all filtered in requirements
+        for fin in filter_in:
+            query += ' filter:' + fin
+
+        # Add all filtered out requirements
+        for fout in filter_out:
+            query += ' -filter:' + fout
+
+        return query
+
     def StartStream(self, phrases, limit=-1):
+
+        print('Starting stream on ' + str(phrases))
 
         # Set filename
         filename = ''
         for phrase in phrases:
             filename += phrase + "_"
-        self.listener.output_file = filename + 'tweets_stream.csv'
+        self.listener.output_file = '../data/' + filename + 'tweets_stream.csv'
 
         self.stream.filter(track=phrases, is_async=True)
 
@@ -91,62 +122,18 @@ class TwitterStreamListener(tweepy.StreamListener):
             print('Tweet saved...')
 
 
-class Utils:
-
-    '''
-    Writes a pandas DataFrame to a csv in the current directory
-    '''
-    @staticmethod
-    def WriteDataFrameToCsv(df, filename):
-
-        if df.empty:
-            print('No tweets found given criteria. Please try again.')
-        else:
-            print('Writing tweets to ' + filename + '...')
-
-            # Attempt to write to csv
-            try:
-                df.to_csv(filename)
-            except:
-                print('Could not open ' + filename + '. Is the file open?')
-
-    '''
-    Constructs a proper advanced twitter search query given certain operations.
-    Refer to https://developer.twitter.com/en/docs/twitter-api/v1/rules-and-filtering/overview/standard-operators
-    '''
-    @staticmethod
-    def ConstructQuery(phrase, filter_in=[], filter_out=[], exact_phrase=''):
-
-        # Specify query phrasing
-        query = ''
-        if exact_phrase != '':
-            query += '"' + exact_phrase + '" '
-
-        query += phrase + ' OR ' + phrase.upper() + ' OR ' + phrase.capitalize()
-
-        # Add all filtered in requirements
-        for fin in filter_in:
-            query += ' filter:' + fin
-
-        # Add all filtered out requirements
-        for fout in filter_out:
-            query += ' -filter:' + fout
-
-        return query
-
-
 def main():
 
     tw = TwitterManager()
 
     # Search phrase
-    phrase = 'vaccine'
-    query = Utils.ConstructQuery(phrase, filter_in=['images'], filter_out=['vine', 'retweets'])
+    phrase = '$PTON'
+    query = tw.ConstructQuery(phrase, filter_in=['images'], filter_out=['vine', 'retweets'])
     tweets = tw.PhraseSearchHistory(query, 10)
-    Utils.WriteDataFrameToCsv(tweets, phrase + '_tweet_history_search.csv')
+    Utils.write_dataframe_to_csv(tweets, '..data/' + phrase + '_tweet_history_search.csv')
 
     # Start query stream
-    tw.StartStream(['vaccine'])
+    tw.StartStream(['$PTON'])
 
 
 if __name__ == '__main__':

@@ -34,10 +34,12 @@ class OptionsFlowManager:
 
         self.stream = StreamClient(self.client, account_id=self.account_id)
 
+        # Add handlers
+        self.stream.add_options_book_handler(self.handle_options_book)
+
     async def start_stream(self):
 
         await self.stream.login()
-        await self.stream.add_options_book_handler(self.handle_options_book())
         await self.stream.options_book_subs(self.watchlist)
 
         asyncio.ensure_future(self.handle_queue())
