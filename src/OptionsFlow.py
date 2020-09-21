@@ -1,5 +1,4 @@
 from tda.auth import easy_client
-from tda.client import Client
 from tda.streaming import StreamClient
 import asyncio
 import pprint
@@ -40,6 +39,7 @@ class OptionsFlowManager:
     async def start_stream(self):
 
         await self.stream.login()
+        await self.stream.quality_of_service(StreamClient.QOSLevel.EXPRESS)
         await self.stream.options_book_subs(self.watchlist)
 
         asyncio.ensure_future(self.handle_queue())
@@ -62,7 +62,7 @@ class OptionsFlowManager:
 
 async def main():
 
-    symbols = ['AAPL', 'TSLA']
+    symbols = ['AAPL']
     ofm = OptionsFlowManager(symbols)
 
     await ofm.start_stream()

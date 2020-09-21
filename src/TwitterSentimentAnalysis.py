@@ -1,9 +1,12 @@
 import importlib
 import tweepy
 import pandas as pd
-
+import nltk
+from nltk.corpus import twitter_samples
+from nltk.corpus import stopwords
 
 Utils = importlib.import_module('utilities').Utils
+NSC = importlib.import_module('NLPSentimentCalculations').NLPSentimentCalculations
 
 
 class TwitterManager:
@@ -30,6 +33,40 @@ class TwitterManager:
         self.listener = TwitterStreamListener()
         self.stream = tweepy.Stream(auth=self.auth, listener=self.listener)
 
+        self.nsc = NSC()
+
+    def initialize_nltk_twitter(self):
+
+        nltk.download('twitter_samples')
+        nltk.download('stopwords')
+
+        p_tweets_tokens = twitter_samples.tokenized('positive_tweets.json')
+        p_dataset = TwitterManager.get_dataset_from_tweet(p_tweets_tokens, 'Positive')
+
+        n_tweets_tokens = twitter_samples.tokenized('negative_tweets.json')
+        n_dataset = TwitterManager.get_dataset_from_tweet(n_tweets_tokens, 'Negative')
+
+        dataset = p_dataset + n_dataset
+        Utils.shuffle_list(dataset)
+
+        split_count = int(len(dataset) * 0.7)  # Does a 70:30 split for train/test data
+        train_data = dataset[:split_count]
+        test_data = dataset[split_count:]
+
+        self.nsc.train_naivebayes_classifier(train_data)
+        self.nsc.test_classifier(test_data)
+
+    @staticmethod
+    def get_dataset_from_tweet(tweet_tokens, classifier_tag):
+        tweets_clean = NSC.get_clean_tokens(tweet_tokens, stopwords.words('english'))
+        return NSC.get_basic_dataset(tweets_clean, classifier_tag)
+
+    def get_tweet_sentiment(self, text):
+        sentiment = self.nsc.classify_text(text)
+        print('Text:', text)
+        print('Sentiment:', sentiment)
+        return sentiment
+
     '''
     PhraseSearchHistory
     Searches historic tweets for a phrase
@@ -43,13 +80,18 @@ class TwitterManager:
 
         print('Compiling tweets...')
         tweets = []
-        tweet_keys = ['Date', 'User', 'Text']
+        tweet_keys = ['Date', 'User', 'Text', 'Sentiment']
 
         for tweet in data:
 
+            if self.nsc.classifier is not None:
+                sentiment = self.get_tweet_sentiment(tweet.text)
+            else:
+                sentiment = 'None'
+
             temp_dict = {}
             temp_dict.update({tweet_keys[0]: tweet.created_at, tweet_keys[1]: tweet.user.name,
-                              tweet_keys[2]: tweet.text})
+                              tweet_keys[2]: tweet.text, tweet_keys[3]: sentiment})
 
             tweets.append(temp_dict)
 
@@ -126,14 +168,17 @@ def main():
 
     tw = TwitterManager()
 
+    tw.initialize_nltk_twitter()
+    tw.get_tweet_sentiment('Tesla can suck it')
+
     # Search phrase
     phrase = '$PTON'
-    query = tw.ConstructQuery(phrase, filter_in=['images'], filter_out=['vine', 'retweets'])
-    tweets = tw.PhraseSearchHistory(query, 10)
-    Utils.write_dataframe_to_csv(tweets, '..data/' + phrase + '_tweet_history_search.csv')
+    query = tw.ConstructTwitterQuery(phrase, filter_in=['images'], filter_out=['vine', 'retweets'])
+    tweets = tw.PhraseSearchHistory(query, 50)
+    Utils.write_dataframe_to_csv(tweets, '../data/' + phrase + '_tweet_history_search.csv')
 
     # Start query stream
-    tw.StartStream(['$PTON'])
+    #tw.StartStream(['$PTON'])
 
 
 if __name__ == '__main__':

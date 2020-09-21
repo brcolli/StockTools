@@ -1,9 +1,15 @@
 import datetime
 import pandas as pd
 from pandas.tseries.offsets import BDay
+import random
 
 
 class Utils:
+
+    @staticmethod
+    def shuffle_list(data):
+        random.shuffle(data)
+        return data
 
     @staticmethod
     def get_last_trading_day():
