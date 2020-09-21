@@ -1,5 +1,0 @@
-,ticker,companyshortname,startdatetime,epsestimate,epsactual,epssurprisepct,volume,marketCap,lastClose
-0,ADBE,Adobe Inc,2020-09-15T20:00:00.000Z,2.41,,,2346705,246255222784,516.44
-1,FDX,FedEx Corp,2020-09-15T20:00:00.000Z,2.5,,,1762735,57597419520,221.9
-2,GIS,General Mills Inc,2020-09-16T07:00:00.000Z,0.87,,,2558262,39068209152,63.39
-3,PGR,Progressive Corp,2020-09-17T12:30:00.000Z,1.73,,,2042920,55636131840,93.68

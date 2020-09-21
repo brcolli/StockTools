@@ -1,5 +1,7 @@
 doc/*
+!doc/README.md
 data/*
+!data/README.md
 
 ### Python template
 # Byte-compiled / optimized / DLL files
