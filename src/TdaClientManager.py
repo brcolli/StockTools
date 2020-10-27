@@ -1,0 +1,111 @@
+from tda.auth import easy_client
+from tda.streaming import StreamClient
+import yfinance as yf
+from iexfinance.stocks import Stock
+import json
+import time
+import datetime
+
+
+class TdaClientManager:
+
+    def __init__(self):
+
+        self.account_id = '275356186'
+        self.key = 'FA3ISKLEGYIFXQRSUJQCB93AKXFRGZUK'
+        self.callback_url = 'https://localhost:8080'
+        self.token_path = '../doc/token'
+
+        # Setup client
+        try:
+            self.client = easy_client(api_key=self.key,
+                                      redirect_uri=self.callback_url,
+                                      token_path=self.token_path)
+        except FileNotFoundError:
+
+            from selenium import webdriver
+            from webdriver_manager.chrome import ChromeDriverManager
+
+            with webdriver.Chrome(ChromeDriverManager().install()) as driver:
+                self.client = easy_client(api_key=self.key,
+                                          redirect_uri=self.callback_url,
+                                          token_path=self.token_path,
+                                          webdriver_func=driver)
+
+        # Setup stream
+        self.stream = StreamClient(self.client, account_id=self.account_id)
+
+    @staticmethod
+    def get_quotes_from_iex(tickers):
+
+        s = Stock(tickers, token='pk_78c8ddd19775400684a6a51744aaacd6')
+        iexq = s.get_quote()
+
+        ret = {}
+        if len(tickers) == 1:
+            ret[iexq['symbol']] = iexq
+        else:
+            ret = iexq
+
+        return ret
+
+    def get_quotes_from_tda(self, tickers_list):
+
+        qs = {}
+        for tickers in tickers_list:
+            r = self.client.get_quotes(tickers)
+            data = r.json()
+            qs.update(data)
+
+        return qs
+
+    def get_fundamentals_from_tda(self, tickers_list):
+
+        fs = {}
+        for tickers in tickers_list:
+            r = self.client.search_instruments(tickers, self.client.Instrument.Projection.FUNDAMENTAL)
+            data = r.json()
+            fs.update(data)
+
+        # Just take fundamental data
+        ret = {}
+        for key in fs.keys():
+            ret[key] = fs[key]['fundamental']
+
+        return ret
+
+    @staticmethod
+    def get_prev_day_data(tickers_list):
+
+        data = {}
+        for tickers in tickers_list:
+            data = yf.download(tickers, period='1d')
+
+        return data
+
+    def get_past_history(self, tickers, start_day):
+
+        tickers_history = {}
+
+        for ticker in tickers:
+
+            while True:
+
+                r = self.client.get_price_history(ticker,
+                                                  start_datetime=start_day,
+                                                  period_type=self.client.PriceHistory.PeriodType.MONTH,
+                                                  frequency=self.client.PriceHistory.Frequency.DAILY,
+                                                  frequency_type=self.client.PriceHistory.FrequencyType.DAILY)
+
+                try:
+                    data = r.json()
+                except json.decoder.JSONDecodeError:
+                    data = {'candles': [], 'symbol': ticker, 'empty': False}
+
+                try:
+                    tickers_history[ticker] = data['candles']
+                    break
+                except KeyError:
+                    time.sleep(5)
+
+        return tickers_history

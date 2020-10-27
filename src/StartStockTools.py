@@ -149,7 +149,7 @@ class QtManager:
 
 if __name__ == '__main__':
 
-    modules = ['UpcomingEarningsScanner', 'TwitterSentimentAnalysis', 'OptionsFlow', 'ShortInterestParser']
+    modules = ['UpcomingEarningsScanner', 'TwitterSentimentAnalysis', 'OptionsFlow', 'GetDailyShortInterest']
     mod_imports = {}
     for mod in modules:
         mod_imports[mod] = importlib.import_module(mod)

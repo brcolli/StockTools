@@ -172,9 +172,10 @@ def main():
     tw.get_tweet_sentiment('Tesla can suck it')
 
     # Search phrase
-    phrase = '$PTON'
-    query = tw.ConstructTwitterQuery(phrase, filter_in=['images'], filter_out=['vine', 'retweets'])
-    tweets = tw.PhraseSearchHistory(query, 50)
+    phrase = 'AMD'
+    query = tw.ConstructTwitterQuery(phrase, filter_out=['vine', 'retweets', 'links'])
+    print(query)
+    tweets = tw.PhraseSearchHistory(query, 100)
     Utils.write_dataframe_to_csv(tweets, '../data/' + phrase + '_tweet_history_search.csv')
 
     # Start query stream
