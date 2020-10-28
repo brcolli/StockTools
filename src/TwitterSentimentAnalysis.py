@@ -174,7 +174,6 @@ def main():
     # Search phrase
     phrase = 'AMD'
     query = tw.ConstructTwitterQuery(phrase, filter_out=['vine', 'retweets', 'links'])
-    print(query)
     tweets = tw.PhraseSearchHistory(query, 100)
     Utils.write_dataframe_to_csv(tweets, '../data/' + phrase + '_tweet_history_search.csv')
 

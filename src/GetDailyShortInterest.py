@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 from io import StringIO
 from os import path
-import datetime
 
 
 Utils = importlib.import_module('utilities').Utils
@@ -155,7 +154,7 @@ def update_short_df_with_data(df, qs, fs, prev_short_perc, prev_vol_perc):
     df['Short Interest Ratio'] = short_int
     df['Previous short delta'] = short_int.sub(prev_short_perc).fillna(short_int)
 
-    df['Previous volume delta'] = df['TotalVolume'].sub(prev_vol_perc).fillna(df['TotalVolume'])
+    df['Previous volume delta'] = df['TotalVolume'].sub(prev_vol_perc).fillna(df['TotalVolume']).div(prev_vol_perc)
 
     # Calculate % close
     df['Open/Close change'] = (df['Close'] - df['Open']) / df['Open']
@@ -234,7 +233,7 @@ def import_short_interest_text_from_selection():
 
 def main():
     res = get_latest_short_interest_data()
-    Utils.upload_file_to_gdrive(res, 'Daily Short Data')
+    #Utils.upload_file_to_gdrive(res, 'Daily Short Data')
 
 
 if __name__ == '__main__':

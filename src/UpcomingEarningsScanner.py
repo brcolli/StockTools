@@ -106,8 +106,8 @@ def main(min_vl, min_mc, min_lc):
 
     d1 = Utils.time_str_to_datetime('2020/09/13')
     d2 = Utils.time_str_to_datetime('2020/09/19')
-    em.get_earnings_in_range((d1, d2))
+    #em.get_earnings_in_range((d1, d2))
 
 
 if __name__ == '__main__':
-    main()
+    main(min_vl=1E6,min_mc=3E8,min_lc=1E1)
