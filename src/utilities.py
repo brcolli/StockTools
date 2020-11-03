@@ -35,19 +35,30 @@ class Utils:
 
         drive = GoogleDrive(gauth)
 
-        file_list = drive.ListFile({'q': "'root' in parents and trashed=false"}).GetList()
+        file_list = drive.ListFile({'q': "'root' in parents and trashed=false", 'includeTeamDriveItems': True,
+                                    'supportsTeamDrives': True}).GetList()
         gfid = -1
+        pgfid = -1
         for gf in file_list:
             if gf['title'] == gdrive_dir:
                 gfid = gf['id']
+                pgfid = gf['parents'][0]['id']
 
         if gfid != -1:
-            f = drive.CreateFile({'title': filename, "parents": [{"kind": "drive#fileLink", "id": gfid}]})
+
+            if pgfid != -1:
+                f = drive.CreateFile({'title': filename, 'corpora': 'teamDrive', 'includeTeamDriveItems': True,
+                                      'supportsTeamDrives': True, 'teamDriveId': pgfid, 'driveId': gfid,
+                                      'parents': [{'kind': 'drive#fileLink',
+                                                   'teamDriveId': pgfid,
+                                                   'id': gfid}]})
+            else:
+                f = drive.CreateFile({'title': filename, "parents": [{"kind": "drive#fileLink", "id": gfid}]})
         else:
             f = drive.CreateFile({'title': filename})
 
         f.SetContentFile(filepath)
-        f.Upload()
+        f.Upload(param={'supportsTeamDrives': True})
 
         f = None
 
@@ -79,7 +90,7 @@ class Utils:
         today = datetime.date.today()
 
         start = (today + datetime.timedelta(days=7)) - \
-            datetime.timedelta(days=(today+datetime.timedelta(days=1)).weekday())
+                datetime.timedelta(days=(today + datetime.timedelta(days=1)).weekday())
         end = start + datetime.timedelta(days=6)
 
         return start, end
@@ -96,6 +107,7 @@ class Utils:
     '''
     Writes a pandas DataFrame to a csv
     '''
+
     @staticmethod
     def write_dataframe_to_csv(df, filename):
 

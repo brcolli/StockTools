@@ -155,15 +155,18 @@ class ShortInterestManager:
         # Calculate short interest %
         short_int = df['ShortVolume'] / df['TotalVolume']
         df['Short Interest Ratio'] = short_int
-        df['Previous short delta'] = short_int.sub(prev_short_perc).fillna(short_int)
+        df['Previous short interest % change'] = short_int.sub(prev_short_perc).fillna(short_int)
 
         df['Previous volume delta'] = df['TotalVolume'].sub(prev_vol_perc).fillna(df['TotalVolume']).div(prev_vol_perc)
 
         # Calculate % close
-        df['Open/Close change'] = (df['Close'] - df['Open']) / df['Open']
+        df['Previous close % change'] = (df['Close'] - df['Open']) / df['Open']
 
         # Add outstanding shares
         df['Total Volume/Shares Outstanding'] = df['TotalVolume'] / fs['sharesOutstanding']
+
+        # Only take tickers whose close is above $5.00
+        df = df[df['Close'] >= 5]
 
         df = df.fillna(0)
 
