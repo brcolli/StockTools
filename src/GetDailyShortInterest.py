@@ -165,13 +165,13 @@ class ShortInterestManager:
         # Add outstanding shares
         df['Total Volume/Shares Outstanding'] = df['TotalVolume'] / fs['sharesOutstanding']
 
-        # Only take tickers whose close is above $5.00
+        # Only take tickers whose close is above $5.00 and volume delta isn't 0
         df = df[df['Close'] >= 5]
+        df = df.dropna()
 
         df = df.fillna(0)
 
         return df
-
 
     # Gets file from regsho consolidated short interest using a YYYYMMDD format and write to csv
     @staticmethod
