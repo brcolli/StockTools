@@ -160,7 +160,7 @@ class ShortInterestManager:
         df['Previous volume delta'] = df['TotalVolume'].sub(prev_vol_perc).fillna(df['TotalVolume']).div(prev_vol_perc)
 
         # Calculate % close
-        df['Previous close % change'] = (df['Close'] - df['Open']) / df['Open']
+        df['Open/close % change'] = (df['Close'] - df['Open']) / df['Open']
 
         # Add outstanding shares
         df['Total Volume/Shares Outstanding'] = df['TotalVolume'] / fs['sharesOutstanding']
@@ -243,7 +243,7 @@ def main():
 
     sim = ShortInterestManager
     res = sim.get_latest_short_interest_data()
-    Utils.upload_file_to_gdrive(res, 'Daily Short Data')
+    #Utils.upload_file_to_gdrive(res, 'Daily Short Data')
 
 
 if __name__ == '__main__':

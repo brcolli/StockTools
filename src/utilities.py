@@ -35,22 +35,30 @@ class Utils:
 
         drive = GoogleDrive(gauth)
 
-        file_list = drive.ListFile({'q': "'root' in parents and trashed=false", 'includeTeamDriveItems': True,
-                                    'supportsTeamDrives': True}).GetList()
+        #0AKtBDs3jQo6GUk9PVA
+        #12Tcsl57iFVvQyCPr49-VzUfcbHcrXU34
+        folder_id = '12Tcsl57iFVvQyCPr49-VzUfcbHcrXU34'
+        file_list = drive.ListFile({'q': f"parents in '{folder_id}' and trashed=false", 'includeItemsFromAllDrives': True,
+                                    'supportsAllDrives': True, 'corpora': 'allDrives'}).GetList()
+
+        print(file_list)
         gfid = -1
         pgfid = -1
         for gf in file_list:
+            print(gf['title'])
             if gf['title'] == gdrive_dir:
                 gfid = gf['id']
                 pgfid = gf['parents'][0]['id']
+                print(gfid)
+                print(pgfid)
+                print(gf)
 
         if gfid != -1:
 
             if pgfid != -1:
-                f = drive.CreateFile({'title': filename, 'corpora': 'teamDrive', 'includeTeamDriveItems': True,
-                                      'supportsTeamDrives': True, 'teamDriveId': pgfid, 'driveId': gfid,
+                f = drive.CreateFile({'title': filename, 'corpora': 'allDrives', 'includeItemsFromAllDrives': True,
+                                      'supportsAllDrives': True,
                                       'parents': [{'kind': 'drive#fileLink',
-                                                   'teamDriveId': pgfid,
                                                    'id': gfid}]})
             else:
                 f = drive.CreateFile({'title': filename, "parents": [{"kind": "drive#fileLink", "id": gfid}]})
@@ -58,7 +66,8 @@ class Utils:
             f = drive.CreateFile({'title': filename})
 
         f.SetContentFile(filepath)
-        f.Upload(param={'supportsTeamDrives': True})
+        f.Upload(param={'supportsAllDrives': True})
+        print(f)
 
         f = None
 
