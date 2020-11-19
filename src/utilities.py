@@ -67,7 +67,6 @@ class Utils:
 
         f.SetContentFile(filepath)
         f.Upload(param={'supportsAllDrives': True})
-        print(f)
 
         f = None
 
@@ -145,13 +144,15 @@ class Utils:
         return r.text
 
     @staticmethod
-    def find_file_pattern(pattern, root_path):
+    def find_file_pattern(pattern, root_path, recurse=False):
 
         result = []
-        for root, dirs, files in walk(root_path):
+        for root, _, files in walk(root_path):
             for name in files:
                 if fnmatch.fnmatch(name, pattern):
                     result.append(path.join(root, name))
+            if not recurse:
+                break
 
         return result
 
@@ -162,6 +163,9 @@ class Utils:
 
         for key, item in ddict.items():
             for i in range(len(dkeys)):
-                ret[i][key] = item[dkeys[i]]
+                if item is not None:
+                    ret[i][key] = item[dkeys[i]]
+                else:
+                    ret[i][key] = -1
 
         return ret

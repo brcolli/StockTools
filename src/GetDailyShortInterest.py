@@ -95,11 +95,7 @@ class ShortInterestManager:
         return prev_short_perc, prev_vol_perc
 
     @staticmethod
-    def generate_quotes_df(tcm, tickers_chunks):
-
-        # Get some TDA data
-        qs = tcm.get_quotes_from_tda(tickers_chunks)
-        qs_df = pd.DataFrame(qs).transpose()  # Convert to dataframe
+    def cleanup_quotes_df(tcm, qs_df):
 
         # Clean up possible 0 values from TDA quotes
         bad_quote_tickers = qs_df[(qs_df['totalVolume'] == 0) | (qs_df['openPrice'] == 0) |
@@ -124,6 +120,15 @@ class ShortInterestManager:
         return qs_df
 
     @staticmethod
+    def generate_quotes_df(tcm, tickers_chunks):
+
+        # Get some TDA data
+        qs = tcm.get_quotes_from_tda(tickers_chunks)
+        qs_df = pd.DataFrame(qs).transpose()  # Convert to dataframe
+
+        return ShortInterestManager.cleanup_quotes_df(tcm, qs_df)
+
+    @staticmethod
     def generate_fundamentals_df(tcm, tickers_chunks):
 
         fs = tcm.get_fundamentals_from_tda(tickers_chunks)
@@ -134,12 +139,12 @@ class ShortInterestManager:
         return fs_df
 
     @staticmethod
-    def regsho_txt_to_df(text):
+    def regsho_txt_to_df(text, vol_lim=0):
 
         # Convert text into a dataframe
         sio = StringIO(text)
         df = pd.read_csv(sio, sep=',')[:-1]
-        df = df[df['TotalVolume'] >= 1E6]  # Only take rows with volumes greater than 1 million
+        df = df[df['TotalVolume'] >= vol_lim]  # Only take rows with volumes greater than filter
 
         return df
 
@@ -165,10 +170,8 @@ class ShortInterestManager:
         # Add outstanding shares
         df['Total Volume/Shares Outstanding'] = df['TotalVolume'] / fs['sharesOutstanding']
 
-        # Only take tickers whose close is above $5.00 and volume delta isn't 0
-        df = df[df['Close'] >= 5]
+        # Only take tickers whose volume delta isn't 0
         df = df.dropna()
-
         df = df.fillna(0)
 
         return df
@@ -184,8 +187,8 @@ class ShortInterestManager:
         output = '../data/' + filename + '.csv'
 
         # Check if date already saved
-        if path.exists(output):
-            return output
+        #if path.exists(output):
+            #return output
 
         data = Utils.get_file_from_url(url, filename + '.txt')
         text = ShortInterestManager.replace_line_to_comma(data)
@@ -206,7 +209,7 @@ class ShortInterestManager:
 
         # Get list of tickers, separated into even chunks by TDA limiter
         tickers = df['Symbol'].tolist()
-        tick_limit = 100  # TDA's limit for basic query
+        tick_limit = 400  # TDA's limit for basic query
         tickers_chunks = [tickers[t:t + tick_limit] for t in range(0, len(tickers), tick_limit)]
 
         tcm = TCM()
@@ -215,6 +218,33 @@ class ShortInterestManager:
 
         # Set new index
         df = df.set_index('Symbol')
+
+        # Drop symbols with missing data by joining on matching symbols
+        qs_syms = qs_df.index.tolist()
+        fs_syms = fs_df.index.tolist()
+
+        # Because getting quotes is inconsistent, find missing tickers between quotes and funds and re-get quotes
+        excess_tickers = []
+        for fs in fs_syms:
+            if fs not in qs_syms:
+                excess_tickers.append(fs)
+
+        excess_quotes = tcm.get_quotes_from_tda([excess_tickers])
+        eq_df = pd.DataFrame(excess_quotes).transpose()  # Convert to dataframe
+        eq_df = ShortInterestManager.cleanup_quotes_df(tcm, eq_df)
+
+        # Append cleaned new quotes
+        qs_df.append(eq_df)
+        qs_df = qs_df.sort_index()
+
+        # Filter on volume minimum and open price minimum
+        qs_df = qs_df[qs_df['totalVolume'] > 1E6]
+        qs_df = qs_df[qs_df['regularMarketLastPrice'] > 5]
+
+        # Remove any remaining excess tickers
+        qs_syms = qs_df.index.tolist()
+        fs_df = fs_df.loc[qs_syms]
+        df = df.loc[qs_syms]
 
         (prev_short_perc, prev_vol_perc) = ShortInterestManager.get_past_short_vol(df, tickers, tcm, ymd,
                                                                                    short_file_prefix)
