@@ -4,7 +4,7 @@ import yfinance as yf
 from iexfinance.stocks import Stock
 import json
 import time
-import datetime
+import re
 
 
 class TdaClientManager:
@@ -38,8 +38,19 @@ class TdaClientManager:
     @staticmethod
     def get_quotes_from_iex(tickers):
 
-        s = Stock(tickers, token='pk_78c8ddd19775400684a6a51744aaacd6')
-        iexq = s.get_quote()
+        while True:
+            s = Stock(tickers, token='pk_78c8ddd19775400684a6a51744aaacd6')
+            try:
+                iexq = s.get_quote()
+                break
+            except Exception as e:
+
+                r = re.match(r'Symbol (.*) not found\.', e.__str__())
+
+                # Remove the bad symbol completely and try again
+                if r:
+                    bad_sym = r.group(1)
+                    tickers.remove(bad_sym)
 
         ret = {}
         if len(tickers) == 1:
@@ -70,7 +81,12 @@ class TdaClientManager:
         # Just take fundamental data
         ret = {}
         for key in fs.keys():
-            ret[key] = fs[key]['fundamental']
+
+            # Add exchange to fundamentals
+            temp = fs[key]['fundamental']
+            temp['exchange'] = fs[key]['exchange']
+
+            ret[key] = temp
 
         return ret
 
@@ -83,9 +99,12 @@ class TdaClientManager:
 
         return data
 
-    def get_past_history(self, tickers, start_day):
+    def get_past_history(self, tickers, start_day, end_day=None):
 
         tickers_history = {}
+
+        if end_day is None:
+            end_day = start_day
 
         for ticker in tickers:
 
@@ -93,6 +112,7 @@ class TdaClientManager:
 
                 r = self.client.get_price_history(ticker,
                                                   start_datetime=start_day,
+                                                  end_datetime=end_day,
                                                   period_type=self.client.PriceHistory.PeriodType.MONTH,
                                                   frequency=self.client.PriceHistory.Frequency.DAILY,
                                                   frequency_type=self.client.PriceHistory.FrequencyType.DAILY)
@@ -103,7 +123,8 @@ class TdaClientManager:
                     data = {'candles': [], 'symbol': ticker, 'empty': False}
 
                 try:
-                    tickers_history[ticker] = data['candles']
+                    if data['candles']:
+                        tickers_history[ticker] = data['candles']
                     break
                 except KeyError:
                     time.sleep(5)

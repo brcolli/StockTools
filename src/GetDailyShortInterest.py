@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from io import StringIO
 from os import path
+from pandas.tseries.offsets import BDay
 
 
 Utils = importlib.import_module('utilities').Utils
@@ -48,6 +49,15 @@ class ShortInterestManager:
         return Utils.datetime_to_time_str(Utils.get_last_trading_day())
 
     @staticmethod
+    def get_vix_close(tcm):
+
+        vk = '$VIX.X'
+        vq = tcm.get_quotes_from_tda([[vk]])
+
+        return vq[vk]['closePrice']
+
+
+    @staticmethod
     def get_past_short_vol(df, tickers, tcm, ymd, short_file_prefix):
 
         # Get data from past if exists
@@ -83,7 +93,7 @@ class ShortInterestManager:
             prev_vol_perc = latest_df['TotalVolume']
         else:
 
-            th = tcm.get_past_history(tickers, ymd)
+            th = tcm.get_past_history(tickers, Utils.time_str_to_datetime(ymd))
             prev_short_perc = df['TotalVolume']
             prev_vol_perc = []
             for key in th.keys():
@@ -100,6 +110,7 @@ class ShortInterestManager:
         # Clean up possible 0 values from TDA quotes
         bad_quote_tickers = qs_df[(qs_df['totalVolume'] == 0) | (qs_df['openPrice'] == 0) |
                                   (qs_df['regularMarketLastPrice'] == 0)].index.values
+
         if len(bad_quote_tickers) > 0:
 
             new_quotes = tcm.get_quotes_from_iex(bad_quote_tickers.tolist())
@@ -116,6 +127,9 @@ class ShortInterestManager:
             qs_df['totalVolume'].update(pd.Series(new_vals[0]))
             qs_df['openPrice'].update(pd.Series(new_vals[1]))
             qs_df['regularMarketLastPrice'].update(pd.Series(new_vals[2]))
+
+        # Add VIX close
+        qs_df['VIX Close'] = ShortInterestManager.get_vix_close(tcm)
 
         return qs_df
 
@@ -139,6 +153,47 @@ class ShortInterestManager:
         return fs_df
 
     @staticmethod
+    def generate_past_df(tcm, tickers, valid_dates):
+
+        # Get one extra day to the start, for historical comparison
+        valid_dates = [valid_dates[0] - BDay(1)] + valid_dates
+
+        # Add VIX to tickers list
+        vk = '$VIX.X'
+        tickers = tickers[:100]
+        tickers = tickers + [vk]
+
+        ps = tcm.get_past_history(tickers, Utils.time_str_to_datetime(valid_dates[0]),
+                                  Utils.time_str_to_datetime(valid_dates[-1]))
+
+        # Sort into a dictionary of historical data dataframes
+        ps_dfs = {}
+        for i in range(len(valid_dates)):
+
+            temp = {}
+            vc = -1
+            for key, val in ps.items():
+                temp[key] = val[i]
+
+                if vc != -1 and key == vk:
+                    vc = val[i]['close']
+
+            ps_df = pd.DataFrame(temp).transpose()
+
+            # Filter out tickers that don't meet volume and value criteria
+            ps_df = ps_df[ps_df['volume'] > 1E6]
+            ps_df = ps_df[ps_df['close'] > 5]
+
+            ps_df.replace(0, np.nan, inplace=True)
+
+            # Add VIX to dataframe
+            ps_df['VIX Close'] = vc
+
+            ps_dfs[valid_dates[i]] = ps_df
+
+        return ps_dfs
+
+    @staticmethod
     def regsho_txt_to_df(text, vol_lim=0):
 
         # Convert text into a dataframe
@@ -152,9 +207,11 @@ class ShortInterestManager:
     def update_short_df_with_data(df, qs, fs, prev_short_perc, prev_vol_perc):
 
         # Fill in some quote columns
+        df['Exchange'] = fs['exchange']
         df['TotalVolume'] = qs['totalVolume']
         df['Open'] = qs['openPrice']
         df['Close'] = qs['regularMarketLastPrice']
+        df['VIX Close'] = qs['VIX Close']
         df['Previous day\'s close change'] = qs['regularMarketPercentChangeInDouble'] / 100
 
         # Calculate short interest %
@@ -176,34 +233,46 @@ class ShortInterestManager:
 
         return df
 
-    # Gets file from regsho consolidated short interest using a YYYYMMDD format and write to csv
     @staticmethod
-    def get_regsho_daily_short_to_csv(ymd):
+    def update_short_df_with_past_data(df, ps, fs):
 
-        url = 'http://regsho.finra.org'
-        short_file_prefix = 'CNMSshvol'
+        
 
-        filename = short_file_prefix + ymd
-        output = '../data/' + filename + '.csv'
+        return df
 
-        # Check if date already saved
-        #if path.exists(output):
-            #return output
+    @staticmethod
+    def get_past_df(valid_dates, texts, short_file_prefix):
 
-        data = Utils.get_file_from_url(url, filename + '.txt')
-        text = ShortInterestManager.replace_line_to_comma(data)
+        tcm = TCM()
+        ps_dfs = None
+        dfs = {}
+        for i in range(len(valid_dates)):
 
-        # If date not found, find next most recent date
-        if '404 Not Found' in text:
+            text = texts[i]
 
-            # Get most recent past trading day
-            past_td = Utils.datetime_to_time_str(Utils.get_recent_trading_day_from_date(Utils.get_yesterday()))
+            df = ShortInterestManager.regsho_txt_to_df(text)
+            # Get list of tickers, separated into even chunks by TDA limiter
+            tickers = df['Symbol'].tolist()
+            tick_limit = 400  # TDA's limit for basic query
+            tickers_chunks = [tickers[t:t + tick_limit] for t in range(0, len(tickers), tick_limit)]
 
-            filename = short_file_prefix + past_td
-            output = '../data/' + filename + '.csv'
+            if ps_dfs is None:
+                ps_dfs = ShortInterestManager.generate_past_df(tcm, tickers, valid_dates)
 
-            data = Utils.get_file_from_url(url, filename + '.txt')
-            text = ShortInterestManager.replace_line_to_comma(data)
+            # Set new index
+            df = df.set_index('Symbol')
+
+            # Get fundamental data
+            fs = ShortInterestManager.generate_fundamentals_df(tcm, tickers_chunks)
+
+            df = ShortInterestManager.update_short_df_with_past_data(df, ps_dfs, fs)
+
+            dfs[valid_dates[i]] = df
+
+        return dfs
+
+    @staticmethod
+    def get_today_df(ymd, text, short_file_prefix):
 
         df = ShortInterestManager.regsho_txt_to_df(text)
 
@@ -212,12 +281,12 @@ class ShortInterestManager:
         tick_limit = 400  # TDA's limit for basic query
         tickers_chunks = [tickers[t:t + tick_limit] for t in range(0, len(tickers), tick_limit)]
 
+        # Set new index
+        df = df.set_index('Symbol')
+
         tcm = TCM()
         qs_df = ShortInterestManager.generate_quotes_df(tcm, tickers_chunks)
         fs_df = ShortInterestManager.generate_fundamentals_df(tcm, tickers_chunks)
-
-        # Set new index
-        df = df.set_index('Symbol')
 
         # Drop symbols with missing data by joining on matching symbols
         qs_syms = qs_df.index.tolist()
@@ -246,13 +315,70 @@ class ShortInterestManager:
         fs_df = fs_df.loc[qs_syms]
         df = df.loc[qs_syms]
 
-        (prev_short_perc, prev_vol_perc) = ShortInterestManager.get_past_short_vol(df, tickers, tcm, ymd,
+        (prev_short_perc, prev_vol_perc) = ShortInterestManager.get_past_short_vol(df, qs_syms, tcm, ymd,
                                                                                    short_file_prefix)
 
         df = ShortInterestManager.update_short_df_with_data(df, qs_df, fs_df, prev_short_perc, prev_vol_perc)
 
-        Utils.write_dataframe_to_csv(df, output)
-        return output
+        return df
+
+    # Gets file from regsho consolidated short interest using a YYYYMMDD format and write to csv
+    @staticmethod
+    def get_regsho_daily_short_to_csv(ymd, ymd2=''):
+
+        url = 'http://regsho.finra.org'
+        short_file_prefix = 'CNMSshvol'
+
+        outputs = []
+        valid_dates = []
+        texts = []
+        date_range = Utils.get_bd_range(ymd, ymd2)
+
+        for date in date_range:
+
+            filename = short_file_prefix + date
+            out = '../data/' + filename + '.csv'
+
+            # Check if date already saved
+            if path.exists(out):
+                continue
+
+            data = Utils.get_file_from_url(url, filename + '.txt')
+            text = ShortInterestManager.replace_line_to_comma(data)
+
+            # If date not found, find next most recent date
+            if '404 Not Found' in text:
+
+                # Get most recent past trading day
+                past_td = Utils.datetime_to_time_str(
+                    Utils.get_recent_trading_day_from_date(Utils.time_str_to_datetime(date)))
+
+                filename = short_file_prefix + past_td
+                out = '../data/' + filename + '.csv'
+
+                data = Utils.get_file_from_url(url, filename + '.txt')
+                text = ShortInterestManager.replace_line_to_comma(data)
+
+            valid_dates.append(date)
+            texts.append(text)
+            outputs.append(out)
+
+        if not outputs:
+            return ['']
+
+        # Check if date passed is current day. If not, cannot use quotes
+        if Utils.is_it_today(ymd):
+            df = ShortInterestManager.get_today_df(ymd, texts[0], short_file_prefix)
+            Utils.write_dataframe_to_csv(df, outputs[0])
+        else:
+            dfs = ShortInterestManager.get_past_df(valid_dates, texts, short_file_prefix)
+
+            for i in range(len(outputs)):
+                Utils.write_dataframe_to_csv(dfs[i], outputs[i])
+
+            return outputs
+
+        return outputs
 
     # Call function to write latest trading day's short interest to a csv
     @staticmethod
@@ -273,6 +399,7 @@ def main():
 
     sim = ShortInterestManager
     res = sim.get_latest_short_interest_data()
+    #res = sim.get_regsho_daily_short_to_csv('20201116')
     #Utils.upload_file_to_gdrive(res, 'Daily Short Data')
 
 

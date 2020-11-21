@@ -14,6 +14,9 @@ class Utils:
     @staticmethod
     def upload_file_to_gdrive(filepath, gdrive_dir=''):
 
+        if filepath == '':
+            return
+
         filename = filepath.split('/')[-1]
 
         GoogleAuth.DEFAULT_SETTINGS['client_config_file'] = '../doc/client_secrets.json'
@@ -92,6 +95,30 @@ class Utils:
         return str(date).split(' ')[0]
 
     @staticmethod
+    def is_it_today(date):
+        return Utils.datetime_to_time_str(datetime.datetime.today()) == date
+
+    @staticmethod
+    def get_bd_range(d1, d2):
+
+        if d2 == '':
+            return [d1]
+
+        start = Utils.get_recent_trading_day_from_date(Utils.time_str_to_datetime(d1))
+        end = Utils.get_recent_trading_day_from_date(Utils.time_str_to_datetime(d2))
+
+        if start > end:
+            return [d1]
+
+        res = []
+
+        while start <= end:
+            res.append(Utils.datetime_to_time_str(start))
+            start += BDay(1)
+
+        return res
+
+    @staticmethod
     def get_following_week_range():
 
         # Current week, starting on Sunday and ending on Saturday
@@ -105,7 +132,11 @@ class Utils:
 
     @staticmethod
     def time_str_to_datetime(time_str):
-        return datetime.datetime.strptime(time_str, '%Y/%m/%d')
+
+        if '/' in time_str:
+            return datetime.datetime.strptime(time_str, '%Y/%m/%d')
+        else:
+            return datetime.datetime.strptime(time_str, '%Y%m%d')
 
     @staticmethod
     def datetime_to_time_str(ddate):
