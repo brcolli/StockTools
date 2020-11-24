@@ -156,7 +156,7 @@ class ShortInterestManager:
     def generate_past_df(tcm, tickers, valid_dates):
 
         # Get one extra day to the start, for historical comparison
-        valid_dates = [valid_dates[0] - BDay(1)] + valid_dates
+        valid_dates = [Utils.datetime_to_time_str(Utils.time_str_to_datetime(valid_dates[0]) - BDay(1))] + valid_dates
 
         # Add VIX to tickers list
         vk = '$VIX.X'
@@ -234,9 +234,15 @@ class ShortInterestManager:
         return df
 
     @staticmethod
-    def update_short_df_with_past_data(df, ps, fs):
+    def update_short_df_with_past_data(df, ps, fs, date):
 
-        
+        # Sort dates and get old and new data
+        dates = ps.keys()
+        dates = dates.sort()
+
+        old_date = dates[dates.index(date) - 1]
+        old_data = ps[old_date]
+        new_data = ps[date]
 
         return df
 
@@ -245,6 +251,7 @@ class ShortInterestManager:
 
         tcm = TCM()
         ps_dfs = None
+        fs = None
         dfs = {}
         for i in range(len(valid_dates)):
 
@@ -263,9 +270,10 @@ class ShortInterestManager:
             df = df.set_index('Symbol')
 
             # Get fundamental data
-            fs = ShortInterestManager.generate_fundamentals_df(tcm, tickers_chunks)
+            if fs is None:
+                fs = ShortInterestManager.generate_fundamentals_df(tcm, tickers_chunks)
 
-            df = ShortInterestManager.update_short_df_with_past_data(df, ps_dfs, fs)
+            df = ShortInterestManager.update_short_df_with_past_data(df, ps_dfs, fs, valid_dates[i])
 
             dfs[valid_dates[i]] = df
 
