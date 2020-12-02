@@ -1,6 +1,7 @@
 import datetime
 import pandas as pd
-from pandas.tseries.offsets import BDay
+from pandas.tseries.holiday import USFederalHolidayCalendar
+from pandas.tseries.offsets import CustomBusinessDay
 import random
 import requests
 from os import path, walk
@@ -10,6 +11,9 @@ from pydrive.auth import GoogleAuth
 
 
 class Utils:
+
+    # Define business day
+    BDay = CustomBusinessDay(calendar=USFederalHolidayCalendar())
 
     @staticmethod
     def upload_file_to_gdrive(filepath, gdrive_dir=''):
@@ -79,8 +83,8 @@ class Utils:
         return data
 
     @staticmethod
-    def get_recent_trading_day_from_date(sel_date):
-        return sel_date - datetime.timedelta(days=1) + BDay(1)
+    def get_previous_trading_day_from_date(sel_date):
+        return sel_date - Utils.BDay
 
     @staticmethod
     def get_yesterday():
@@ -88,7 +92,7 @@ class Utils:
 
     @staticmethod
     def get_last_trading_day():
-        return Utils.get_recent_trading_day_from_date(datetime.datetime.today())
+        return Utils.get_previous_trading_day_from_date(datetime.datetime.today())
 
     @staticmethod
     def get_proper_date_format(date):
@@ -104,8 +108,8 @@ class Utils:
         if d2 == '':
             return [d1]
 
-        start = Utils.get_recent_trading_day_from_date(Utils.time_str_to_datetime(d1))
-        end = Utils.get_recent_trading_day_from_date(Utils.time_str_to_datetime(d2))
+        start = Utils.get_previous_trading_day_from_date(Utils.time_str_to_datetime(d1))
+        end = Utils.get_previous_trading_day_from_date(Utils.time_str_to_datetime(d2))
 
         if start > end:
             return [d1]
@@ -114,7 +118,7 @@ class Utils:
 
         while start <= end:
             res.append(Utils.datetime_to_time_str(start))
-            start += BDay(1)
+            start += Utils.BDay
 
         return res
 
@@ -142,6 +146,14 @@ class Utils:
     def datetime_to_time_str(ddate):
         ret = Utils.get_proper_date_format(ddate)
         return ret.replace('-', '')
+
+    @staticmethod
+    def datetime_to_epoch(ddate):
+        return (ddate - datetime.datetime.utcfromtimestamp(0)).total_seconds() * 1000
+
+    @staticmethod
+    def epoch_to_datetime(epoch):
+        return datetime.datetime.utcfromtimestamp(epoch/1000)
 
     '''
     Writes a pandas DataFrame to a csv

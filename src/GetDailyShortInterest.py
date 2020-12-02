@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 from io import StringIO
 from os import path
-from pandas.tseries.offsets import BDay
 
 
 Utils = importlib.import_module('utilities').Utils
@@ -58,7 +57,7 @@ class ShortInterestManager:
 
 
     @staticmethod
-    def get_past_short_vol(df, tickers, tcm, ymd, short_file_prefix):
+    def get_past_short_vol(tickers, tcm, ymd, url, short_file_prefix):
 
         # Get data from past if exists
         files = Utils.find_file_pattern(short_file_prefix + '*', '../data/')
@@ -93,8 +92,19 @@ class ShortInterestManager:
             prev_vol_perc = latest_df['TotalVolume']
         else:
 
-            th = tcm.get_past_history(tickers, Utils.time_str_to_datetime(ymd))
-            prev_short_perc = df['TotalVolume']
+            ymd_date = Utils.time_str_to_datetime(ymd)
+            th = tcm.get_past_history([tickers[0]], ymd_date)
+
+            prev_date = Utils.get_previous_trading_day_from_date(ymd_date)
+
+            filename = short_file_prefix + Utils.datetime_to_time_str(prev_date)
+
+            data = Utils.get_file_from_url(url, filename + '.txt')
+            text = ShortInterestManager.replace_line_to_comma(data)
+
+            df = ShortInterestManager.regsho_txt_to_df(text)
+
+            prev_short_perc = df['ShortVolume']
             prev_vol_perc = []
             for key in th.keys():
                 if len(th[key]) > 0:
@@ -155,12 +165,8 @@ class ShortInterestManager:
     @staticmethod
     def generate_past_df(tcm, tickers, valid_dates):
 
-        # Get one extra day to the start, for historical comparison
-        valid_dates = [Utils.datetime_to_time_str(Utils.time_str_to_datetime(valid_dates[0]) - BDay(1))] + valid_dates
-
         # Add VIX to tickers list
         vk = '$VIX.X'
-        tickers = tickers[:100]
         tickers = tickers + [vk]
 
         ps = tcm.get_past_history(tickers, Utils.time_str_to_datetime(valid_dates[0]),
@@ -168,14 +174,33 @@ class ShortInterestManager:
 
         # Sort into a dictionary of historical data dataframes
         ps_dfs = {}
+
         for i in range(len(valid_dates)):
 
             temp = {}
             vc = -1
+            vd = valid_dates[i]
+            # Convert current valid date to epoch milli time
+            et = Utils.datetime_to_epoch(Utils.time_str_to_datetime(vd))
+            defaults = {'close': 0, 'volume': 0, 'datetime': et}
             for key, val in ps.items():
-                temp[key] = val[i]
 
-                if vc != -1 and key == vk:
+                # If didn't have a large enough return, must get remaining missing values
+                try:
+                    curr_ticker_data = val[i]
+                except (KeyError, IndexError):
+                    curr_ticker_data = defaults
+                    val.insert(i, curr_ticker_data)
+
+                # Check if date matches the order of valid dates
+                if Utils.datetime_to_time_str(Utils.epoch_to_datetime(curr_ticker_data['datetime'])) != vd:
+                    curr_ticker_data = defaults
+                    val.insert(i, curr_ticker_data)
+
+                temp[key] = curr_ticker_data
+
+                # Store VIX close
+                if vc == -1 and key == vk:
                     vc = val[i]['close']
 
             ps_df = pd.DataFrame(temp).transpose()
@@ -237,12 +262,38 @@ class ShortInterestManager:
     def update_short_df_with_past_data(df, ps, fs, date):
 
         # Sort dates and get old and new data
-        dates = ps.keys()
-        dates = dates.sort()
+        dates = list(ps.keys())
+        dates.sort()
 
         old_date = dates[dates.index(date) - 1]
         old_data = ps[old_date]
-        new_data = ps[date]
+        curr_data = ps[date]
+
+        # Fill in some data columns
+        df['Exchange'] = fs['exchange']
+        df['TotalVolume'] = curr_data['volume']
+        df['Open'] = curr_data['open']
+        df['Close'] = curr_data['close']
+        df['VIX Close'] = curr_data['VIX Close']
+        df['Previous day\'s close change'] = curr_data['close'] / 100
+
+        # Calculate short interest %
+        short_int = df['ShortVolume'] / df['TotalVolume']
+        df['Short Interest Ratio'] = short_int
+        df['Previous short interest % change'] = short_int.sub(old_data['Short Interest Ratio']).fillna(short_int)
+
+        df['Previous volume delta'] = df['TotalVolume'].sub(old_data['volume']).fillna(
+            df['TotalVolume']).div(old_data['volume'])
+
+        # Calculate % close
+        df['Open/close % change'] = (df['Close'] - df['Open']) / df['Open']
+
+        # Add outstanding shares
+        df['Total Volume/Shares Outstanding'] = df['TotalVolume'] / fs['sharesOutstanding']
+
+        # Only take tickers whose volume delta isn't 0
+        df = df.dropna()
+        df = df.fillna(0)
 
         return df
 
@@ -253,6 +304,7 @@ class ShortInterestManager:
         ps_dfs = None
         fs = None
         dfs = {}
+
         for i in range(len(valid_dates)):
 
             text = texts[i]
@@ -260,7 +312,7 @@ class ShortInterestManager:
             df = ShortInterestManager.regsho_txt_to_df(text)
             # Get list of tickers, separated into even chunks by TDA limiter
             tickers = df['Symbol'].tolist()
-            tick_limit = 400  # TDA's limit for basic query
+            tick_limit = 300  # TDA's limit for basic query
             tickers_chunks = [tickers[t:t + tick_limit] for t in range(0, len(tickers), tick_limit)]
 
             if ps_dfs is None:
@@ -269,24 +321,30 @@ class ShortInterestManager:
             # Set new index
             df = df.set_index('Symbol')
 
+            # Set short data
+            short_int = df['ShortVolume'] / df['TotalVolume']
+            ps_dfs[valid_dates[i]]['Short Interest Ratio'] = short_int
+
             # Get fundamental data
             if fs is None:
                 fs = ShortInterestManager.generate_fundamentals_df(tcm, tickers_chunks)
 
-            df = ShortInterestManager.update_short_df_with_past_data(df, ps_dfs, fs, valid_dates[i])
+            # Skip added date
+            if i >= 1:
+                df = ShortInterestManager.update_short_df_with_past_data(df, ps_dfs, fs, valid_dates[i])
 
             dfs[valid_dates[i]] = df
 
         return dfs
 
     @staticmethod
-    def get_today_df(ymd, text, short_file_prefix):
+    def get_today_df(ymd, text, url, short_file_prefix):
 
         df = ShortInterestManager.regsho_txt_to_df(text)
 
         # Get list of tickers, separated into even chunks by TDA limiter
         tickers = df['Symbol'].tolist()
-        tick_limit = 400  # TDA's limit for basic query
+        tick_limit = 300  # TDA's limit for basic query
         tickers_chunks = [tickers[t:t + tick_limit] for t in range(0, len(tickers), tick_limit)]
 
         # Set new index
@@ -323,7 +381,7 @@ class ShortInterestManager:
         fs_df = fs_df.loc[qs_syms]
         df = df.loc[qs_syms]
 
-        (prev_short_perc, prev_vol_perc) = ShortInterestManager.get_past_short_vol(df, qs_syms, tcm, ymd,
+        (prev_short_perc, prev_vol_perc) = ShortInterestManager.get_past_short_vol(qs_syms, tcm, ymd, url,
                                                                                    short_file_prefix)
 
         df = ShortInterestManager.update_short_df_with_data(df, qs_df, fs_df, prev_short_perc, prev_vol_perc)
@@ -337,19 +395,26 @@ class ShortInterestManager:
         url = 'http://regsho.finra.org'
         short_file_prefix = 'CNMSshvol'
 
+        filename = short_file_prefix + ymd
+        out = '../data/' + filename + '.csv'
+
+        # Check if date already saved
+        if path.exists(out):
+            return out
+
         outputs = []
         valid_dates = []
         texts = []
         date_range = Utils.get_bd_range(ymd, ymd2)
 
+        # Get one extra day to the start, for historical comparison
+        date_range = [Utils.datetime_to_time_str(
+            Utils.get_previous_trading_day_from_date(Utils.time_str_to_datetime(date_range[0])))] + date_range
+
         for date in date_range:
 
             filename = short_file_prefix + date
             out = '../data/' + filename + '.csv'
-
-            # Check if date already saved
-            if path.exists(out):
-                continue
 
             data = Utils.get_file_from_url(url, filename + '.txt')
             text = ShortInterestManager.replace_line_to_comma(data)
@@ -359,7 +424,8 @@ class ShortInterestManager:
 
                 # Get most recent past trading day
                 past_td = Utils.datetime_to_time_str(
-                    Utils.get_recent_trading_day_from_date(Utils.time_str_to_datetime(date)))
+                    Utils.get_previous_trading_day_from_date(Utils.time_str_to_datetime(date)))
+                ymd = past_td
 
                 filename = short_file_prefix + past_td
                 out = '../data/' + filename + '.csv'
@@ -376,13 +442,13 @@ class ShortInterestManager:
 
         # Check if date passed is current day. If not, cannot use quotes
         if Utils.is_it_today(ymd):
-            df = ShortInterestManager.get_today_df(ymd, texts[0], short_file_prefix)
-            Utils.write_dataframe_to_csv(df, outputs[0])
+            df = ShortInterestManager.get_today_df(ymd, texts[1], url, short_file_prefix)
+            Utils.write_dataframe_to_csv(df, outputs[1])
         else:
             dfs = ShortInterestManager.get_past_df(valid_dates, texts, short_file_prefix)
 
-            for i in range(len(outputs)):
-                Utils.write_dataframe_to_csv(dfs[i], outputs[i])
+            for i in range(1, len(outputs)):
+                Utils.write_dataframe_to_csv(dfs[valid_dates[i]], outputs[i])
 
             return outputs
 
@@ -407,8 +473,7 @@ def main():
 
     sim = ShortInterestManager
     res = sim.get_latest_short_interest_data()
-    #res = sim.get_regsho_daily_short_to_csv('20201116')
-    #Utils.upload_file_to_gdrive(res, 'Daily Short Data')
+    Utils.upload_file_to_gdrive(res, 'Daily Short Data')
 
 
 if __name__ == '__main__':

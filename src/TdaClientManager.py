@@ -74,8 +74,17 @@ class TdaClientManager:
 
         fs = {}
         for tickers in tickers_list:
-            r = self.client.search_instruments(tickers, self.client.Instrument.Projection.FUNDAMENTAL)
-            data = r.json()
+            while True:
+
+                r = self.client.search_instruments(tickers, self.client.Instrument.Projection.FUNDAMENTAL)
+                data = r.json()
+                dkeys = list(data.keys())
+
+                if dkeys[0] != 'error' and len(dkeys) > 0:
+                    break
+                else:
+                    time.sleep(1)
+
             fs.update(data)
 
         # Just take fundamental data
@@ -110,13 +119,17 @@ class TdaClientManager:
 
             while True:
 
-                r = self.client.get_price_history(ticker,
-                                                  start_datetime=start_day,
-                                                  end_datetime=end_day,
-                                                  period_type=self.client.PriceHistory.PeriodType.MONTH,
-                                                  frequency=self.client.PriceHistory.Frequency.DAILY,
-                                                  frequency_type=self.client.PriceHistory.FrequencyType.DAILY)
-
+                while True:
+                    try:
+                        r = self.client.get_price_history(ticker,
+                                                          start_datetime=start_day,
+                                                          end_datetime=end_day,
+                                                          period_type=self.client.PriceHistory.PeriodType.MONTH,
+                                                          frequency=self.client.PriceHistory.Frequency.DAILY,
+                                                          frequency_type=self.client.PriceHistory.FrequencyType.DAILY)
+                        break
+                    except:
+                        time.sleep(1)
                 try:
                     data = r.json()
                 except json.decoder.JSONDecodeError:
