@@ -359,10 +359,7 @@ class ShortInterestManager:
         fs_syms = fs_df.index.tolist()
 
         # Because getting quotes is inconsistent, find missing tickers between quotes and funds and re-get quotes
-        excess_tickers = []
-        for fs in fs_syms:
-            if fs not in qs_syms:
-                excess_tickers.append(fs)
+        excess_tickers = list(np.setdiff1d(fs_syms, qs_syms))
 
         excess_quotes = tcm.get_quotes_from_tda([excess_tickers])
         eq_df = pd.DataFrame(excess_quotes).transpose()  # Convert to dataframe
@@ -378,6 +375,11 @@ class ShortInterestManager:
 
         # Remove any remaining excess tickers
         qs_syms = qs_df.index.tolist()
+
+        excess_tickers = list(np.setdiff1d(qs_syms, fs_syms))
+        qs_df = qs_df.drop(excess_tickers)
+        qs_syms = qs_df.index.tolist()
+
         fs_df = fs_df.loc[qs_syms]
         df = df.loc[qs_syms]
 
@@ -473,7 +475,8 @@ def main():
 
     sim = ShortInterestManager
     res = sim.get_latest_short_interest_data()
-    Utils.upload_file_to_gdrive(res, 'Daily Short Data')
+    for r in res:
+        Utils.upload_file_to_gdrive(r, 'Daily Short Data')
 
 
 if __name__ == '__main__':

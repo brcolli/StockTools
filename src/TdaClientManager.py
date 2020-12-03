@@ -64,8 +64,27 @@ class TdaClientManager:
 
         qs = {}
         for tickers in tickers_list:
-            r = self.client.get_quotes(tickers)
-            data = r.json()
+
+            while True:
+
+                while True:
+                    try:
+                        r = self.client.get_quotes(tickers)
+                        break
+                    except:
+                        time.sleep(1)
+                        continue
+
+                data = r.json()
+
+                first_key = list(data.keys())
+                first_key = first_key[0]
+
+                if first_key != 'error':
+                    break
+                else:
+                    time.sleep(5)
+
             qs.update(data)
 
         return qs
