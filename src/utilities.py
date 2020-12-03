@@ -11,7 +11,6 @@ from pydrive.auth import GoogleAuth
 
 
 class Utils:
-
     # Define business day
     BDay = CustomBusinessDay(calendar=USFederalHolidayCalendar())
 
@@ -37,38 +36,31 @@ class Utils:
         else:
             # Initialize the saved creds
             gauth.Authorize()
+
         # Save the current credentials to a file
         gauth.SaveCredentialsFile('../doc/gdrive_creds.txt')
 
         drive = GoogleDrive(gauth)
 
-        #0AKtBDs3jQo6GUk9PVA
-        #12Tcsl57iFVvQyCPr49-VzUfcbHcrXU34
-        folder_id = '12Tcsl57iFVvQyCPr49-VzUfcbHcrXU34'
-        file_list = drive.ListFile({'q': f"parents in '{folder_id}' and trashed=false", 'includeItemsFromAllDrives': True,
-                                    'supportsAllDrives': True, 'corpora': 'allDrives'}).GetList()
+        file_list = drive.ListFile(
+            {'q': "trashed=false", 'includeItemsFromAllDrives': True,
+             'supportsAllDrives': True, 'corpora': 'allDrives'}).GetList()
 
-        print(file_list)
-        gfid = -1
-        pgfid = -1
+        # folder_id = '12Tcsl57iFVvQyCPr49-VzUfcbHcrXU34'
+        # file_list = drive.ListFile({'q': f"parents in '{folder_id}' and trashed=false", 'includeItemsFromAllDrives':
+        # True,
+        # 'supportsAllDrives': True, 'corpora': 'allDrives'}).GetList()
+        folder_id = ''
         for gf in file_list:
-            print(gf['title'])
-            if gf['title'] == gdrive_dir:
-                gfid = gf['id']
-                pgfid = gf['parents'][0]['id']
-                print(gfid)
-                print(pgfid)
-                print(gf)
+            if gf['title'] == gdrive_dir and gf['shared'] is True:
+                folder_id = gf['id']
+                break
 
-        if gfid != -1:
-
-            if pgfid != -1:
-                f = drive.CreateFile({'title': filename, 'corpora': 'allDrives', 'includeItemsFromAllDrives': True,
-                                      'supportsAllDrives': True,
-                                      'parents': [{'kind': 'drive#fileLink',
-                                                   'id': gfid}]})
-            else:
-                f = drive.CreateFile({'title': filename, "parents": [{"kind": "drive#fileLink", "id": gfid}]})
+        if folder_id != '':
+            f = drive.CreateFile({'title': filename, 'corpora': 'allDrives', 'includeItemsFromAllDrives': True,
+                                  'supportsAllDrives': True,
+                                  'parents': [{'kind': 'drive#fileLink',
+                                               'id': folder_id}]})
         else:
             f = drive.CreateFile({'title': filename})
 
@@ -153,7 +145,7 @@ class Utils:
 
     @staticmethod
     def epoch_to_datetime(epoch):
-        return datetime.datetime.utcfromtimestamp(epoch/1000)
+        return datetime.datetime.utcfromtimestamp(epoch / 1000)
 
     '''
     Writes a pandas DataFrame to a csv
