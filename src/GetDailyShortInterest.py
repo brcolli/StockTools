@@ -474,8 +474,7 @@ class ShortInterestManager:
 def main():
 
     sim = ShortInterestManager
-    #res = sim.get_latest_short_interest_data()
-    res = ['../data/CNMSshvol20201202.csv']
+    res = sim.get_latest_short_interest_data()
     for r in res:
         Utils.upload_file_to_gdrive(r, 'Daily Short Data')
 
