@@ -159,6 +159,9 @@ class TdaClientManager:
                         tickers_history[ticker] = data['candles']
                     break
                 except KeyError:
-                    time.sleep(5)
+                    if data['error'] == 'Not found':
+                        continue
+                    else:
+                        time.sleep(5)
 
         return tickers_history

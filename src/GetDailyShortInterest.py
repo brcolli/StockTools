@@ -57,11 +57,12 @@ class ShortInterestManager:
 
 
     @staticmethod
-    def get_past_short_vol(tickers, tcm, ymd, url, short_file_prefix):
+    def get_past_short_vol(tickers, tcm, ymd, prev_date, prev_data, short_file_prefix):
 
         # Get data from past if exists
         files = Utils.find_file_pattern(short_file_prefix + '*', '../data/')
         prev_data_date = ymd
+
         if len(files) > 0:
 
             prev_data_file = files[-1]
@@ -73,7 +74,7 @@ class ShortInterestManager:
                 prev_data_file = prev_data_file.split('/')[-1]
                 prev_data_date = prev_data_file[len(short_file_prefix):-4]
 
-        if prev_data_date != ymd:
+        if prev_data_date == prev_date:
 
             latest_data = '../data/' + short_file_prefix + prev_data_date + '.csv'
             latest_df = pd.read_csv(latest_data)
@@ -90,21 +91,15 @@ class ShortInterestManager:
 
             prev_short_perc = latest_df['Short Interest Ratio']
             prev_vol_perc = latest_df['TotalVolume']
+
         else:
 
-            ymd_date = Utils.time_str_to_datetime(ymd)
-            th = tcm.get_past_history([tickers[0]], ymd_date)
+            prev_datetime = Utils.time_str_to_datetime(prev_date)
+            th = tcm.get_past_history(tickers, prev_datetime)
 
-            prev_date = Utils.get_previous_trading_day_from_date(ymd_date)
+            prev_data = prev_data.loc[tickers]
 
-            filename = short_file_prefix + Utils.datetime_to_time_str(prev_date)
-
-            data = Utils.get_file_from_url(url, filename + '.txt')
-            text = ShortInterestManager.replace_line_to_comma(data)
-
-            df = ShortInterestManager.regsho_txt_to_df(text)
-
-            prev_short_perc = df['ShortVolume']
+            prev_short_perc = prev_data['ShortVolume']
             prev_vol_perc = []
             for key in th.keys():
                 if len(th[key]) > 0:
@@ -338,9 +333,10 @@ class ShortInterestManager:
         return dfs
 
     @staticmethod
-    def get_today_df(ymd, text, url, short_file_prefix):
+    def get_today_df(ymd, prev_day, texts, short_file_prefix):
 
-        df = ShortInterestManager.regsho_txt_to_df(text)
+        df = ShortInterestManager.regsho_txt_to_df(texts[1])
+        past_df = ShortInterestManager.regsho_txt_to_df(texts[0])
 
         # Get list of tickers, separated into even chunks by TDA limiter
         tickers = df['Symbol'].tolist()
@@ -349,6 +345,7 @@ class ShortInterestManager:
 
         # Set new index
         df = df.set_index('Symbol')
+        past_df = past_df.set_index('Symbol')
 
         tcm = TCM()
         qs_df = ShortInterestManager.generate_quotes_df(tcm, tickers_chunks)
@@ -383,8 +380,8 @@ class ShortInterestManager:
         fs_df = fs_df.loc[qs_syms]
         df = df.loc[qs_syms]
 
-        (prev_short_perc, prev_vol_perc) = ShortInterestManager.get_past_short_vol(qs_syms, tcm, ymd, url,
-                                                                                   short_file_prefix)
+        (prev_short_perc, prev_vol_perc) = ShortInterestManager.get_past_short_vol(qs_syms, tcm, ymd, prev_day,
+                                                                                   past_df, short_file_prefix)
 
         df = ShortInterestManager.update_short_df_with_data(df, qs_df, fs_df, prev_short_perc, prev_vol_perc)
 
@@ -444,7 +441,7 @@ class ShortInterestManager:
 
         # Check if date passed is current day. If not, cannot use quotes
         if Utils.is_it_today(ymd):
-            df = ShortInterestManager.get_today_df(ymd, texts[1], url, short_file_prefix)
+            df = ShortInterestManager.get_today_df(ymd, valid_dates[0], texts, short_file_prefix)
             Utils.write_dataframe_to_csv(df, outputs[1])
         else:
             dfs = ShortInterestManager.get_past_df(valid_dates, texts, short_file_prefix)
