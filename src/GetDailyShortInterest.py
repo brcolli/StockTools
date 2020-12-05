@@ -454,7 +454,7 @@ class ShortInterestManager:
 
             return outputs
 
-        return outputs
+        return outputs[1]
 
     # Call function to write latest trading day's short interest to a csv
     @staticmethod
