@@ -100,8 +100,8 @@ class Utils:
         if d2 == '':
             return [d1]
 
-        start = Utils.get_previous_trading_day_from_date(Utils.time_str_to_datetime(d1))
-        end = Utils.get_previous_trading_day_from_date(Utils.time_str_to_datetime(d2))
+        start = Utils.get_previous_trading_day_from_date(Utils.time_str_to_datetime(d1)) + Utils.BDay
+        end = Utils.get_previous_trading_day_from_date(Utils.time_str_to_datetime(d2)) + Utils.BDay
 
         if start > end:
             return [d1]

@@ -177,7 +177,7 @@ class ShortInterestManager:
             vd = valid_dates[i]
             # Convert current valid date to epoch milli time
             et = Utils.datetime_to_epoch(Utils.time_str_to_datetime(vd))
-            defaults = {'close': 0, 'volume': 0, 'datetime': et}
+            defaults = {'open': 0, 'close': 0, 'volume': 0, 'datetime': et}
             for key, val in ps.items():
 
                 # If didn't have a large enough return, must get remaining missing values
@@ -188,6 +188,7 @@ class ShortInterestManager:
                     val.insert(i, curr_ticker_data)
 
                 # Check if date matches the order of valid dates
+
                 if Utils.datetime_to_time_str(Utils.epoch_to_datetime(curr_ticker_data['datetime'])) != vd:
                     curr_ticker_data = defaults
                     val.insert(i, curr_ticker_data)
@@ -201,7 +202,7 @@ class ShortInterestManager:
             ps_df = pd.DataFrame(temp).transpose()
 
             # Filter out tickers that don't meet volume and value criteria
-            ps_df = ps_df[ps_df['volume'] > 1E6]
+            ps_df = ps_df[ps_df['volume'] > 5E5]
             ps_df = ps_df[ps_df['close'] > 5]
 
             ps_df.replace(0, np.nan, inplace=True)
@@ -214,7 +215,7 @@ class ShortInterestManager:
         return ps_dfs
 
     @staticmethod
-    def regsho_txt_to_df(text, vol_lim=0):
+    def regsho_txt_to_df(text, vol_lim=-1):
 
         # Convert text into a dataframe
         sio = StringIO(text)
@@ -235,7 +236,7 @@ class ShortInterestManager:
         df['Previous day\'s close change'] = qs['regularMarketPercentChangeInDouble'] / 100
 
         # Calculate short interest %
-        short_int = df['ShortVolume'] / df['TotalVolume']
+        short_int = df['ShortVolume'] / fs['sharesOutstanding']
         df['Short Interest Ratio'] = short_int
         df['Previous short interest % change'] = short_int.sub(prev_short_perc).fillna(short_int)
 
@@ -270,10 +271,10 @@ class ShortInterestManager:
         df['Open'] = curr_data['open']
         df['Close'] = curr_data['close']
         df['VIX Close'] = curr_data['VIX Close']
-        df['Previous day\'s close change'] = curr_data['close'] / 100
+        df['Previous day\'s close change'] = (curr_data['close'] - old_data['close']) / 100
 
         # Calculate short interest %
-        short_int = df['ShortVolume'] / df['TotalVolume']
+        short_int = df['ShortVolume'] / fs['sharesOutstanding']
         df['Short Interest Ratio'] = short_int
         df['Previous short interest % change'] = short_int.sub(old_data['Short Interest Ratio']).fillna(short_int)
 
@@ -303,8 +304,8 @@ class ShortInterestManager:
         for i in range(len(valid_dates)):
 
             text = texts[i]
-
             df = ShortInterestManager.regsho_txt_to_df(text)
+
             # Get list of tickers, separated into even chunks by TDA limiter
             tickers = df['Symbol'].tolist()
             tick_limit = 300  # TDA's limit for basic query
@@ -367,7 +368,7 @@ class ShortInterestManager:
         qs_df = qs_df.sort_index()
 
         # Filter on volume minimum and open price minimum
-        qs_df = qs_df[qs_df['totalVolume'] > 1E6]
+        qs_df = qs_df[qs_df['totalVolume'] > 5E5]
         qs_df = qs_df[qs_df['regularMarketLastPrice'] > 5]
 
         # Remove any remaining excess tickers
