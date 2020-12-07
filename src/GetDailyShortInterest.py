@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from io import StringIO
 from os import path
+import bisect
 
 
 Utils = importlib.import_module('utilities').Utils
@@ -238,7 +239,8 @@ class ShortInterestManager:
         # Calculate short interest %
         short_int = df['ShortVolume'] / fs['sharesOutstanding']
         df['Short Interest Ratio'] = short_int
-        df['Previous short interest % change'] = short_int.sub(prev_short_perc).fillna(short_int)
+        short_denom = short_int.sub(prev_short_perc).fillna(short_int)
+        df['Previous short interest % change'] = short_denom.div(prev_short_perc)
 
         df['Previous volume delta'] = df['TotalVolume'].sub(prev_vol_perc).fillna(df['TotalVolume']).div(prev_vol_perc)
 
@@ -276,7 +278,8 @@ class ShortInterestManager:
         # Calculate short interest %
         short_int = df['ShortVolume'] / fs['sharesOutstanding']
         df['Short Interest Ratio'] = short_int
-        df['Previous short interest % change'] = short_int.sub(old_data['Short Interest Ratio']).fillna(short_int)
+        short_denom = short_int.sub(old_data['Short Interest Ratio']).fillna(short_int)
+        df['Previous short interest % change'] = short_denom.div(old_data['Short Interest Ratio'])
 
         df['Previous volume delta'] = df['TotalVolume'].sub(old_data['volume']).fillna(
             df['TotalVolume']).div(old_data['volume'])
@@ -294,7 +297,7 @@ class ShortInterestManager:
         return df
 
     @staticmethod
-    def get_past_df(valid_dates, texts, short_file_prefix):
+    def get_past_df(valid_dates, texts):
 
         tcm = TCM()
         ps_dfs = None
@@ -317,13 +320,13 @@ class ShortInterestManager:
             # Set new index
             df = df.set_index('Symbol')
 
-            # Set short data
-            short_int = df['ShortVolume'] / df['TotalVolume']
-            ps_dfs[valid_dates[i]]['Short Interest Ratio'] = short_int
-
             # Get fundamental data
             if fs is None:
                 fs = ShortInterestManager.generate_fundamentals_df(tcm, tickers_chunks)
+
+            # Set short data
+            short_int = df['ShortVolume'] / fs['sharesOutstanding']
+            ps_dfs[valid_dates[i]]['Short Interest Ratio'] = short_int
 
             # Skip added date
             if i >= 1:
@@ -406,6 +409,7 @@ class ShortInterestManager:
         valid_dates = []
         texts = []
         date_range = Utils.get_bd_range(ymd, ymd2)
+        bisect.insort(date_range, '20201111')
 
         # Get one extra day to the start, for historical comparison
         date_range = [Utils.datetime_to_time_str(
@@ -445,7 +449,7 @@ class ShortInterestManager:
             df = ShortInterestManager.get_today_df(ymd, valid_dates[0], texts, short_file_prefix)
             Utils.write_dataframe_to_csv(df, outputs[1])
         else:
-            dfs = ShortInterestManager.get_past_df(valid_dates, texts, short_file_prefix)
+            dfs = ShortInterestManager.get_past_df(valid_dates, texts)
 
             for i in range(1, len(outputs)):
                 Utils.write_dataframe_to_csv(dfs[valid_dates[i]], outputs[i])
@@ -472,9 +476,10 @@ class ShortInterestManager:
 def main():
 
     sim = ShortInterestManager
-    res = sim.get_latest_short_interest_data()
-    for r in res:
-        Utils.upload_file_to_gdrive(r, 'Daily Short Data')
+    #res = sim.get_latest_short_interest_data()
+    res = sim.get_regsho_daily_short_to_csv('20201030', '20201204')
+    #for r in res:
+    #    Utils.upload_file_to_gdrive(r, 'Daily Short Data')
 
 
 if __name__ == '__main__':

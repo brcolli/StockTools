@@ -4,6 +4,8 @@ data/*
 !data/README.md
 venv/*
 requirements.txt
+data_old
+data_old/*
 
 ### Python template
 # Byte-compiled / optimized / DLL files
