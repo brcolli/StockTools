@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 from io import StringIO
 from os import path
-import bisect
 
 
 Utils = importlib.import_module('utilities').Utils
@@ -409,7 +408,6 @@ class ShortInterestManager:
         valid_dates = []
         texts = []
         date_range = Utils.get_bd_range(ymd, ymd2)
-        bisect.insort(date_range, '20201111')
 
         # Get one extra day to the start, for historical comparison
         date_range = [Utils.datetime_to_time_str(
@@ -476,8 +474,8 @@ class ShortInterestManager:
 def main():
 
     sim = ShortInterestManager
-    #res = sim.get_latest_short_interest_data()
-    res = sim.get_regsho_daily_short_to_csv('20201030', '20201204')
+    res = sim.get_latest_short_interest_data()
+    #res = sim.get_regsho_daily_short_to_csv('20201030', '20201204')
     #for r in res:
     #    Utils.upload_file_to_gdrive(r, 'Daily Short Data')
 
