@@ -11,6 +11,7 @@ from pydrive.auth import GoogleAuth
 
 
 class Utils:
+
     # Define business day
     BDay = CustomBusinessDay(calendar=USFederalHolidayCalendar())
 

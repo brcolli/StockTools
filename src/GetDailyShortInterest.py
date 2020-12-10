@@ -55,7 +55,6 @@ class ShortInterestManager:
 
         return vq[vk]['closePrice']
 
-
     @staticmethod
     def get_past_short_vol(tickers, tcm, ymd, prev_date, prev_data, short_file_prefix):
 
@@ -402,7 +401,7 @@ class ShortInterestManager:
 
         # Check if date already saved
         if path.exists(out):
-            return out
+            return [out]
 
         outputs = []
         valid_dates = []
@@ -454,7 +453,7 @@ class ShortInterestManager:
 
             return outputs
 
-        return outputs[1]
+        return [outputs[1]]
 
     # Call function to write latest trading day's short interest to a csv
     @staticmethod
@@ -476,8 +475,8 @@ def main():
     sim = ShortInterestManager
     res = sim.get_latest_short_interest_data()
     #res = sim.get_regsho_daily_short_to_csv('20201030', '20201204')
-    #for r in res:
-    #    Utils.upload_file_to_gdrive(r, 'Daily Short Data')
+    for r in res:
+        Utils.upload_file_to_gdrive(r, 'Daily Short Data')
 
 
 if __name__ == '__main__':
