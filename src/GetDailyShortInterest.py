@@ -474,7 +474,7 @@ def main():
 
     sim = ShortInterestManager
     res = sim.get_latest_short_interest_data()
-    #res = sim.get_regsho_daily_short_to_csv('20201030', '20201204')
+    #res = sim.get_regsho_daily_short_to_csv('20200401', '20200430')
     for r in res:
         Utils.upload_file_to_gdrive(r, 'Daily Short Data')
 

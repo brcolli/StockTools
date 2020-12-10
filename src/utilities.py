@@ -1,6 +1,7 @@
 import datetime
 import pandas as pd
 from pandas.tseries.holiday import USFederalHolidayCalendar
+from pandas.tseries.holiday import GoodFriday
 from pandas.tseries.offsets import CustomBusinessDay
 import random
 import requests
@@ -13,6 +14,9 @@ from pydrive.auth import GoogleAuth
 class Utils:
 
     # Define business day
+    USFederalHolidayCalendar.rules.pop(7)  # Allow trading on Veterans Day
+    USFederalHolidayCalendar.rules.pop(6)  # Allow trading on Columbus Day
+    USFederalHolidayCalendar.rules.append(GoodFriday) # Do not allow trading on Good Friday
     BDay = CustomBusinessDay(calendar=USFederalHolidayCalendar())
 
     @staticmethod
