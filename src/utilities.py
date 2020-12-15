@@ -132,6 +132,10 @@ class Utils:
         return start, end
 
     @staticmethod
+    def reformat_time_str(time_str):
+        return datetime.datetime.strptime(time_str, "%m/%d/%Y").strftime("%Y%m%d")
+
+    @staticmethod
     def time_str_to_datetime(time_str):
 
         if '/' in time_str:

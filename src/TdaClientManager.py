@@ -5,6 +5,8 @@ from iexfinance.stocks import Stock
 import json
 import time
 import re
+from oauthlib.oauth2.rfc6749.errors import InvalidGrantError
+import os
 
 
 class TdaClientManager:
@@ -22,18 +24,21 @@ class TdaClientManager:
                                       redirect_uri=self.callback_url,
                                       token_path=self.token_path)
         except FileNotFoundError:
-
-            from selenium import webdriver
-            from webdriver_manager.chrome import ChromeDriverManager
-
-            with webdriver.Chrome(ChromeDriverManager().install()) as driver:
-                self.client = easy_client(api_key=self.key,
-                                          redirect_uri=self.callback_url,
-                                          token_path=self.token_path,
-                                          webdriver_func=driver)
+            self.authenticate()
 
         # Setup stream
         self.stream = StreamClient(self.client, account_id=self.account_id)
+
+    def authenticate(self):
+
+        from selenium import webdriver
+        from webdriver_manager.chrome import ChromeDriverManager
+
+        with webdriver.Chrome(ChromeDriverManager().install()) as driver:
+            self.client = easy_client(api_key=self.key,
+                                      redirect_uri=self.callback_url,
+                                      token_path=self.token_path,
+                                      webdriver_func=driver)
 
     @staticmethod
     def get_quotes_from_iex(tickers):
@@ -71,7 +76,13 @@ class TdaClientManager:
                     try:
                         r = self.client.get_quotes(tickers)
                         break
-                    except:
+                    except Exception as e:
+
+                        if e == InvalidGrantError:
+                            if os.path.exists('../doc/token'):
+                                os.remove('../doc/token')
+                            self.authenticate()
+
                         time.sleep(1)
                         continue
 
@@ -147,7 +158,12 @@ class TdaClientManager:
                                                           frequency=self.client.PriceHistory.Frequency.DAILY,
                                                           frequency_type=self.client.PriceHistory.FrequencyType.DAILY)
                         break
-                    except:
+                    except Exception as e:
+
+                        if e == InvalidGrantError:
+                            if os.path.exists('../doc/token'):
+                                os.remove('../doc/token')
+                            self.authenticate()
                         time.sleep(1)
                 try:
                     data = r.json()

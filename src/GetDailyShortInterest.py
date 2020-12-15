@@ -25,6 +25,16 @@ class ShortInterestManager:
         with open(filename, 'a', newline='') as f:
             f.write(data)
 
+    @staticmethod
+    def regsho_txt_to_df(text, vol_lim=-1):
+
+        # Convert text into a dataframe
+        sio = StringIO(text)
+        df = pd.read_csv(sio, sep=',')[:-1]
+        df = df[df['TotalVolume'] >= vol_lim]  # Only take rows with volumes greater than filter
+
+        return df
+
     # From a selected file, load and reformat, then save to csv
     @staticmethod
     def load_short_interest_text_and_write_to_csv(filename):
@@ -59,7 +69,8 @@ class ShortInterestManager:
     def get_past_short_vol(tickers, tcm, ymd, prev_date, prev_data, short_file_prefix):
 
         # Get data from past if exists
-        files = Utils.find_file_pattern(short_file_prefix + '*', '../data/')
+        file_root = '../data/'
+        files = Utils.find_file_pattern(short_file_prefix + '*', file_root)
         prev_data_date = ymd
 
         if len(files) > 0:
@@ -71,7 +82,7 @@ class ShortInterestManager:
             if prev_data_date == ymd and len(files) > 1:
                 prev_data_file = files[-2]
                 prev_data_file = prev_data_file.split('/')[-1]
-                prev_data_date = prev_data_file[len(short_file_prefix):-4]
+                prev_data_date = prev_data_file[len(file_root) + len(short_file_prefix):-4]
 
         if prev_data_date == prev_date:
 
@@ -212,16 +223,6 @@ class ShortInterestManager:
             ps_dfs[valid_dates[i]] = ps_df
 
         return ps_dfs
-
-    @staticmethod
-    def regsho_txt_to_df(text, vol_lim=-1):
-
-        # Convert text into a dataframe
-        sio = StringIO(text)
-        df = pd.read_csv(sio, sep=',')[:-1]
-        df = df[df['TotalVolume'] >= vol_lim]  # Only take rows with volumes greater than filter
-
-        return df
 
     @staticmethod
     def update_short_df_with_data(df, qs, fs, prev_short_perc, prev_vol_perc):
@@ -474,7 +475,6 @@ def main():
 
     sim = ShortInterestManager
     res = sim.get_latest_short_interest_data()
-    #res = sim.get_regsho_daily_short_to_csv('20200401', '20200430')
     for r in res:
         Utils.upload_file_to_gdrive(r, 'Daily Short Data')
 
