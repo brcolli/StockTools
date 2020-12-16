@@ -78,7 +78,7 @@ class TdaClientManager:
                         break
                     except Exception as e:
 
-                        if e == InvalidGrantError():
+                        if type(e) is type(InvalidGrantError()) and e.args == InvalidGrantError().args:
                             if os.path.exists('../doc/token'):
                                 os.remove('../doc/token')
                             self.authenticate()
