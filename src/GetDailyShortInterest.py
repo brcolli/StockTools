@@ -238,9 +238,10 @@ class ShortInterestManager:
         # Calculate short interest %
         short_int = df['ShortVolume'] / fs['sharesOutstanding']
         df['Short Interest Ratio'] = short_int
+        df['Days to Cover'] = df['ShortVolume'] / fs['vol10DayAvg']
+
         short_denom = short_int.sub(prev_short_perc).fillna(short_int)
         df['Previous short interest % change'] = short_denom.div(prev_short_perc)
-
         df['Previous volume delta'] = df['TotalVolume'].sub(prev_vol_perc).fillna(df['TotalVolume']).div(prev_vol_perc)
 
         # Calculate % close
@@ -277,9 +278,10 @@ class ShortInterestManager:
         # Calculate short interest %
         short_int = df['ShortVolume'] / fs['sharesOutstanding']
         df['Short Interest Ratio'] = short_int
+        df['Days to Cover'] = df['ShortVolume'] / fs['vol10DayAvg']
+
         short_denom = short_int.sub(old_data['Short Interest Ratio']).fillna(short_int)
         df['Previous short interest % change'] = short_denom.div(old_data['Short Interest Ratio'])
-
         df['Previous volume delta'] = df['TotalVolume'].sub(old_data['volume']).fillna(
             df['TotalVolume']).div(old_data['volume'])
 
