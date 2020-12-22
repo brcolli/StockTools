@@ -58,10 +58,8 @@ class TdaClientManager:
                     tickers.remove(bad_sym)
 
         ret = {}
-        if len(tickers) == 1:
-            ret[iexq['symbol']] = iexq
-        else:
-            ret = iexq
+        for index, row in iexq.iterrows():
+            ret[index] = row
 
         return ret
 
