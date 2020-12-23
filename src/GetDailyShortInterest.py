@@ -445,7 +445,7 @@ class ShortInterestManager:
             for i in range(1, len(outputs)):
                 Utils.write_dataframe_to_csv(dfs[valid_dates[i]], outputs[i])
 
-            return outputs
+            return outputs[1:]
 
         return [outputs[1]]
 

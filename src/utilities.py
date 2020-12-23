@@ -152,6 +152,27 @@ class Utils:
         return res
 
     @staticmethod
+    def get_bd_range_from_count(range_len):
+
+        latest = Utils.get_last_trading_day()
+
+        if range_len <= 1:
+            return [Utils.datetime_to_time_str(latest)]
+
+        curr_count = 0
+        curr_date = latest
+        res = []
+        while curr_count < range_len:
+
+            prev_date = Utils.get_previous_trading_day_from_date(curr_date)
+            res.append(Utils.datetime_to_time_str(prev_date))
+
+            curr_date = prev_date
+            curr_count += 1
+
+        return res
+
+    @staticmethod
     def get_following_week_range():
 
         # Current week, starting on Sunday and ending on Saturday
