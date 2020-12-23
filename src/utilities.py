@@ -9,6 +9,7 @@ from os import path, walk
 import fnmatch
 from pydrive.drive import GoogleDrive
 from pydrive.auth import GoogleAuth
+from io import StringIO
 
 
 class Utils:
@@ -73,6 +74,37 @@ class Utils:
         f.Upload(param={'supportsAllDrives': True})
 
         f = None
+
+    # Reformatting short interest file to a proper csv
+    @staticmethod
+    def replace_line_to_comma(text):
+        text = text.replace(',', '/')
+        return text.replace('|', ',')
+
+    @staticmethod
+    def regsho_txt_to_df(text, vol_lim=-1):
+
+        # Convert text into a dataframe
+        sio = StringIO(text)
+        df = pd.read_csv(sio, sep=',')[:-1]
+        df = df[df['TotalVolume'] >= vol_lim]  # Only take rows with volumes greater than filter
+
+        return df
+
+    # Use an arbitrary day to get finra's ticker list for that day
+    @staticmethod
+    def get_all_tickers(day):
+
+        url = 'http://regsho.finra.org'
+        short_file_prefix = 'CNMSshvol'
+
+        # Import finra csv
+        filename = short_file_prefix + day
+        data = Utils.get_file_from_url(url, filename + '.txt')
+        text = Utils.replace_line_to_comma(data)
+        df = Utils.regsho_txt_to_df(text)
+
+        return df['Symbol'].tolist()
 
     @staticmethod
     def shuffle_list(data):

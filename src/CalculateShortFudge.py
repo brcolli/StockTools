@@ -8,23 +8,7 @@ import time
 
 
 Utils = importlib.import_module('utilities').Utils
-Sim = importlib.import_module('GetDailyShortInterest').ShortInterestManager
 Sqm = importlib.import_module('SqliteManager').SqliteManager
-
-
-# Use an arbitrary day to get finra's ticker list for that day
-def get_all_tickers(day):
-
-    url = 'http://regsho.finra.org'
-    short_file_prefix = 'CNMSshvol'
-
-    # Import finra csv
-    filename = short_file_prefix + day
-    data = Utils.get_file_from_url(url, filename + '.txt')
-    text = Sim.replace_line_to_comma(data)
-    df = Sim.regsho_txt_to_df(text)
-
-    return df['Symbol'].tolist()
 
 
 # Scrape Nasdaq site for a single ticker value's short interest
@@ -300,7 +284,7 @@ def main():
     # Check if table already saved
     if not path.exists(sqlite_table):
 
-        tickers = get_all_tickers('20201201')
+        tickers = Utils.get_all_tickers('20201201')
 
         nasdaq_shorts = get_nasdaq_short_for_tickers(tickers)
 

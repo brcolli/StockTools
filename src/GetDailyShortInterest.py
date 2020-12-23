@@ -3,37 +3,21 @@ from tkinter.filedialog import askopenfilename
 import importlib
 import numpy as np
 import pandas as pd
-from io import StringIO
 from os import path
 
 
 Utils = importlib.import_module('utilities').Utils
 TCM = importlib.import_module('TdaClientManager').TdaClientManager
+Sqm = importlib.import_module('SqliteManager').SqliteManager
 
 
 class ShortInterestManager:
-
-    # Reformatting short interest file to a proper csv
-    @staticmethod
-    def replace_line_to_comma(text):
-        text = text.replace(',', '/')
-        return text.replace('|', ',')
 
     # Writes to file, but ignores added newlines
     @staticmethod
     def write_data_to_file_no_newline(filename, data):
         with open(filename, 'a', newline='') as f:
             f.write(data)
-
-    @staticmethod
-    def regsho_txt_to_df(text, vol_lim=-1):
-
-        # Convert text into a dataframe
-        sio = StringIO(text)
-        df = pd.read_csv(sio, sep=',')[:-1]
-        df = df[df['TotalVolume'] >= vol_lim]  # Only take rows with volumes greater than filter
-
-        return df
 
     # From a selected file, load and reformat, then save to csv
     @staticmethod
@@ -46,7 +30,7 @@ class ShortInterestManager:
         f1 = open(filename, 'r')
 
         data = f1.read()
-        data = ShortInterestManager.replace_line_to_comma(data)
+        data = Utils.replace_line_to_comma(data)
 
         f1.close()
 
@@ -165,6 +149,13 @@ class ShortInterestManager:
 
         fs_df.replace(0, np.nan, inplace=True)
 
+        # Populate with stats from saved table
+        stats_table = Sqm('../data/yahoo_stats.sqlite')
+        stats = pd.read_sql_query('SELECT * from fundamentals', stats_table.connection)
+        stats = stats.set_index('Symbol')
+
+        fs_df['Floats'] = stats['Floats']
+
         return fs_df
 
     @staticmethod
@@ -236,7 +227,7 @@ class ShortInterestManager:
         df['Previous day\'s close change'] = qs['regularMarketPercentChangeInDouble'] / 100
 
         # Calculate short interest %
-        short_int = df['ShortVolume'] / fs['sharesOutstanding']
+        short_int = df['ShortVolume'] / fs['Floats']
         df['Short Interest Ratio'] = short_int
         df['Days to Cover'] = df['ShortVolume'] / fs['vol10DayAvg']
 
@@ -276,7 +267,7 @@ class ShortInterestManager:
         df['Previous day\'s close change'] = (curr_data['close'] - old_data['close']) / 100
 
         # Calculate short interest %
-        short_int = df['ShortVolume'] / fs['sharesOutstanding']
+        short_int = df['ShortVolume'] / fs['Floats']
         df['Short Interest Ratio'] = short_int
         df['Days to Cover'] = df['ShortVolume'] / fs['vol10DayAvg']
 
@@ -308,7 +299,7 @@ class ShortInterestManager:
         for i in range(len(valid_dates)):
 
             text = texts[i]
-            df = ShortInterestManager.regsho_txt_to_df(text)
+            df = Utils.regsho_txt_to_df(text)
 
             # Get list of tickers, separated into even chunks by TDA limiter
             tickers = df['Symbol'].tolist()
@@ -340,8 +331,8 @@ class ShortInterestManager:
     @staticmethod
     def get_today_df(ymd, prev_day, texts, short_file_prefix):
 
-        df = ShortInterestManager.regsho_txt_to_df(texts[1])
-        past_df = ShortInterestManager.regsho_txt_to_df(texts[0])
+        df = Utils.regsho_txt_to_df(texts[1])
+        past_df = Utils.regsho_txt_to_df(texts[0])
 
         # Get list of tickers, separated into even chunks by TDA limiter
         tickers = df['Symbol'].tolist()
@@ -421,7 +412,7 @@ class ShortInterestManager:
             out = '../data/' + filename + '.csv'
 
             data = Utils.get_file_from_url(url, filename + '.txt')
-            text = ShortInterestManager.replace_line_to_comma(data)
+            text = Utils.replace_line_to_comma(data)
 
             # If date not found, find next most recent date
             if '404 Not Found' in text:
@@ -435,7 +426,7 @@ class ShortInterestManager:
                 out = '../data/' + filename + '.csv'
 
                 data = Utils.get_file_from_url(url, filename + '.txt')
-                text = ShortInterestManager.replace_line_to_comma(data)
+                text = Utils.replace_line_to_comma(data)
 
             valid_dates.append(date)
             texts.append(text)

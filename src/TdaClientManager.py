@@ -7,6 +7,7 @@ import time
 import re
 from oauthlib.oauth2.rfc6749.errors import InvalidGrantError
 import os
+import requests
 
 
 class TdaClientManager:
