@@ -264,7 +264,7 @@ class ShortInterestManager:
         df['Open'] = curr_data['open']
         df['Close'] = curr_data['close']
         df['VIX Close'] = curr_data['VIX Close']
-        df['Previous day\'s close change'] = (curr_data['close'] - old_data['close']) / 100
+        df['Previous day\'s close change'] = (curr_data['close'] - old_data['close']) / old_data['close']
 
         # Calculate short interest %
         short_int = df['ShortVolume'] / fs['Floats']
