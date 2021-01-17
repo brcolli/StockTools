@@ -266,3 +266,24 @@ class Utils:
                     ret[i][key] = -1
 
         return ret
+
+    @staticmethod
+    def short_num_str_to_int(num_str):
+
+        try:
+            return float(num_str)
+        except:
+
+            multiplier = num_str[-1]
+
+            try:
+                num_base = float(num_str[:-1])
+            except:
+                return -1
+
+            if multiplier == 'M':
+                return num_base * 1E6
+            elif multiplier == 'B':
+                return num_base * 1E9
+            else:
+                return num_base

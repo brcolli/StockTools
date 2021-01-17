@@ -1,7 +1,6 @@
 import requests
 import importlib
 import json
-import pandas as pd
 from os import path
 import time
 

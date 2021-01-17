@@ -83,8 +83,8 @@ class ShortInterestManager:
             latest_df[cols] = latest_df[cols].apply(pd.to_numeric, errors='coerce').fillna(0)
             latest_df = latest_df.replace(np.nan, 0)
 
-            prev_short_perc = latest_df['Short Interest Ratio']
-            prev_vol_perc = latest_df['TotalVolume']
+            prev_short_perc = latest_df['Shares Traded Short/Float %']
+            prev_vol_perc = latest_df['Total Volume']
 
         else:
 
@@ -93,7 +93,7 @@ class ShortInterestManager:
 
             prev_data = prev_data.loc[tickers]
 
-            prev_short_perc = prev_data['ShortVolume']
+            prev_short_perc = prev_data['Shares Traded Short']
             prev_vol_perc = []
             for key in th.keys():
                 if len(th[key]) > 0:
@@ -220,30 +220,33 @@ class ShortInterestManager:
 
         # Fill in some quote columns
         df['Exchange'] = fs['exchange']
-        df['TotalVolume'] = qs['totalVolume']
+        df['Total Volume'] = qs['totalVolume']
         df['Open'] = qs['openPrice']
         df['Close'] = qs['regularMarketLastPrice']
         df['VIX Close'] = qs['VIX Close']
-        df['Previous day\'s close change'] = qs['regularMarketPercentChangeInDouble'] / 100
+        df['Days to Cover'] = df['ShortVolume'] / fs['vol10DayAvg']
 
         # Calculate short interest %
         short_int = df['ShortVolume'] / fs['Floats']
-        df['Short Interest Ratio'] = short_int
-        df['Days to Cover'] = df['ShortVolume'] / fs['vol10DayAvg']
+        df['Shares Traded Short/Float %'] = short_int
 
         short_denom = short_int.sub(prev_short_perc).fillna(short_int)
-        df['Previous short interest % change'] = short_denom.div(prev_short_perc)
-        df['Previous volume delta'] = df['TotalVolume'].sub(prev_vol_perc).fillna(df['TotalVolume']).div(prev_vol_perc)
+        df['Shares Traded Short/Float % Delta'] = short_denom.div(prev_short_perc)
+        df['Total Volume % Delta'] = df['Total Volume'].sub(prev_vol_perc).fillna(df['Total Volume']).div(prev_vol_perc)
 
-        # Calculate % close
-        df['Open/close % change'] = (df['Close'] - df['Open']) / df['Open']
+        # Calculate % close and open changes
+        df['Close Delta'] = qs['regularMarketPercentChangeInDouble'] / 100
+        df['Open-Close % Delta'] = (df['Close'] - df['Open']) / df['Open']
 
         # Add outstanding shares
-        df['Total Volume/Shares Outstanding'] = df['TotalVolume'] / fs['sharesOutstanding']
+        df['Total Volume/Float %'] = df['Total Volume'] / fs['Floats']
 
         # Only take tickers whose volume delta isn't 0
         df = df.dropna()
         df = df.fillna(0)
+
+        # Rename some columns
+        df.rename(columns={'ShortVolume': 'Shares Traded Short'})
 
         return df
 
@@ -260,31 +263,34 @@ class ShortInterestManager:
 
         # Fill in some data columns
         df['Exchange'] = fs['exchange']
-        df['TotalVolume'] = curr_data['volume']
+        df['Total Volume'] = curr_data['volume']
         df['Open'] = curr_data['open']
         df['Close'] = curr_data['close']
         df['VIX Close'] = curr_data['VIX Close']
-        df['Previous day\'s close change'] = (curr_data['close'] - old_data['close']) / old_data['close']
+        df['Days to Cover'] = df['ShortVolume'] / fs['vol10DayAvg']
 
         # Calculate short interest %
         short_int = df['ShortVolume'] / fs['Floats']
-        df['Short Interest Ratio'] = short_int
-        df['Days to Cover'] = df['ShortVolume'] / fs['vol10DayAvg']
+        df['Shares Traded Short/Float %'] = short_int
 
         short_denom = short_int.sub(old_data['Short Interest Ratio']).fillna(short_int)
-        df['Previous short interest % change'] = short_denom.div(old_data['Short Interest Ratio'])
-        df['Previous volume delta'] = df['TotalVolume'].sub(old_data['volume']).fillna(
-            df['TotalVolume']).div(old_data['volume'])
+        df['Shares Traded Short/Float % Delta'] = short_denom.div(old_data['Short Interest Ratio'])
+        df['Total Volume % Delta'] = df['Total Volume'].sub(old_data['volume']).fillna(
+            df['Total Volume']).div(old_data['volume'])
 
-        # Calculate % close
-        df['Open/close % change'] = (df['Close'] - df['Open']) / df['Open']
+        # Calculate % close and open changes
+        df['Close Delta'] = (curr_data['close'] - old_data['close']) / old_data['close']
+        df['Open-Close % Delta'] = (df['Close'] - df['Open']) / df['Open']
 
         # Add outstanding shares
-        df['Total Volume/Shares Outstanding'] = df['TotalVolume'] / fs['sharesOutstanding']
+        df['Total Volume/Float %'] = df['Total Volume'] / fs['Floats']
 
         # Only take tickers whose volume delta isn't 0
         df = df.dropna()
         df = df.fillna(0)
+
+        # Rename some columns
+        df.rename(columns={'ShortVolume': 'Shares Traded Short'})
 
         return df
 
@@ -317,8 +323,8 @@ class ShortInterestManager:
                 fs = ShortInterestManager.generate_fundamentals_df(tcm, tickers_chunks)
 
             # Set short data
-            short_int = df['ShortVolume'] / fs['sharesOutstanding']
-            ps_dfs[valid_dates[i]]['Short Interest Ratio'] = short_int
+            short_int = df['ShortVolume'] / fs['Floats']
+            ps_dfs[valid_dates[i]]['Shares Traded Short/Float %'] = short_int
 
             # Skip added date
             if i >= 1:

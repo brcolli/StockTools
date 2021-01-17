@@ -28,3 +28,7 @@ class SqliteManager:
             return result
         except sqlite3.Error as e:
             print(f"The error '{e}' occurred")
+
+    def get_column_names(self, table_name):
+        cursor = self.connection.execute('SELECT * from {}'.format(table_name))
+        return list(map(lambda x: x[0], cursor.description))
