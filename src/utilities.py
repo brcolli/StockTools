@@ -17,11 +17,11 @@ class Utils:
     # Define business day
     USFederalHolidayCalendar.rules.pop(7)  # Allow trading on Veterans Day
     USFederalHolidayCalendar.rules.pop(6)  # Allow trading on Columbus Day
-    USFederalHolidayCalendar.rules.append(GoodFriday) # Do not allow trading on Good Friday
+    USFederalHolidayCalendar.rules.append(GoodFriday)  # Do not allow trading on Good Friday
     BDay = CustomBusinessDay(calendar=USFederalHolidayCalendar())
 
     @staticmethod
-    def upload_file_to_gdrive(filepath, gdrive_dir=''):
+    def upload_file_to_gdrive(filepath, gdrive_dir='', sub_dir=''):
 
         if filepath == '':
             return
@@ -73,7 +73,7 @@ class Utils:
         f.SetContentFile(filepath)
         f.Upload(param={'supportsAllDrives': True})
 
-        f = None
+        f = None  # Recommended generic cleanup
 
     # Reformatting short interest file to a proper csv
     @staticmethod
@@ -163,7 +163,6 @@ class Utils:
         curr_date = latest
         res = []
         while curr_count < range_len:
-
             prev_date = Utils.get_previous_trading_day_from_date(curr_date)
             res.append(Utils.datetime_to_time_str(prev_date))
 
@@ -173,16 +172,17 @@ class Utils:
         return res
 
     @staticmethod
-    def get_following_week_range():
+    def get_week_range(dday):
 
         # Current week, starting on Sunday and ending on Saturday
-        today = datetime.date.today()
-
-        start = (today + datetime.timedelta(days=7)) - \
-                datetime.timedelta(days=(today + datetime.timedelta(days=1)).weekday())
+        start = dday - datetime.timedelta(days=(dday + datetime.timedelta(days=1)).weekday())
         end = start + datetime.timedelta(days=6)
 
         return start, end
+
+    @staticmethod
+    def get_following_week_range():
+        return Utils.get_week_range((datetime.date.today() + datetime.timedelta(days=7)))
 
     @staticmethod
     def reformat_time_str(time_str):
