@@ -106,7 +106,5 @@ def main(momentum_period, trend_period, relation_period):
     history_vals = get_historical_closing_from_sqlite(rsi_table)
 
 
-
-
 if __name__ == '__main__':
     main(3, 2, 100)

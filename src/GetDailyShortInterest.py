@@ -511,7 +511,7 @@ class ShortInterestManager:
 
 def main():
 
-    sim = ShortInterestManager
+    sim = ShortInterestManager()
     res = sim.get_latest_short_interest_data()
     for r in res:
         sub_dir = '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
