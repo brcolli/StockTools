@@ -68,8 +68,7 @@ class ShortInterestManager:
             f.write(data)
 
     # From a selected file, load and reformat, then save to csv
-    @staticmethod
-    def load_short_interest_text_and_write_to_csv(filename):
+    def load_short_interest_text_and_write_to_csv(self, filename):
 
         sel_file = filename.split('/')[-1]
         input_name = sel_file.split('.')[0]
@@ -82,7 +81,7 @@ class ShortInterestManager:
 
         f1.close()
 
-        ShortInterestManager.write_data_to_file_no_newline(output, data)
+        self.write_data_to_file_no_newline(output, data)
 
     # Uses util function to reformat latest trading day
     @staticmethod
@@ -97,8 +96,7 @@ class ShortInterestManager:
 
         return vq[vk]['closePrice']
 
-    @staticmethod
-    def get_past_short_vol(tickers, tcm, ymd, prev_date, prev_data, short_file_prefix):
+    def get_past_short_vol(self, tickers, tcm, ymd, prev_date, prev_data, short_file_prefix):
 
         # Get data from past if exists
         file_root = '../data/'
@@ -118,7 +116,7 @@ class ShortInterestManager:
 
         if prev_data_date == prev_date:
 
-            latest_data = ShortInterestManager.get_full_path_from_file_date(prev_data_date, short_file_prefix, '.csv')
+            latest_data = self.get_full_path_from_file_date(prev_data_date, short_file_prefix, '.csv')
             latest_df = pd.read_csv(latest_data)
 
             try:
@@ -151,8 +149,7 @@ class ShortInterestManager:
 
         return prev_short_perc, prev_vol_perc
 
-    @staticmethod
-    def cleanup_quotes_df(tcm, qs_df):
+    def cleanup_quotes_df(self, tcm, qs_df):
 
         # Clean up possible 0 values from TDA quotes
         bad_quote_tickers = qs_df[(qs_df['totalVolume'] == 0) | (qs_df['openPrice'] == 0) |
@@ -176,18 +173,17 @@ class ShortInterestManager:
             qs_df['regularMarketLastPrice'].update(pd.Series(new_vals[2]))
 
         # Add VIX close
-        qs_df['VIX Close'] = ShortInterestManager.get_vix_close(tcm)
+        qs_df['VIX Close'] = self.get_vix_close(tcm)
 
         return qs_df
 
-    @staticmethod
-    def generate_quotes_df(tcm, tickers_chunks):
+    def generate_quotes_df(self, tcm, tickers_chunks):
 
         # Get some TDA data
         qs = tcm.get_quotes_from_tda(tickers_chunks)
         qs_df = pd.DataFrame(qs).transpose()  # Convert to dataframe
 
-        return ShortInterestManager.cleanup_quotes_df(tcm, qs_df)
+        return self.cleanup_quotes_df(tcm, qs_df)
 
     @staticmethod
     def generate_fundamentals_df(tcm, tickers_chunks):
@@ -283,7 +279,7 @@ class ShortInterestManager:
         df['Total Volume % Delta'] = df['Total Volume'].sub(prev_vol_perc).fillna(df['Total Volume']).div(prev_vol_perc)
 
         # Calculate % close and open changes
-        df['Close Delta'] = qs['regularMarketPercentChangeInDouble'] / 100
+        df['Close % Delta'] = qs['regularMarketPercentChangeInDouble'] / 100
         df['Open-Close % Delta'] = (df['Close'] - df['Open']) / df['Open']
 
         # Add outstanding shares
@@ -327,7 +323,7 @@ class ShortInterestManager:
             df['Total Volume']).div(old_data['volume'])
 
         # Calculate % close and open changes
-        df['Close Delta'] = (curr_data['close'] - old_data['close']) / old_data['close']
+        df['Close % Delta'] = (curr_data['close'] - old_data['close']) / old_data['close']
         df['Open-Close % Delta'] = (df['Close'] - df['Open']) / df['Open']
 
         # Add outstanding shares
@@ -342,8 +338,7 @@ class ShortInterestManager:
 
         return df
 
-    @staticmethod
-    def get_past_df(valid_dates, texts):
+    def get_past_df(self, valid_dates, texts):
 
         tcm = TCM()
         ps_dfs = None
@@ -361,14 +356,14 @@ class ShortInterestManager:
             tickers_chunks = [tickers[t:t + tick_limit] for t in range(0, len(tickers), tick_limit)]
 
             if ps_dfs is None:
-                ps_dfs = ShortInterestManager.generate_past_df(tcm, tickers, valid_dates)
+                ps_dfs = self.generate_past_df(tcm, tickers, valid_dates)
 
             # Set new index
             df = df.set_index('Symbol')
 
             # Get fundamental data
             if fs is None:
-                fs = ShortInterestManager.generate_fundamentals_df(tcm, tickers_chunks)
+                fs = self.generate_fundamentals_df(tcm, tickers_chunks)
 
             # Set short data
             short_int = df['ShortVolume'] / fs['Floats']
@@ -376,14 +371,13 @@ class ShortInterestManager:
 
             # Skip added date
             if i >= 1:
-                df = ShortInterestManager.update_short_df_with_past_data(df, ps_dfs, fs, valid_dates[i])
+                df = self.update_short_df_with_past_data(df, ps_dfs, fs, valid_dates[i])
 
             dfs[valid_dates[i]] = df
 
         return dfs
 
-    @staticmethod
-    def get_today_df(ymd, prev_day, texts, short_file_prefix):
+    def get_today_df(self, ymd, prev_day, texts, short_file_prefix):
 
         df = Utils.regsho_txt_to_df(texts[1])
         past_df = Utils.regsho_txt_to_df(texts[0])
@@ -398,8 +392,8 @@ class ShortInterestManager:
         past_df = past_df.set_index('Symbol')
 
         tcm = TCM()
-        qs_df = ShortInterestManager.generate_quotes_df(tcm, tickers_chunks)
-        fs_df = ShortInterestManager.generate_fundamentals_df(tcm, tickers_chunks)
+        qs_df = self.generate_quotes_df(tcm, tickers_chunks)
+        fs_df = self.generate_fundamentals_df(tcm, tickers_chunks)
 
         # Drop symbols with missing data by joining on matching symbols
         qs_syms = qs_df.index.tolist()
@@ -410,7 +404,7 @@ class ShortInterestManager:
 
         excess_quotes = tcm.get_quotes_from_tda([excess_tickers])
         eq_df = pd.DataFrame(excess_quotes).transpose()  # Convert to dataframe
-        eq_df = ShortInterestManager.cleanup_quotes_df(tcm, eq_df)
+        eq_df = self.cleanup_quotes_df(tcm, eq_df)
 
         # Append cleaned new quotes
         qs_df.append(eq_df)
@@ -430,22 +424,21 @@ class ShortInterestManager:
         fs_df = fs_df.loc[qs_syms]
         df = df.loc[qs_syms]
 
-        (prev_short_perc, prev_vol_perc) = ShortInterestManager.get_past_short_vol(qs_syms, tcm, ymd, prev_day,
+        (prev_short_perc, prev_vol_perc) = self.get_past_short_vol(qs_syms, tcm, ymd, prev_day,
                                                                                    past_df, short_file_prefix)
 
-        df = ShortInterestManager.update_short_df_with_data(df, qs_df, fs_df, prev_short_perc, prev_vol_perc)
+        df = self.update_short_df_with_data(df, qs_df, fs_df, prev_short_perc, prev_vol_perc)
 
         return df
 
     # Gets file from regsho consolidated short interest using a YYYYMMDD format and write to csv
-    @staticmethod
-    def get_regsho_daily_short_to_csv(ymd, ymd2=''):
+    def get_regsho_daily_short_to_csv(self, ymd, ymd2=''):
 
         url = 'http://regsho.finra.org'
         short_file_prefix = 'CNMSshvol'
 
         # Place files to correct subdirectories
-        out = ShortInterestManager.get_full_path_from_file_date(ymd, short_file_prefix, '.csv')
+        out = self.get_full_path_from_file_date(ymd, short_file_prefix, '.csv')
 
         # Check if date already saved
         if path.exists(out):
@@ -463,7 +456,7 @@ class ShortInterestManager:
         for date in date_range:
 
             filename = short_file_prefix + date
-            out = ShortInterestManager.get_full_path_from_file_date(date, short_file_prefix, '.csv')
+            out = self.get_full_path_from_file_date(date, short_file_prefix, '.csv')
 
             data = Utils.get_file_from_url(url, filename + '.txt')
             text = Utils.replace_line_to_comma(data)
@@ -477,7 +470,7 @@ class ShortInterestManager:
                 ymd = past_td
 
                 filename = short_file_prefix + past_td
-                out = ShortInterestManager.get_full_path_from_file_date(past_td, short_file_prefix, '.csv')
+                out = self.get_full_path_from_file_date(past_td, short_file_prefix, '.csv')
 
                 data = Utils.get_file_from_url(url, filename + '.txt')
                 text = Utils.replace_line_to_comma(data)
@@ -491,11 +484,11 @@ class ShortInterestManager:
 
         # Check if date passed is current day. If not, cannot use quotes
         if Utils.is_it_today(ymd):
-            df = ShortInterestManager.get_today_df(ymd, valid_dates[0], texts, short_file_prefix)
+            df = self.get_today_df(ymd, valid_dates[0], texts, short_file_prefix)
             Utils.write_dataframe_to_csv(df, outputs[1])
         else:
 
-            dfs = ShortInterestManager.get_past_df(valid_dates, texts)
+            dfs = self.get_past_df(valid_dates, texts)
             for i in range(1, len(outputs)):
                 Utils.write_dataframe_to_csv(dfs[valid_dates[i]], outputs[i])
 
@@ -504,27 +497,24 @@ class ShortInterestManager:
         return [outputs[1]]
 
     # Call function to write latest trading day's short interest to a csv
-    @staticmethod
-    def get_latest_short_interest_data():
-        ltd = ShortInterestManager.get_latest_trading_day()
-        return ShortInterestManager.get_regsho_daily_short_to_csv(ltd)
+    def get_latest_short_interest_data(self):
+        ltd = self.get_latest_trading_day()
+        return self.get_regsho_daily_short_to_csv(ltd)
 
-    @staticmethod
-    def import_short_interest_text_from_selection():
+    def import_short_interest_text_from_selection(self):
 
         Tk().withdraw()
         f_name = askopenfilename()
 
-        ShortInterestManager.load_short_interest_text_and_write_to_csv(f_name)
+        self.load_short_interest_text_and_write_to_csv(f_name)
 
 
 def main():
 
     sim = ShortInterestManager
-    #res = sim.get_latest_short_interest_data()
-    res = ShortInterestManager.get_regsho_daily_short_to_csv('20191201', '20210115')
+    res = sim.get_latest_short_interest_data()
     for r in res:
-        #sub_dir = '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
+        sub_dir = '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
         Utils.upload_file_to_gdrive(r, 'Daily Short Data')
 
 
