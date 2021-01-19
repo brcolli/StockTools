@@ -1,6 +1,8 @@
 doc/*
 !doc/README.md
 data/*
+data/analysis/*
+!data/analysis/
 !data/**/README.md
 venv/*
 requirements.txt
