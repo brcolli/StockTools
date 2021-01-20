@@ -100,23 +100,11 @@ class ShortInterestManager:
 
         # Get data from past if exists
         file_root = '../data/'
-        files = Utils.find_file_pattern(short_file_prefix + '*', file_root)
-        prev_data_date = ymd
+        files = Utils.find_file_pattern(short_file_prefix + prev_date + '*', file_root, recurse=True)
 
-        if len(files) > 0:
+        if files:
 
-            prev_data_file = files[-1]
-            prev_data_file = prev_data_file.split('/')[-1]
-            prev_data_date = prev_data_file[len(short_file_prefix):-4]
-
-            if prev_data_date == ymd and len(files) > 1:
-                prev_data_file = files[-2]
-                prev_data_file = prev_data_file.split('/')[-1]
-                prev_data_date = prev_data_file[len(file_root) + len(short_file_prefix):-4]
-
-        if prev_data_date == prev_date:
-
-            latest_data = self.get_full_path_from_file_date(prev_data_date, short_file_prefix, '.csv')
+            latest_data = self.get_full_path_from_file_date(prev_date, short_file_prefix, '.csv')
             latest_df = pd.read_csv(latest_data)
 
             try:
@@ -425,7 +413,7 @@ class ShortInterestManager:
         df = df.loc[qs_syms]
 
         (prev_short_perc, prev_vol_perc) = self.get_past_short_vol(qs_syms, tcm, ymd, prev_day,
-                                                                                   past_df, short_file_prefix)
+                                                                   past_df, short_file_prefix)
 
         df = self.update_short_df_with_data(df, qs_df, fs_df, prev_short_perc, prev_vol_perc)
 
