@@ -500,7 +500,8 @@ class ShortInterestManager:
 def main():
 
     sim = ShortInterestManager()
-    res = sim.get_latest_short_interest_data()
+    #res = sim.get_latest_short_interest_data()
+    res = sim.get_regsho_daily_short_to_csv('20210128', '20210129')
     for r in res:
         sub_dir = '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
         Utils.upload_file_to_gdrive(r, 'Daily Short Data')
