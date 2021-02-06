@@ -2,6 +2,7 @@ from tda.streaming import StreamClient
 import asyncio
 import pprint
 import importlib
+import json
 
 
 TCM = importlib.import_module('TdaClientManager').TdaClientManager
@@ -15,14 +16,19 @@ class OptionsFlowManager:
         self.watchlist = watchlist
         self.queue = asyncio.Queue(queue_size)  # For gathering client work
 
-        # Add handlers
-        self.tcm.stream.add_options_book_handler(self.handle_options_book)
+    def start_stream(self):
+        asyncio.get_event_loop().run_until_complete(self.read_stream())
 
-    async def start_stream(self):
+    async def read_stream(self):
 
         await self.tcm.stream.login()
         await self.tcm.stream.quality_of_service(StreamClient.QOSLevel.EXPRESS)
         await self.tcm.stream.options_book_subs(self.watchlist)
+
+        # Add handlers
+        self.tcm.stream.add_options_book_handler(self.handle_options_book)
+
+        print('Starting stream for {}'.format(','.join(self.watchlist)))
 
         asyncio.ensure_future(self.handle_queue())
 
@@ -42,12 +48,13 @@ class OptionsFlowManager:
             pprint.pprint(msg)
 
 
-async def main():
+def main():
 
-    symbols = ['TSLA']
+    symbols = ['AMC']
     ofm = OptionsFlowManager(symbols)
 
-    await ofm.start_stream()
+    ofm.start_stream()
+
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    main()

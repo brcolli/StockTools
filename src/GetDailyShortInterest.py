@@ -4,7 +4,6 @@ import importlib
 import numpy as np
 import pandas as pd
 from os import path
-from os import makedirs
 
 
 Utils = importlib.import_module('utilities').Utils
@@ -13,53 +12,6 @@ Sqm = importlib.import_module('SqliteManager').SqliteManager
 
 
 class ShortInterestManager:
-
-    @staticmethod
-    def get_full_path_from_file_date(file_date, file_prefix='', file_suffix=''):
-
-        dd = Utils.time_str_to_datetime(file_date)
-
-        # Get the weekly range
-        start, end = Utils.get_week_range(dd)
-
-        # If week range is split between years, pick the earlier year
-        file_year = start.year
-
-        # Check if year directory exists, and create if not
-        full_path = '../data/' + str(file_year) + '/'
-        if not path.exists(full_path):
-            makedirs(full_path)
-
-        # Add 0s to the front of months less than 10
-        if start.month < 10:
-            sm = '0' + str(start.month)
-        else:
-            sm = str(start.month)
-        if end.month < 10:
-            em = '0' + str(end.month)
-        else:
-            em = str(end.month)
-
-        # Add 0s to the front of days less than 10
-        if start.day < 10:
-            sd = '0' + str(start.day)
-        else:
-            sd = str(start.day)
-        if end.day < 10:
-            ed = '0' + str(end.day)
-        else:
-            ed = str(end.day)
-
-        # Check if weekly range directory exists, and create if not
-        file_week = sm + sd + '-' + em + ed
-        full_path += file_week + '/'
-        if not path.exists(full_path):
-            makedirs(full_path)
-
-        # Combine full path with filename
-        full_path += file_prefix + file_date + file_suffix
-
-        return full_path
 
     # Writes to file, but ignores added newlines
     @staticmethod
@@ -426,7 +378,7 @@ class ShortInterestManager:
         short_file_prefix = 'CNMSshvol'
 
         # Place files to correct subdirectories
-        out = self.get_full_path_from_file_date(ymd, short_file_prefix, '.csv')
+        out = Utils.get_full_path_from_file_date(ymd, short_file_prefix, '.csv')
 
         # Check if date already saved
         if path.exists(out):
@@ -444,7 +396,7 @@ class ShortInterestManager:
         for date in date_range:
 
             filename = short_file_prefix + date
-            out = self.get_full_path_from_file_date(date, short_file_prefix, '.csv')
+            out = Utils.get_full_path_from_file_date(date, short_file_prefix, '.csv')
 
             data = Utils.get_file_from_url(url, filename + '.txt')
             text = Utils.replace_line_to_comma(data)
@@ -458,7 +410,7 @@ class ShortInterestManager:
                 ymd = past_td
 
                 filename = short_file_prefix + past_td
-                out = self.get_full_path_from_file_date(past_td, short_file_prefix, '.csv')
+                out = Utils.get_full_path_from_file_date(past_td, short_file_prefix, '.csv')
 
                 data = Utils.get_file_from_url(url, filename + '.txt')
                 text = Utils.replace_line_to_comma(data)
