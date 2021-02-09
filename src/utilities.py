@@ -10,6 +10,7 @@ import fnmatch
 from pydrive.drive import GoogleDrive
 from pydrive.auth import GoogleAuth
 from io import StringIO
+import csv
 
 
 class Utils:
@@ -277,6 +278,15 @@ class Utils:
         full_path += file_prefix + file_date + file_suffix
 
         return full_path
+
+    @staticmethod
+    def get_tickers_from_csv(filename):
+
+        with open(filename) as f:
+            reader = csv.reader(f)
+            data = list(reader)
+
+        return [j for i in data for j in i]
 
     # Gets a file from a simple URL/FILE format
     @staticmethod

@@ -95,7 +95,8 @@ def get_nasdaq_trade_orders(tickers):
 
 def main():
 
-    tickers = ['AMC', 'AAPL']
+    #tickers = ['AMC', 'AAPL']
+    tickers = Utils.get_tickers_from_csv('../doc/sp-500.csv')
     data = get_nasdaq_trade_orders(tickers)
 
     # Iterate through tickers and write to csvs
