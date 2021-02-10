@@ -48,7 +48,8 @@ class ShortInterestManager:
 
         return vq[vk]['closePrice']
 
-    def get_past_short_vol(self, tickers, tcm, ymd, prev_date, prev_data, short_file_prefix):
+    @ staticmethod
+    def get_past_short_vol(tickers, tcm, prev_date, prev_data, short_file_prefix):
 
         # Get data from past if exists
         file_root = '../data/'
@@ -56,7 +57,7 @@ class ShortInterestManager:
 
         if files:
 
-            latest_data = self.get_full_path_from_file_date(prev_date, short_file_prefix, '.csv')
+            latest_data = Utils.get_full_path_from_file_date(prev_date, short_file_prefix, '.csv')
             latest_df = pd.read_csv(latest_data)
 
             try:
@@ -317,7 +318,7 @@ class ShortInterestManager:
 
         return dfs
 
-    def get_today_df(self, ymd, prev_day, texts, short_file_prefix):
+    def get_today_df(self, prev_day, texts, short_file_prefix):
 
         df = Utils.regsho_txt_to_df(texts[1])
         past_df = Utils.regsho_txt_to_df(texts[0])
@@ -364,7 +365,7 @@ class ShortInterestManager:
         fs_df = fs_df.loc[qs_syms]
         df = df.loc[qs_syms]
 
-        (prev_short_perc, prev_vol_perc) = self.get_past_short_vol(qs_syms, tcm, ymd, prev_day,
+        (prev_short_perc, prev_vol_perc) = self.get_past_short_vol(qs_syms, tcm, prev_day,
                                                                    past_df, short_file_prefix)
 
         df = self.update_short_df_with_data(df, qs_df, fs_df, prev_short_perc, prev_vol_perc)
@@ -424,7 +425,7 @@ class ShortInterestManager:
 
         # Check if date passed is current day. If not, cannot use quotes
         if Utils.is_it_today(ymd):
-            df = self.get_today_df(ymd, valid_dates[0], texts, short_file_prefix)
+            df = self.get_today_df(valid_dates[0], texts, short_file_prefix)
             Utils.write_dataframe_to_csv(df, outputs[1])
         else:
 
@@ -452,8 +453,8 @@ class ShortInterestManager:
 def main():
 
     sim = ShortInterestManager()
-    #res = sim.get_latest_short_interest_data()
-    res = sim.get_regsho_daily_short_to_csv('20210128', '20210129')
+    res = sim.get_latest_short_interest_data()
+
     for r in res:
         sub_dir = '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
         Utils.upload_file_to_gdrive(r, 'Daily Short Data')
