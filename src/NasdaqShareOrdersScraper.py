@@ -67,7 +67,7 @@ def get_nasdaq_trade_order(ticker):
         jdata = json.loads(data.text)
 
         # For invalid data requests
-        if jdata['data'] != 'None' and not jdata['data']['rows']:
+        if not jdata['data'] or not jdata['data']['rows']:
             repeating = True
             continue
 
@@ -95,15 +95,16 @@ def get_nasdaq_trade_orders(tickers):
 
 def main():
 
-    #tickers = ['AMC', 'AAPL']
-    tickers = Utils.get_tickers_from_csv('../doc/sp-500.csv')
+    tickers = ['TIF']
+    #tickers = Utils.get_tickers_from_csv('../doc/sp-500.csv')
     data = get_nasdaq_trade_orders(tickers)
 
     # Iterate through tickers and write to csvs
     for ticker in tickers:
 
         curr_date = Utils.datetime_to_time_str(datetime.datetime.today())
-        filename = Utils.get_full_path_from_file_date(curr_date, '{}_share_orders_'.format(ticker), '.csv')
+        filename = Utils.get_full_path_from_file_date(curr_date, '{}_share_orders_'.format(ticker),
+                                                      '.csv', '../data/Share Orders/')
 
         Utils.write_dataframe_to_csv(data[ticker], filename)
 

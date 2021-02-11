@@ -453,11 +453,12 @@ class ShortInterestManager:
 def main():
 
     sim = ShortInterestManager()
-    res = sim.get_latest_short_interest_data()
+    sim.load_short_interest_text_and_write_to_csv('../data/CNMSshvol20210209.txt')
+    #res = sim.get_latest_short_interest_data()
 
-    for r in res:
-        sub_dir = '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
-        Utils.upload_file_to_gdrive(r, 'Daily Short Data')
+    #for r in res:
+    #    sub_dir = '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
+    #    Utils.upload_file_to_gdrive(r, 'Daily Short Data')
 
 
 if __name__ == '__main__':

@@ -23,14 +23,41 @@
       <height>561</height>
      </rect>
     </property>
-    <widget class="QWidget" name="tab">
+    <property name="currentIndex">
+     <number>2</number>
+    </property>
+    <widget class="QWidget" name="main_tab">
      <attribute name="title">
-      <string>Tab 1</string>
+      <string>Main</string>
+     </attribute>
+     <widget class="QLabel" name="main_title_label">
+      <property name="geometry">
+       <rect>
+        <x>350</x>
+        <y>230</y>
+        <width>71</width>
+        <height>41</height>
+       </rect>
+      </property>
+      <property name="styleSheet">
+       <string notr="true">background-color: rgb(255, 204, 167);</string>
+      </property>
+      <property name="text">
+       <string>Stock Tools</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignCenter</set>
+      </property>
+     </widget>
+    </widget>
+    <widget class="QWidget" name="add_tab">
+     <attribute name="title">
+      <string>+</string>
      </attribute>
     </widget>
-    <widget class="QWidget" name="tab_2">
+    <widget class="QWidget" name="DailyShortInterest_tab">
      <attribute name="title">
-      <string>Tab 2</string>
+      <string>Daily Short Interest</string>
      </attribute>
     </widget>
    </widget>

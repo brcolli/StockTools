@@ -233,7 +233,7 @@ class Utils:
         return pd.read_csv(filename, index_col=[0])
 
     @staticmethod
-    def get_full_path_from_file_date(file_date, file_prefix='', file_suffix=''):
+    def get_full_path_from_file_date(file_date, file_prefix='', file_suffix='', root='../data/'):
 
         dd = Utils.time_str_to_datetime(file_date)
 
@@ -244,7 +244,7 @@ class Utils:
         file_year = start.year
 
         # Check if year directory exists, and create if not
-        full_path = '../data/' + str(file_year) + '/'
+        full_path = root + str(file_year) + '/'
         if not path.exists(full_path):
             makedirs(full_path)
 

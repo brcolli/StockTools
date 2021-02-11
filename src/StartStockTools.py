@@ -147,7 +147,7 @@ class QtManager:
             return f.read()
 
 
-if __name__ == '__main__':
+def main():
 
     modules = ['UpcomingEarningsScanner', 'TwitterSentimentAnalysis', 'OptionsFlow', 'GetDailyShortInterest']
     mod_imports = {}
@@ -157,3 +157,7 @@ if __name__ == '__main__':
     qtm = QtManager(mod_imports)
 
     qtm.run_app()
+
+
+if __name__ == '__main__':
+    main()
