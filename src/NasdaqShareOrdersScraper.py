@@ -96,6 +96,7 @@ def get_nasdaq_trade_orders(tickers):
 def main():
 
     curr_date = Utils.datetime_to_time_str(datetime.datetime.today())
+    #tickers = ['AAPL']
     tickers = Utils.get_tickers_from_csv('../doc/sp-500.csv')
     data = get_nasdaq_trade_orders(tickers)
 
