@@ -104,7 +104,7 @@ def main():
     for ticker in tickers:
 
         filename = Utils.get_full_path_from_file_date(curr_date, '{}_share_orders_'.format(ticker),
-                                                      '.csv', '../data/Share Orders/', True)
+                                                      '.csv', '../data/Nasdaq Share Order Flow/', True)
 
         Utils.write_dataframe_to_csv(data[ticker], filename)
 
