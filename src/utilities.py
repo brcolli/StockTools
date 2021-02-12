@@ -233,7 +233,7 @@ class Utils:
         return pd.read_csv(filename, index_col=[0])
 
     @staticmethod
-    def get_full_path_from_file_date(file_date, file_prefix='', file_suffix='', root='../data/'):
+    def get_full_path_from_file_date(file_date, file_prefix='', file_suffix='', root='../data/', do_daily=False):
 
         dd = Utils.time_str_to_datetime(file_date)
 
@@ -273,6 +273,13 @@ class Utils:
         full_path += file_week + '/'
         if not path.exists(full_path):
             makedirs(full_path)
+
+        # Split weekly directory into day directories
+        if do_daily:
+
+            full_path += file_date + '/'
+            if not path.exists(full_path):
+                makedirs(full_path)
 
         # Combine full path with filename
         full_path += file_prefix + file_date + file_suffix

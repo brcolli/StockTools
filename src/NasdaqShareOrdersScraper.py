@@ -95,16 +95,15 @@ def get_nasdaq_trade_orders(tickers):
 
 def main():
 
-    tickers = ['TIF']
-    #tickers = Utils.get_tickers_from_csv('../doc/sp-500.csv')
+    curr_date = Utils.datetime_to_time_str(datetime.datetime.today())
+    tickers = Utils.get_tickers_from_csv('../doc/sp-500.csv')
     data = get_nasdaq_trade_orders(tickers)
 
     # Iterate through tickers and write to csvs
     for ticker in tickers:
 
-        curr_date = Utils.datetime_to_time_str(datetime.datetime.today())
         filename = Utils.get_full_path_from_file_date(curr_date, '{}_share_orders_'.format(ticker),
-                                                      '.csv', '../data/Share Orders/')
+                                                      '.csv', '../data/Share Orders/', True)
 
         Utils.write_dataframe_to_csv(data[ticker], filename)
 
