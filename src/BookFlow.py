@@ -2,7 +2,6 @@ from tda.streaming import StreamClient
 import asyncio
 import pprint
 import importlib
-import json
 
 
 TCM = importlib.import_module('TdaClientManager').TdaClientManager

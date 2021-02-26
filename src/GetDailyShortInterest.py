@@ -9,6 +9,7 @@ from os import path
 Utils = importlib.import_module('utilities').Utils
 TCM = importlib.import_module('TdaClientManager').TdaClientManager
 Sqm = importlib.import_module('SqliteManager').SqliteManager
+Sdm = importlib.import_module('StockDataManager').StockDataManager
 
 
 class ShortInterestManager:
@@ -135,11 +136,12 @@ class ShortInterestManager:
         fs_df.replace(0, np.nan, inplace=True)
 
         # Populate with stats from saved table
-        stats_table = Sqm('../data/yahoo_stats.sqlite')
+        stats_table = Sqm('../data/Databases/yahoo_stats.sqlite')
         stats = pd.read_sql_query('SELECT * from fundamentals', stats_table.connection)
         stats = stats.set_index('Symbol')
 
         fs_df['Floats'] = stats['Floats']
+        fs_df['sector'] = stats['sector']
 
         return fs_df
 
@@ -161,6 +163,7 @@ class ShortInterestManager:
             temp = {}
             vc = -1
             vd = valid_dates[i]
+
             # Convert current valid date to epoch milli time
             et = Utils.datetime_to_epoch(Utils.time_str_to_datetime(vd))
             defaults = {'open': 0, 'close': 0, 'volume': 0, 'datetime': et}
@@ -205,6 +208,7 @@ class ShortInterestManager:
 
         # Fill in some quote columns
         df['Exchange'] = fs['exchange']
+        df['Sector'] = fs['sector']
         df['Total Volume'] = qs['totalVolume']
         df['Open'] = qs['openPrice']
         df['Close'] = qs['regularMarketLastPrice']
@@ -279,7 +283,7 @@ class ShortInterestManager:
 
         return df
 
-    def get_past_df(self, valid_dates, texts):
+    def get_past_df(self, valid_dates, texts, tickers=None):
 
         tcm = TCM()
         ps_dfs = None
@@ -292,7 +296,9 @@ class ShortInterestManager:
             df = Utils.regsho_txt_to_df(text)
 
             # Get list of tickers, separated into even chunks by TDA limiter
-            tickers = df['Symbol'].tolist()
+            if not tickers:
+                tickers = df['Symbol'].tolist()
+
             tick_limit = 300  # TDA's limit for basic query
             tickers_chunks = [tickers[t:t + tick_limit] for t in range(0, len(tickers), tick_limit)]
 
@@ -318,13 +324,15 @@ class ShortInterestManager:
 
         return dfs
 
-    def get_today_df(self, prev_day, texts, short_file_prefix):
+    def get_today_df(self, prev_day, texts, short_file_prefix, tickers=None):
 
         df = Utils.regsho_txt_to_df(texts[1])
         past_df = Utils.regsho_txt_to_df(texts[0])
 
         # Get list of tickers, separated into even chunks by TDA limiter
-        tickers = df['Symbol'].tolist()
+        if not tickers:
+            tickers = df['Symbol'].tolist()
+
         tick_limit = 300  # TDA's limit for basic query
         tickers_chunks = [tickers[t:t + tick_limit] for t in range(0, len(tickers), tick_limit)]
 
@@ -372,18 +380,8 @@ class ShortInterestManager:
 
         return df
 
-    # Gets file from regsho consolidated short interest using a YYYYMMDD format and write to csv
-    def get_regsho_daily_short_to_csv(self, ymd, ymd2=''):
-
-        url = 'http://regsho.finra.org'
-        short_file_prefix = 'CNMSshvol'
-
-        # Place files to correct subdirectories
-        out = Utils.get_full_path_from_file_date(ymd, short_file_prefix, '.csv')
-
-        # Check if date already saved
-        if path.exists(out):
-            return [out]
+    @staticmethod
+    def get_regsho_csvs_from_dates(short_file_prefix, url, ymd, ymd2=''):
 
         outputs = []
         valid_dates = []
@@ -420,6 +418,23 @@ class ShortInterestManager:
             texts.append(text)
             outputs.append(out)
 
+        return ymd, valid_dates, texts, outputs
+
+    # Gets file from regsho consolidated short interest using a YYYYMMDD format and write to csv
+    def get_regsho_daily_short_to_csv(self, ymd, ymd2=''):
+
+        url = 'http://regsho.finra.org'
+        short_file_prefix = 'CNMSshvol'
+
+        # Place files to correct subdirectories
+        out = Utils.get_full_path_from_file_date(ymd, short_file_prefix, '.csv')
+
+        # Check if date already saved
+        if path.exists(out):
+            return [out]
+
+        (ymd, valid_dates, texts, outputs) = self.get_regsho_csvs_from_dates(short_file_prefix, url, ymd, ymd2)
+
         if not outputs:
             return ['']
 
@@ -449,16 +464,63 @@ class ShortInterestManager:
 
         self.load_short_interest_text_and_write_to_csv(f_name)
 
+    def get_largest_gainers_from_range(self, ymd1, ymd2, tickers=None, threshold=10):
+
+        url = 'http://regsho.finra.org'
+        short_file_prefix = 'CNMSshvol'
+
+        (_, valid_dates, texts, _) = self.get_regsho_csvs_from_dates(short_file_prefix, url, ymd1, ymd2)
+
+        if not tickers:
+            dfs = self.get_past_df(valid_dates, texts)
+        else:
+            dfs = self.get_past_df(valid_dates, texts, tickers)
+
+        first_pass = True
+        prev_date = -1
+        gainers = []
+        for key, val in dfs.items():
+
+            # Skip first entry
+            if first_pass:
+                first_pass = False
+                continue
+
+            if prev_date == -1:
+                prev_date = key
+                continue
+
+            for row, cols in val.iterrows():
+
+                prev_data = dfs[prev_date]
+
+                # Check if change is greater than the threshold
+                if cols['Close % Delta'] * 100 >= threshold and row in prev_data.index:
+
+                    # Only add if the previous data had a change of less than 3%
+                    if abs(prev_data.loc[row]['Close % Delta'] * 100) < 3:
+                        gainer = {'Symbol': row}  # Add symbol to data
+                        gainer.update(prev_data.loc[row].to_dict())
+                        gainers.append(gainer)
+
+            prev_date = key
+
+        # Write results to csv output
+        Utils.write_list_of_dicts_to_csv(gainers, '../data/Next Day Pop.csv')
+
+        return gainers
+
 
 def main():
 
     sim = ShortInterestManager()
-    sim.load_short_interest_text_and_write_to_csv('../data/CNMSshvol20210209.txt')
-    #res = sim.get_latest_short_interest_data()
+    #sim.get_largest_gainers_from_range('20200211', '20210211')
+    #sim.load_short_interest_text_and_write_to_csv('../data/CNMSshvol20210209.txt')
+    res = sim.get_latest_short_interest_data()
 
-    #for r in res:
-    #    sub_dir = '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
-    #    Utils.upload_file_to_gdrive(r, 'Daily Short Data')
+    for r in res:
+        sub_dir = '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
+        Utils.upload_file_to_gdrive(r, 'Daily Short Data')
 
 
 if __name__ == '__main__':

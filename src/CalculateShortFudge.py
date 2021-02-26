@@ -279,7 +279,7 @@ def export_ticker_stats(tickers, short_stats):
 
 def main():
 
-    sqlite_table = '../data/nasdaq_shorts.sqlite'
+    sqlite_table = '../data/Databases/nasdaq_shorts.sqlite'
 
     # Check if table already saved
     if not path.exists(sqlite_table):

@@ -11,6 +11,7 @@ from pydrive.drive import GoogleDrive
 from pydrive.auth import GoogleAuth
 from io import StringIO
 import csv
+import re
 
 
 class Utils:
@@ -187,6 +188,10 @@ class Utils:
 
     @staticmethod
     def reformat_time_str(time_str):
+
+        if '-' in time_str:
+            return datetime.datetime.strptime(time_str, "%d-%m-%Y").strftime("%Y%m%d")
+
         return datetime.datetime.strptime(time_str, "%m/%d/%Y").strftime("%Y%m%d")
 
     @staticmethod
@@ -210,10 +215,32 @@ class Utils:
     def epoch_to_datetime(epoch):
         return datetime.datetime.utcfromtimestamp(epoch / 1000)
 
+    @staticmethod
+    def write_list_of_dicts_to_csv(data, filename):
+
+        if not data:
+            print('Data is empty. Please try again.')
+        else:
+            print('Writing data to ' + filename + '...')
+
+            # Attempt to write to csv
+            try:
+
+                with open(filename, 'w', newline='') as f:
+
+                    header = list(data[0].keys())
+                    writer = csv.DictWriter(f, fieldnames=header)
+
+                    writer.writeheader()
+                    for row in data:
+                        writer.writerow(row)
+            except:
+                print('Could not open ' + filename + '. Is the file open?')
+
+
     '''
     Writes a pandas DataFrame to a csv
     '''
-
     @staticmethod
     def write_dataframe_to_csv(df, filename):
 
@@ -351,3 +378,11 @@ class Utils:
                 return num_base * 1E9
             else:
                 return num_base
+
+    @staticmethod
+    def get_matches_from_regex(text, pattern):
+        m = re.search(pattern, text)
+        if m:
+            return m.groups()
+        else:
+            return ()

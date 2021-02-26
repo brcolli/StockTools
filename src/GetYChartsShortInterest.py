@@ -185,7 +185,7 @@ def get_shorts_from_ycharts_sqlite(ycharts_table):
 
 def main():
 
-    sqlite_table = '../data/ychart_shorts.sqlite'
+    sqlite_table = '../data/Databases/ychart_shorts.sqlite'
 
     # Check if table already saved
     if not path.exists(sqlite_table):

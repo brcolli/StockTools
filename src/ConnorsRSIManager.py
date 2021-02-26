@@ -86,7 +86,7 @@ def main(momentum_period, trend_period, relation_period):
         print('Relational trend period must be the largest of the trend values')
         return
 
-    rsi_table = '../data/connors_rsi.sqlite'
+    rsi_table = '../data/Databases/connors_rsi.sqlite'
     tcm = TCM()
 
     # Check if table already saved

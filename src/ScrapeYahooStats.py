@@ -3,6 +3,7 @@ import importlib
 import json
 from os import path
 import time
+import yfinance
 
 
 Utils = importlib.import_module('utilities').Utils
@@ -65,13 +66,35 @@ def create_table_from_yahoo_stats(stats_table, yahoo_stats):
         stats_table.execute_query(q)
 
 
+def add_sector_column_to_fundamentals(stats_table, tickers):
+
+    # Collect sector data from yfinance
+    data = []
+    for ticker in tickers:
+
+        print('Getting sector data for {}'.format(ticker))
+        t = yfinance.Ticker(ticker)
+
+        try:
+            sector = t.info['sector']
+        except Exception as e:
+
+            if e == KeyError:
+                sector = t.info['quoteType']
+            else:
+                sector = 'Unknown'
+
+        data.append((sector, ticker))
+
+    stats_table.add_new_column_with_data('fundamentals', 'Symbol', 'sector', 'TEXT', data)
+
+
 def main():
 
-    yahoo_table = '../data/yahoo_stats.sqlite'
+    yahoo_table = '../data/Databases/yahoo_stats.sqlite'
+    tickers = Utils.get_all_tickers('20201201')
 
     if not path.exists(yahoo_table):
-
-        tickers = Utils.get_all_tickers('20201201')
 
         yahoo_stats = get_yahoo_stats_for_tickers(tickers)
 
@@ -79,6 +102,11 @@ def main():
         stats_table = Sqm(yahoo_table)
 
         create_table_from_yahoo_stats(stats_table, yahoo_stats)
+
+    else:
+        stats_table = Sqm(yahoo_table)
+
+    add_sector_column_to_fundamentals(stats_table, tickers)
 
 
 if __name__ == '__main__':
