@@ -146,14 +146,36 @@ class ShortInterestManager:
         return fs_df
 
     @staticmethod
-    def generate_past_df(tcm, tickers, valid_dates):
+    def generate_past_df(short_file_prefix, tcm, tickers, valid_dates):
 
         # Add VIX to tickers list
         vk = '$VIX.X'
         tickers = tickers + [vk]
 
-        ps = tcm.get_past_history(tickers, Utils.time_str_to_datetime(valid_dates[0]),
-                                  Utils.time_str_to_datetime(valid_dates[-1]))
+        # Go through each valid date to check if the csv is saved. If all dates are saved, don't call TD API
+        not_all_done = False
+        ps = {}
+        for vd in valid_dates:
+
+            file_root = '../data/'
+            files = Utils.find_file_pattern(short_file_prefix + vd + '*', file_root, recurse=True)
+
+            # Either check if csv is found for date or the last day in array matches most recent trading day
+            if files:
+
+                vd_df = pd.read_csv(files[0])
+                ps[vd] = {'open': vd_df['Open'], 'close': vd_df['Close'],
+                          'volume': vd_df['Total Volume'], 'datetime': Utils.time_str_to_datetime(vd_df['Date'])}
+
+            elif vd == valid_dates[-1] and vd == Utils.datetime_to_time_str(Utils.get_last_trading_day()):
+                ps[vd] = tcm.get_quotes_from_tda(tickers)
+            else:
+                # If even one date fails, call all get_past_history
+                not_all_done = True
+
+        if not_all_done:
+            ps = tcm.get_past_history(tickers, Utils.time_str_to_datetime(valid_dates[0]),
+                                      Utils.time_str_to_datetime(valid_dates[-1]))
 
         # Sort into a dictionary of historical data dataframes
         ps_dfs = {}
@@ -177,7 +199,6 @@ class ShortInterestManager:
                     val.insert(i, curr_ticker_data)
 
                 # Check if date matches the order of valid dates
-
                 if Utils.datetime_to_time_str(Utils.epoch_to_datetime(curr_ticker_data['datetime'])) != vd:
                     curr_ticker_data = defaults
                     val.insert(i, curr_ticker_data)
@@ -283,7 +304,7 @@ class ShortInterestManager:
 
         return df
 
-    def get_past_df(self, valid_dates, texts, tickers=None):
+    def get_past_df(self, short_file_prefix, valid_dates, texts, tickers=None):
 
         tcm = TCM()
         ps_dfs = None
@@ -303,7 +324,7 @@ class ShortInterestManager:
             tickers_chunks = [tickers[t:t + tick_limit] for t in range(0, len(tickers), tick_limit)]
 
             if ps_dfs is None:
-                ps_dfs = self.generate_past_df(tcm, tickers, valid_dates)
+                ps_dfs = self.generate_past_df(short_file_prefix, tcm, tickers, valid_dates)
 
             # Set new index
             df = df.set_index('Symbol')
@@ -444,7 +465,7 @@ class ShortInterestManager:
             Utils.write_dataframe_to_csv(df, outputs[1])
         else:
 
-            dfs = self.get_past_df(valid_dates, texts)
+            dfs = self.get_past_df(short_file_prefix, valid_dates, texts)
             for i in range(1, len(outputs)):
                 Utils.write_dataframe_to_csv(dfs[valid_dates[i]], outputs[i])
 
@@ -472,9 +493,9 @@ class ShortInterestManager:
         (_, valid_dates, texts, _) = self.get_regsho_csvs_from_dates(short_file_prefix, url, ymd1, ymd2)
 
         if not tickers:
-            dfs = self.get_past_df(valid_dates, texts)
+            dfs = self.get_past_df(short_file_prefix, valid_dates, texts)
         else:
-            dfs = self.get_past_df(valid_dates, texts, tickers)
+            dfs = self.get_past_df(short_file_prefix, valid_dates, texts, tickers)
 
         first_pass = True
         prev_date = -1
@@ -514,13 +535,14 @@ class ShortInterestManager:
 def main():
 
     sim = ShortInterestManager()
-    #sim.get_largest_gainers_from_range('20200211', '20210211')
+    res = sim.get_regsho_daily_short_to_csv('20210222', '20210226')
+    #res = sim.get_largest_gainers_from_range('20210226')
     #sim.load_short_interest_text_and_write_to_csv('../data/CNMSshvol20210209.txt')
-    res = sim.get_latest_short_interest_data()
+    #res = sim.get_latest_short_interest_data()
 
     for r in res:
         sub_dir = '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
-        Utils.upload_file_to_gdrive(r, 'Daily Short Data')
+        #Utils.upload_file_to_gdrive(r, 'Daily Short Data')
 
 
 if __name__ == '__main__':

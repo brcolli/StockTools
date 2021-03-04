@@ -31,19 +31,20 @@ class ScheduleManager:
         d_lower = datetime.datetime.strptime(dtime_lower, '%H:%M').time()
         d_upper = datetime.datetime.strptime(dtime_upper, '%H:%M').time()
 
+        next_run_date = datetime.datetime.today()
+
         while True:
 
             schedule.run_pending()
-            time.sleep(1800)  # Only check every 30 minutes
+            time.sleep(1)  # Only check every 30 minutes
 
             n = datetime.datetime.now()
             curr_time = n.time()
 
-            next_run_date = schedule.next_run()
-
-            if d_lower < curr_time < d_upper and n < next_run_date:
+            if d_lower < curr_time < d_upper and n.date() == next_run_date.date():
                 schedule.run_all()
-                break
+
+            next_run_date = schedule.next_run()
 
 
 def main():
