@@ -300,6 +300,7 @@ class ShortInterestManager:
 
         # Fill in some data columns
         df['Exchange'] = fs['exchange']
+        df['Sector'] = fs['sector']
         df['Total Volume'] = curr_data['volume']
         df['Open'] = curr_data['open']
         df['Close'] = curr_data['close']
