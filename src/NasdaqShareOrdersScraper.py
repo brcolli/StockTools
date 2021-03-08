@@ -100,7 +100,7 @@ class NasdaqShareOrdersManager:
             curr_date = Utils.datetime_to_time_str(datetime.datetime.today())
 
         if not tickers:
-            tickers = Utils.get_tickers_from_csv('../doc/sp-500.csv')[:2]
+            tickers = Utils.get_tickers_from_csv('../doc/sp-500.csv')
 
         data = self.get_nasdaq_trade_orders(tickers)
 
