@@ -42,6 +42,14 @@ class ShortInterestManager:
         return Utils.datetime_to_time_str(Utils.get_last_trading_day())
 
     @staticmethod
+    def get_optimal_past_history(tcm, tickers, start_date, end_date=None):
+
+        # Try to pull data from the database first
+        ps = tcm.get_past_history(tickers, start_date, end_date)
+
+        return ps
+
+    @staticmethod
     def get_vix_close(tcm):
 
         vk = '$VIX.X'
@@ -49,8 +57,7 @@ class ShortInterestManager:
 
         return vq[vk]['closePrice']
 
-    @ staticmethod
-    def get_past_short_vol(tickers, tcm, prev_date, prev_data, short_file_prefix):
+    def get_past_short_vol(self, tickers, tcm, prev_date, prev_data, short_file_prefix):
 
         # Get data from past if exists
         file_root = '../data/'
@@ -77,7 +84,7 @@ class ShortInterestManager:
         else:
 
             prev_datetime = Utils.time_str_to_datetime(prev_date)
-            th = tcm.get_past_history(tickers, prev_datetime)
+            th = self.get_optimal_past_history(tcm, tickers, prev_datetime)
 
             prev_data = prev_data.loc[tickers]
 
@@ -145,8 +152,7 @@ class ShortInterestManager:
 
         return fs_df
 
-    @staticmethod
-    def generate_past_df(short_file_prefix, tcm, tickers, valid_dates):
+    def generate_past_df(self, short_file_prefix, tcm, tickers, valid_dates):
 
         # Add VIX to tickers list
         vk = '$VIX.X'
@@ -164,18 +170,39 @@ class ShortInterestManager:
             if files:
 
                 vd_df = pd.read_csv(files[0])
-                ps[vd] = {'open': vd_df['Open'], 'close': vd_df['Close'],
-                          'volume': vd_df['Total Volume'], 'datetime': Utils.time_str_to_datetime(vd_df['Date'])}
+
+                # Rename some columns
+                vd_df = vd_df.rename(columns={'Open': 'open', 'Close': 'close', 'Total Volume': 'volume',
+                                              'Date': 'datetime'})
+                vd_df = vd_df.set_index('Symbol')
+                ps[vd] = pd.DataFrame(vd_df)
 
             elif vd == valid_dates[-1] and vd == Utils.datetime_to_time_str(Utils.get_last_trading_day()):
-                ps[vd] = tcm.get_quotes_from_tda(tickers)
+
+                # Combine tickers into chunks
+                tick_limit = 300  # TDA's limit for basic query
+                tickers_chunks = [tickers[t:t + tick_limit] for t in range(0, len(tickers), tick_limit)]
+
+                quotes = tcm.get_quotes_from_tda(tickers_chunks)
+
+                vd_df = pd.DataFrame(quotes).transpose()  # Convert to dataframe
+                vd_df = self.cleanup_quotes_df(tcm, vd_df)
+
+                # Reformat to dataframe
+                temp = {'open': vd_df['openPrice'], 'close': vd_df['closePrice'],
+                        'volume': vd_df['totalVolume'],
+                        'datetime': vd,
+                        'VIX Close': 'VIX Close', 'Symbol': 'Symbol'}
+                ps[vd] = pd.DataFrame(temp)
             else:
                 # If even one date fails, call all get_past_history
                 not_all_done = True
 
-        if not_all_done:
-            ps = tcm.get_past_history(tickers, Utils.time_str_to_datetime(valid_dates[0]),
-                                      Utils.time_str_to_datetime(valid_dates[-1]))
+        if not not_all_done:
+            return ps
+
+        ps = self.get_optimal_past_history(tcm, tickers, Utils.time_str_to_datetime(valid_dates[0]),
+                                           Utils.time_str_to_datetime(valid_dates[-1]))
 
         # Sort into a dictionary of historical data dataframes
         ps_dfs = {}
@@ -256,7 +283,7 @@ class ShortInterestManager:
         df = df.fillna(0)
 
         # Rename some columns
-        df.rename(columns={'ShortVolume': 'Shares Traded Short'})
+        df = df.rename(columns={'ShortVolume': 'Shares Traded Short', 'TotalVolume': 'Finra Volume'})
 
         return df
 
@@ -300,7 +327,7 @@ class ShortInterestManager:
         df = df.fillna(0)
 
         # Rename some columns
-        df.rename(columns={'ShortVolume': 'Shares Traded Short'})
+        df = df.rename(columns={'ShortVolume': 'Shares Traded Short', 'TotalVolume': 'Finra Volume'})
 
         return df
 
@@ -535,14 +562,13 @@ class ShortInterestManager:
 def main():
 
     sim = ShortInterestManager()
-    res = sim.get_regsho_daily_short_to_csv('20210222', '20210226')
     #res = sim.get_largest_gainers_from_range('20210226')
     #sim.load_short_interest_text_and_write_to_csv('../data/CNMSshvol20210209.txt')
-    #res = sim.get_latest_short_interest_data()
+    res = sim.get_latest_short_interest_data()
 
     for r in res:
         sub_dir = '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
-        #Utils.upload_file_to_gdrive(r, 'Daily Short Data')
+        Utils.upload_file_to_gdrive(r, 'Daily Short Data')
 
 
 if __name__ == '__main__':

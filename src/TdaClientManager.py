@@ -86,6 +86,10 @@ class TdaClientManager:
 
                 data = r.json()
 
+                if not data:
+                    print('{} quote data not found.'.format(tickers))
+                    break
+
                 first_key = list(data.keys())
                 first_key = first_key[0]
 

@@ -123,7 +123,7 @@ class Utils:
 
     @staticmethod
     def get_last_trading_day():
-        return datetime.datetime.today() - datetime.timedelta(days=1) + Utils.BDay
+        return datetime.datetime.today() - Utils.BDay
 
     @staticmethod
     def get_proper_date_format(date):
@@ -199,6 +199,8 @@ class Utils:
 
         if '/' in time_str:
             return datetime.datetime.strptime(time_str, '%Y/%m/%d')
+        elif '-' in time_str:
+            return datetime.datetime.strptime(time_str, '%d-%m-%Y')
         else:
             return datetime.datetime.strptime(time_str, '%Y%m%d')
 

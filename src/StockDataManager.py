@@ -137,8 +137,17 @@ class StockDataManager:
                 # Get remainder of data and add to table, if parsed correctly
                 line_data = lines[2:]
                 data = []
+                last_updated_date = Utils.time_str_to_datetime(self.database.get_last_row('[{}]'.format(symbol),
+                                                                                          'Date')[0])
+
                 for i in line_data:
+
                     clean = i.replace('\n', '').replace('null', '-1').split(',')  # Replace newlines and nulls
+
+                    # If the date is older than or equal to the oldest date in the datebase, skip
+                    if Utils.time_str_to_datetime(clean[0]) <= last_updated_date:
+                        continue
+
                     data.append((Utils.reformat_time_str(clean[0]), clean[1], clean[2], clean[3], clean[4],
                                  clean[5], clean[6]))
 
