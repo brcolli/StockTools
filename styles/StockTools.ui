@@ -24,7 +24,7 @@
      </rect>
     </property>
     <property name="currentIndex">
-     <number>2</number>
+     <number>3</number>
     </property>
     <widget class="QWidget" name="main_tab">
      <attribute name="title">
@@ -55,10 +55,41 @@
       <string>+</string>
      </attribute>
     </widget>
+    <widget class="QWidget" name="NasdaqShareOrders_tab">
+     <attribute name="title">
+      <string>Nasdaq Share Orders</string>
+     </attribute>
+     <widget class="QPushButton" name="GetNasdaqShareOrdersButton">
+      <property name="geometry">
+       <rect>
+        <x>310</x>
+        <y>230</y>
+        <width>101</width>
+        <height>17</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Nasadq Share Orders</string>
+      </property>
+     </widget>
+    </widget>
     <widget class="QWidget" name="DailyShortInterest_tab">
      <attribute name="title">
       <string>Daily Short Interest</string>
      </attribute>
+     <widget class="QPushButton" name="getLatestDailyShortInterestButton">
+      <property name="geometry">
+       <rect>
+        <x>310</x>
+        <y>230</y>
+        <width>141</width>
+        <height>17</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Get Latest Daily Short Interest</string>
+      </property>
+     </widget>
     </widget>
    </widget>
   </widget>

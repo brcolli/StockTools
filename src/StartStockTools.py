@@ -1,8 +1,11 @@
+import sys
 import importlib
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLineEdit, QTabWidget, QLabel
-from PyQt5.QtGui import QPalette, QColor
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLineEdit, QLabel, QMainWindow
 
+
+StockToolsUI = importlib.import_module('StockToolsUI').Ui_MainWindow
+SIM = importlib.import_module('GetDailyShortInterest').ShortInterestManager
+NSO = importlib.import_module('NasdaqShareOrdersScraper').NasdaqShareOrdersManager
 
 ##################################
 # Class controllers for each tab #
@@ -84,79 +87,36 @@ class ShortInterestParser(QWidget):
 ############################
 
 
-class QtManager:
+class QtManager(QMainWindow, StockToolsUI):
 
-    def __init__(self, imports):
+    def __init__(self, parent=None):
 
-        self.app = QApplication([])
-        self.window = QWidget()
+        super().__init__(parent)
 
-        # Set window look
-        self.window.setWindowTitle('Stock Tools')
-        self.window.setFixedSize(1500, 1000)
-        self.set_dark_theme()
+        self.setupUi(self)
+        self.connectSignalsSlots()
 
-        ###########################
-        # Add tabs and style them #
-        ###########################
+    def connectSignalsSlots(self):
 
-        vbox = QVBoxLayout()
+        self.getLatestDailyShortInterestButton.clicked.connect(self.triggerGetLatestDailyShortInterest)
+        self.GetNasdaqShareOrdersButton.clicked.connect(self.triggerGetNasdaqShareOrders)
 
-        ts = self.return_stylesheet('../styles/dark_tabs.css')
+    def triggerGetLatestDailyShortInterest(self):
+        sim = SIM()
+        sim.get_latest_short_interest_data()
 
-        tab_widget = QTabWidget()
-        tab_widget.setAutoFillBackground(True)
-        tab_widget.setStyleSheet(ts)
-
-        tab_widget.addTab(UpComingEarningsScannerTab(imports['UpcomingEarningsScanner']), 'Upcoming Earnings Scanner')
-        tab_widget.addTab(TwitterSentimentAnalysis(), 'Twitter Sentiment Analysis')
-        tab_widget.addTab(ShortInterestParser(), 'Short Interest Parser')
-
-        vbox.addWidget(tab_widget)
-
-        # Add widget layout to window
-        self.window.setLayout(vbox)
-
-    def run_app(self):
-        self.window.show()
-        self.app.exec_()
-
-    def set_dark_theme(self):
-
-        dark_palette = QPalette()
-
-        dark_palette.setColor(QPalette.Window, QColor(53, 53, 53))
-        dark_palette.setColor(QPalette.WindowText, Qt.darkRed)
-        dark_palette.setColor(QPalette.Base, QColor(25, 25, 25))
-        dark_palette.setColor(QPalette.AlternateBase, QColor(53, 53, 53))
-        dark_palette.setColor(QPalette.ToolTipBase, Qt.white)
-        dark_palette.setColor(QPalette.ToolTipText, Qt.white)
-        dark_palette.setColor(QPalette.Text, Qt.darkRed)
-        dark_palette.setColor(QPalette.Button, QColor(53, 53, 53))
-        dark_palette.setColor(QPalette.ButtonText, Qt.darkRed)
-        dark_palette.setColor(QPalette.BrightText, Qt.red)
-        dark_palette.setColor(QPalette.Link, QColor(42, 130, 218))
-        dark_palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
-        dark_palette.setColor(QPalette.HighlightedText, Qt.black)
-
-        self.app.setPalette(dark_palette)
-
-    @staticmethod
-    def return_stylesheet(filename):
-        with open(filename, 'r') as f:
-            return f.read()
+    def triggerGetNasdaqShareOrders(self):
+        nso = NSO()
+        nso.write_nasdaq_trade_orders()
 
 
 def main():
 
-    modules = ['UpcomingEarningsScanner', 'TwitterSentimentAnalysis', 'OptionsFlow', 'GetDailyShortInterest']
-    mod_imports = {}
-    for mod in modules:
-        mod_imports[mod] = importlib.import_module(mod)
+    app = QApplication(sys.argv)
+    qtm = QtManager()
 
-    qtm = QtManager(mod_imports)
-
-    qtm.run_app()
+    qtm.show()
+    sys.exit(app.exec_())
 
 
 if __name__ == '__main__':

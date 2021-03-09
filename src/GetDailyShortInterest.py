@@ -503,7 +503,9 @@ class ShortInterestManager:
 
     # Call function to write latest trading day's short interest to a csv
     def get_latest_short_interest_data(self):
+
         ltd = self.get_latest_trading_day()
+
         return self.get_regsho_daily_short_to_csv(ltd)
 
     def import_short_interest_text_from_selection(self):
