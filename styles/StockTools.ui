@@ -6,66 +6,167 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
-    <height>600</height>
+    <width>415</width>
+    <height>449</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QTabWidget" name="tabWidget">
+   <widget class="QTabWidget" name="upcomingEarningsScanner_tab">
     <property name="geometry">
      <rect>
       <x>0</x>
       <y>0</y>
-      <width>791</width>
-      <height>561</height>
+      <width>411</width>
+      <height>421</height>
      </rect>
     </property>
     <property name="currentIndex">
-     <number>3</number>
+     <number>0</number>
     </property>
-    <widget class="QWidget" name="main_tab">
+    <widget class="QWidget" name="DailyShortInterest_tab">
      <attribute name="title">
-      <string>Main</string>
+      <string>Daily Short Interest</string>
      </attribute>
-     <widget class="QLabel" name="main_title_label">
+     <widget class="QPushButton" name="getDailyShortInterestButton">
       <property name="geometry">
        <rect>
-        <x>350</x>
-        <y>230</y>
-        <width>71</width>
+        <x>10</x>
+        <y>130</y>
+        <width>161</width>
+        <height>21</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Get Daily Short Interest</string>
+      </property>
+      <property name="autoDefault">
+       <bool>false</bool>
+      </property>
+     </widget>
+     <widget class="QLabel" name="dailyShortInterestStartDateLabel">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>30</y>
+        <width>81</width>
         <height>41</height>
        </rect>
       </property>
-      <property name="styleSheet">
-       <string notr="true">background-color: rgb(255, 204, 167);</string>
+      <property name="font">
+       <font>
+        <pointsize>12</pointsize>
+       </font>
       </property>
       <property name="text">
-       <string>Stock Tools</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignCenter</set>
+       <string>Start Date</string>
       </property>
      </widget>
-    </widget>
-    <widget class="QWidget" name="add_tab">
-     <attribute name="title">
-      <string>+</string>
-     </attribute>
+     <widget class="QLineEdit" name="dailyShortInterestStartDate">
+      <property name="geometry">
+       <rect>
+        <x>90</x>
+        <y>40</y>
+        <width>113</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>10</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="placeholderText">
+       <string>YYYYMMDD</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="dailyShortInterestNotesLabel">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>10</y>
+        <width>271</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>10</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>Note: Leave start date blank to get most recent trading day.</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="dailyShortInterestEndDateLabel">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>80</y>
+        <width>71</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>12</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>End Date</string>
+      </property>
+     </widget>
+     <widget class="QLineEdit" name="dailyShortInterestEndDate">
+      <property name="geometry">
+       <rect>
+        <x>90</x>
+        <y>80</y>
+        <width>113</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>10</pointsize>
+       </font>
+      </property>
+      <property name="placeholderText">
+       <string>YYYYMMDD</string>
+      </property>
+     </widget>
+     <widget class="QCheckBox" name="dailyShortInterestUploadToDriveCheck">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>110</y>
+        <width>171</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Upload to Google Drive</string>
+      </property>
+      <property name="checked">
+       <bool>true</bool>
+      </property>
+     </widget>
     </widget>
     <widget class="QWidget" name="NasdaqShareOrders_tab">
      <attribute name="title">
       <string>Nasdaq Share Orders</string>
      </attribute>
-     <widget class="QPushButton" name="GetNasdaqShareOrdersButton">
+     <widget class="QPushButton" name="getNasdaqShareOrdersButton">
       <property name="geometry">
        <rect>
-        <x>310</x>
-        <y>230</y>
-        <width>101</width>
-        <height>17</height>
+        <x>10</x>
+        <y>10</y>
+        <width>121</width>
+        <height>21</height>
        </rect>
       </property>
       <property name="text">
@@ -73,21 +174,225 @@
       </property>
      </widget>
     </widget>
-    <widget class="QWidget" name="DailyShortInterest_tab">
+    <widget class="QWidget" name="tab">
      <attribute name="title">
-      <string>Daily Short Interest</string>
+      <string>Upcoming Earnings Scanner</string>
      </attribute>
-     <widget class="QPushButton" name="getLatestDailyShortInterestButton">
+     <widget class="QLabel" name="upcomingEarningsMinVolLabel">
       <property name="geometry">
        <rect>
-        <x>310</x>
-        <y>230</y>
+        <x>10</x>
+        <y>20</y>
+        <width>131</width>
+        <height>21</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>12</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>Minimum Volume</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="upcomingEarningsMinMCapLabel">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>40</y>
+        <width>151</width>
+        <height>21</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>12</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>Minimum Market Cap</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="upcomingEarningsMinLastCloseLabel">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>60</y>
+        <width>151</width>
+        <height>21</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>12</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>Minimum Last Closed Price</string>
+      </property>
+     </widget>
+     <widget class="QLineEdit" name="upcomingEarningsMinVol">
+      <property name="geometry">
+       <rect>
+        <x>170</x>
+        <y>20</y>
+        <width>113</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>10</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="placeholderText">
+       <string>1E6</string>
+      </property>
+     </widget>
+     <widget class="QLineEdit" name="upcomingEarningsMinMCap">
+      <property name="geometry">
+       <rect>
+        <x>170</x>
+        <y>40</y>
+        <width>113</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>10</pointsize>
+       </font>
+      </property>
+      <property name="placeholderText">
+       <string>3E8</string>
+      </property>
+     </widget>
+     <widget class="QLineEdit" name="upcomingEarningsMinLastClose">
+      <property name="geometry">
+       <rect>
+        <x>170</x>
+        <y>60</y>
+        <width>113</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>10</pointsize>
+       </font>
+      </property>
+      <property name="placeholderText">
+       <string>10</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="UpcomingEarningsStartDateLabel">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>110</y>
+        <width>81</width>
+        <height>41</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>12</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>Start Date</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="upcomingEarningsEndDateLabel">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>150</y>
+        <width>71</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>12</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>End Date</string>
+      </property>
+     </widget>
+     <widget class="QLineEdit" name="upcomingEarningsStartDate">
+      <property name="geometry">
+       <rect>
+        <x>90</x>
+        <y>120</y>
+        <width>113</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>10</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="placeholderText">
+       <string>YYYYMMDD</string>
+      </property>
+     </widget>
+     <widget class="QLineEdit" name="upcomingEarningsEndDate">
+      <property name="geometry">
+       <rect>
+        <x>90</x>
+        <y>150</y>
+        <width>113</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>10</pointsize>
+       </font>
+      </property>
+      <property name="placeholderText">
+       <string>YYYYMMDD</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="upcomingEarningsButton">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>180</y>
         <width>141</width>
-        <height>17</height>
+        <height>21</height>
        </rect>
       </property>
       <property name="text">
-       <string>Get Latest Daily Short Interest</string>
+       <string>Get Upcoming Earnings</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="upcomingEarningsNoteLabel">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>90</y>
+        <width>251</width>
+        <height>21</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>10</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>Note: Leave start date blank to get next week's earnings</string>
       </property>
      </widget>
     </widget>
@@ -98,7 +403,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>800</width>
+     <width>415</width>
      <height>18</height>
     </rect>
    </property>
