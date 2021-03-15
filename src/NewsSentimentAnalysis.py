@@ -169,7 +169,7 @@ def main():
     tw = TwitterManager()
 
     tw.initialize_nltk_twitter()
-    tw.get_tweet_sentiment('Tesla can suck it')
+    #tw.get_tweet_sentiment('Tesla can suck it')
 
     # Search phrase
     phrase = 'AMD'
