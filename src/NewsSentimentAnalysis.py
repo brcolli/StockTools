@@ -1,5 +1,7 @@
 import importlib
 import tweepy
+from bs4 import BeautifulSoup
+import requests
 import pandas as pd
 import nltk
 from nltk.corpus import twitter_samples
@@ -7,6 +9,44 @@ from nltk.corpus import stopwords
 
 Utils = importlib.import_module('utilities').Utils
 NSC = importlib.import_module('NLPSentimentCalculations').NLPSentimentCalculations
+
+
+class NewsManager:
+
+    @staticmethod
+    def get_ticker_news(ticker):
+
+        url = 'https://finviz.com/quote.ashx?t=' + ticker
+
+        r = requests.get(url, headers={'user-agent': 'my-app/0.0.1'})
+        html = BeautifulSoup(r.text, 'html.parser')
+
+        # Parse HTML for headlines
+        data = []
+        news_rows = html.find(id='news-table').find_all('tr')
+        for i, row in enumerate(news_rows):
+
+            # Get date and time posted
+            time_data = row.td.text.split()
+
+            if len(time_data) == 1:
+                time = time_data[0]
+                date = 'NA'
+            else:
+                date = time_data[0]
+                time = time_data[1]
+
+            data.append((date, time, row.a.text))
+
+        return data
+
+    def get_tickers_news(self, tickers):
+
+        data = {}
+        for ticker in tickers:
+            data[ticker] = pd.DataFrame(self.get_ticker_news(ticker))
+
+        return data
 
 
 class TwitterManager:
@@ -201,4 +241,7 @@ def main(phrase='', filter_in=None, filter_out=None, history_count=1000):
 
 
 if __name__ == '__main__':
-    main('$AMD', filter_out=['vine', 'retweets', 'links'])
+
+    nm = NewsManager()
+    nm.get_tickers_news(['AAPL', 'TSLA'])
+    #main('$AMD', filter_out=['vine', 'retweets', 'links'])
