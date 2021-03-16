@@ -3,8 +3,11 @@ import pandas as pd
 from yahoo_earnings_calendar import YahooEarningsCalendar
 import yfinance as yf
 from os import path
+from tkinter import Tk
+from tkinter.filedialog import askopenfilename
 
 
+TCM = importlib.import_module('TdaClientManager').TdaClientManager
 Utils = importlib.import_module('utilities').Utils
 
 
@@ -17,7 +20,7 @@ class EarningsManager:
 
     def get_earnings(self, date_range):
 
-        filename = '../data/' + Utils.get_proper_date_format(date_range[0]) + '_' + \
+        filename = '../data/Earnings/' + Utils.get_proper_date_format(date_range[0]) + '_' + \
                    Utils.get_proper_date_format(date_range[1]) + '_earnings.csv'
 
         # If datafile already exists, load from that instead
@@ -30,13 +33,16 @@ class EarningsManager:
                 data_dict = self.yec.earnings_between(date_range[0], date_range[1])
             except:
                 print('Yahoo Finance Earnings Calender is down. Try again later.')
-                return pd.DataFrame.empty
+                return pd.DataFrame()
 
             data = pd.DataFrame.from_dict(data_dict)
 
             # Remove unused columns
             unused = ['startdatetimetype', 'timeZoneShortName', 'gmtOffsetMilliSeconds', 'quoteType']
             data.drop(unused, axis=1, inplace=True)
+
+            # Delete any duplicate rows
+            data.drop_duplicates(subset='ticker', keep='first', inplace=True)
 
             # Add more columns of interest
             ticker_data = {'volume': {}, 'marketCap': {}, 'lastClose': {}}
@@ -46,23 +52,26 @@ class EarningsManager:
 
             for ticker in tickers:
 
-                curr_share = yf.Ticker(ticker)
-                try:
+                curr_info = yf.Ticker(ticker).info
+                curr_info_keys = curr_info.keys()
+
+                if 'volume' in curr_info_keys and 'marketCap' in curr_info_keys and\
+                   'previousClose' in curr_info_keys and 'currency' in curr_info_keys:
 
                     # Attempt to get ticker data
-                    curr_info = curr_share.info
                     vl = curr_info['volume']
                     mc = curr_info['marketCap']
                     lc = curr_info['previousClose']
                     cr = curr_info['currency']
 
-                except:
+                else:
                     print('Bad data on ticker ' + ticker + '. Deleting from results.')
                     data = data[data.ticker != ticker]
                     continue
 
                 # Check if passes criteria
                 if self.criteria(vl, mc, lc, cr):
+
                     ticker_data['volume'][vl] = ticker
                     ticker_data['marketCap'][mc] = ticker
                     ticker_data['lastClose'][lc] = ticker
@@ -75,7 +84,7 @@ class EarningsManager:
             data['marketCap'] = ticker_data['marketCap']
             data['lastClose'] = ticker_data['lastClose']
 
-            data.reset_index(drop=True, inplace=True) # Reset indices after removing
+            data.reset_index(drop=True, inplace=True)  # Reset indices after removing
 
         Utils.write_dataframe_to_csv(data, filename)
 
@@ -85,29 +94,61 @@ class EarningsManager:
         return self.get_earnings(date_range)
 
     def get_next_week_earnings(self):
-
         week_range = Utils.get_following_week_range()
-        data = self.get_earnings(week_range)
+        return self.get_earnings(week_range)
 
-        return data
+    @staticmethod
+    def import_earnings(filename=''):
+
+        if filename == '':
+            Tk().withdraw()
+            filename = askopenfilename()
+
+        return pd.read_csv(filename)
+
+    @staticmethod
+    def find_options_from_earnings(es):
+
+        tcm = TCM()
+        opts = tcm.find_options(es['ticker'].to_list())
+
+        # Write to file
+        for sym, sym_opts in opts.items():
+            print('Writing earnings options for {}.'.format(sym))
+            Utils.write_dataframe_to_csv(sym_opts, '../data/Earnings/Options/{}_earnings_options.csv'.format(sym))
+
+        return opts
 
 
-def main(min_vl, min_mc, min_lc):
+def main(ymd1='', ymd2='', min_vl=1E6, min_mc=3E8, min_lc=10):
 
     # min_vl = 1E6  # Minimum volume
     # min_mc = 3E8  # Minimum market cap
-    # min_lc = 1E1  # Minimum last closed value
+    # min_lc = 10   # Minimum last closed value
 
-    def criteria(vl, mc, lc, cr): return vl >= min_vl and mc >= min_mc and lc >= min_lc
+    def criteria(vl, mc, lc): return vl >= min_vl and mc >= min_mc and lc >= min_lc
 
     em = EarningsManager(criteria)
 
-    em.get_next_week_earnings()
+    if ymd1 == '':
+        es = em.get_next_week_earnings()
+    else:
+        if ymd2 == '':
+            print('Please pass an end date')
+            return
 
-    d1 = Utils.time_str_to_datetime('2020/09/13')
-    d2 = Utils.time_str_to_datetime('2020/09/19')
-    #em.get_earnings_in_range((d1, d2))
+        es = em.get_earnings_in_range((ymd1, ymd2))
+
+    if not es.empty:
+        em.find_options_from_earnings(es)
+    else:
+        try:
+            df = em.import_earnings()
+        except FileNotFoundError:
+            return
+
+        em.find_options_from_earnings(df)
 
 
 if __name__ == '__main__':
-    main(min_vl=1E6,min_mc=3E8,min_lc=1E1)
+    main('20210405', '20210409')

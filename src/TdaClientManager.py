@@ -7,6 +7,7 @@ import time
 import re
 from oauthlib.oauth2.rfc6749.errors import InvalidGrantError
 import os
+import pandas as pd
 
 
 class TdaClientManager:
@@ -39,6 +40,68 @@ class TdaClientManager:
                                       redirect_uri=self.callback_url,
                                       token_path=self.token_path,
                                       webdriver_func=driver)
+
+    def find_options(self, tickers, to_date=None, from_date=None, max_mark=2, max_spread=0.5, min_delta=0.3,
+                     max_theta=0.02, max_iv=50, min_oi=100):
+
+        opts = {}
+
+        # Function defining criteria
+        def criteria(mark, spread, delta, theta, iv, oi):
+
+            # Handle NaN strings
+            if delta == 'NaN':
+                delta = -1
+            if theta == 'NaN':
+                theta = float('inf')
+            if iv == 'NaN':
+                iv = float('inf')
+            if oi == 'NaN':
+                oi = -1
+            return (mark <= max_mark and abs(spread) <= max_spread
+                    and abs(delta) >= min_delta and abs(theta) <= max_theta
+                    and iv <= max_iv and oi >= min_oi)
+
+        for ticker in tickers:
+
+            try:
+                if to_date:
+                    r = self.client.get_option_chain(ticker, strike_count=100,
+                                                     strategy=self.client.Options.Strategy.ANALYTICAL,
+                                                     from_date=from_date, to_date=to_date)
+                else:
+                    r = self.client.get_option_chain(ticker, strike_count=100,
+                                                     strategy=self.client.Options.Strategy.ANALYTICAL)
+
+            except Exception as e:
+                print('Caught {} for ticker {}.'.format(e, ticker))
+                break
+
+            data = r.json()
+            opts[ticker] = []
+
+            # Iterate through all calls and puts and filter on criteria
+            call_dates = data['callExpDateMap']
+            put_dates = data['putExpDateMap']
+            opt_list = []
+
+            for call_date, calls in call_dates.items():
+                for strike, call_ in calls.items():
+                    call = call_[0]
+                    if criteria(call['mark'], call['ask']-call['bid'], call['delta'], call['theta'],
+                                call['volatility'], call['openInterest']):
+                        opt_list.append(call)
+
+            for put_date, puts in put_dates.items():
+                for strike, put_ in puts.items():
+                    put = put_[0]
+                    if criteria(put['mark'], put['ask']-put['bid'], put['delta'], put['theta'],
+                                put['volatility'], put['openInterest']):
+                        opt_list.append(put)
+
+            opts[ticker] = pd.DataFrame(opt_list)
+
+        return opts
 
     @staticmethod
     def get_quotes_from_iex(tickers):

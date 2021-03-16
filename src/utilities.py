@@ -123,7 +123,7 @@ class Utils:
 
     @staticmethod
     def get_last_trading_day():
-        return datetime.datetime.today() - datetime.timedelta(days=1) + Utils.BDay
+        return datetime.datetime.today() + datetime.timedelta(days=1) - Utils.BDay
 
     @staticmethod
     def get_proper_date_format(date):

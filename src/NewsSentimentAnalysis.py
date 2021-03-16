@@ -74,26 +74,40 @@ class TwitterManager:
     def PhraseSearchHistory(self, phrase, count=1000):
 
         print('Collecting tweets from phrase: ' + phrase + '...')
-        data = tweepy.Cursor(self.api.search,
-                             q=phrase,
-                             lang="en").items(count)
 
-        print('Compiling tweets...')
         tweets = []
         tweet_keys = ['Date', 'User', 'Text', 'Sentiment']
 
-        for tweet in data:
+        limited = True
+        while limited:
 
-            if self.nsc.classifier is not None:
-                sentiment = self.get_tweet_sentiment(tweet.text)
-            else:
-                sentiment = 'None'
+            data = tweepy.Cursor(self.api.search,
+                                 q=phrase,
+                                 tweet_mode='extended',
+                                 lang="en").items(count)
 
-            temp_dict = {}
-            temp_dict.update({tweet_keys[0]: tweet.created_at, tweet_keys[1]: tweet.user.name,
-                              tweet_keys[2]: tweet.text, tweet_keys[3]: sentiment})
+            print('Compiling tweets...')
 
-            tweets.append(temp_dict)
+            try:
+                for tweet in data:
+
+                    if self.nsc.classifier is not None:
+                        sentiment = self.get_tweet_sentiment(tweet.full_text)
+                    else:
+                        sentiment = 'None'
+
+                    temp_dict = {}
+                    temp_dict.update({tweet_keys[0]: tweet.created_at, tweet_keys[1]: tweet.user.name,
+                                      tweet_keys[2]: tweet.full_text, tweet_keys[3]: sentiment})
+
+                    tweets.append(temp_dict)
+
+                limited = False
+            except tweepy.error.TweepError as e:
+                if 'code = 429' in e:
+                    new_count = count - 100
+                    print('Error 429 received, lowering history count from {} to {}.'.format(count, new_count))
+                    count = new_count
 
         df = pd.DataFrame(data=tweets, columns=tweet_keys)
 
@@ -164,7 +178,12 @@ class TwitterStreamListener(tweepy.StreamListener):
             print('Tweet saved...')
 
 
-def main():
+def main(phrase='', filter_in=None, filter_out=None, history_count=1000):
+
+    if not filter_in:
+        filter_in = []
+    if not filter_out:
+        filter_out = []
 
     tw = TwitterManager()
 
@@ -172,14 +191,14 @@ def main():
     #tw.get_tweet_sentiment('Tesla can suck it')
 
     # Search phrase
-    phrase = 'AMD'
-    query = tw.ConstructTwitterQuery(phrase, filter_out=['vine', 'retweets', 'links'])
-    tweets = tw.PhraseSearchHistory(query, 100)
-    Utils.write_dataframe_to_csv(tweets, '../data/' + phrase + '_tweet_history_search.csv')
+    query = tw.ConstructTwitterQuery(phrase, filter_in=filter_in, filter_out=filter_out)
+    tweets = tw.PhraseSearchHistory(query, history_count)
+    Utils.write_dataframe_to_csv(tweets, '../data/News Sentiment Analysis/'
+                                         '' + phrase + '_tweet_history_search.csv')
 
     # Start query stream
     #tw.StartStream(['$PTON'])
 
 
 if __name__ == '__main__':
-    main()
+    main('$AMD', filter_out=['vine', 'retweets', 'links'])

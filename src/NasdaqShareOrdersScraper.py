@@ -118,7 +118,6 @@ def main():
 
     nso = NasdaqShareOrdersManager()
 
-    #tickers = ['AAPL']
     nso.write_nasdaq_trade_orders()
 
 

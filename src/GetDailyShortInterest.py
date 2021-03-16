@@ -562,16 +562,22 @@ class ShortInterestManager:
         return gainers
 
 
-def main():
+def main(ymd1='', ymd2='', should_upload=True):
 
     sim = ShortInterestManager()
+
+    if ymd1 == '':
+        res = sim.get_latest_short_interest_data()
+    else:
+        res = sim.get_regsho_daily_short_to_csv(ymd1, ymd2)
+
     #res = sim.get_largest_gainers_from_range('20210226')
     #sim.load_short_interest_text_and_write_to_csv('../data/CNMSshvol20210209.txt')
-    res = sim.get_latest_short_interest_data()
 
-    for r in res:
-        sub_dir = '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
-        Utils.upload_file_to_gdrive(r, 'Daily Short Data')
+    if should_upload:
+        for r in res:
+            sub_dir = '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
+            Utils.upload_file_to_gdrive(r, 'Daily Short Data')
 
 
 if __name__ == '__main__':
