@@ -197,6 +197,9 @@ class Utils:
     @staticmethod
     def time_str_to_datetime(time_str):
 
+        if time_str == '':
+            return None
+
         if '/' in time_str:
             return datetime.datetime.strptime(time_str, '%Y/%m/%d')
         elif '-' in time_str:

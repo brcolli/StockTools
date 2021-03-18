@@ -86,6 +86,9 @@ class EarningsManager:
 
             data.reset_index(drop=True, inplace=True)  # Reset indices after removing
 
+        # Rename column from ticker to symbol
+        data = data.rename(columns={'ticker': 'Symbol'})
+
         Utils.write_dataframe_to_csv(data, filename)
 
         return data
@@ -110,7 +113,7 @@ class EarningsManager:
     def find_options_from_earnings(es):
 
         tcm = TCM()
-        opts = tcm.find_options(es['ticker'].to_list())
+        opts = tcm.find_options(es['Symbol'].to_list())
 
         # Write to file
         for sym, sym_opts in opts.items():
@@ -152,3 +155,4 @@ def main(ymd1='', ymd2='', min_vl=1E6, min_mc=3E8, min_lc=10):
 
 if __name__ == '__main__':
     main('20210405', '20210409')
+

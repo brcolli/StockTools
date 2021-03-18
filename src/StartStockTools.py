@@ -1,13 +1,18 @@
 import sys
 import importlib
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLineEdit, QLabel, QMainWindow
+from tkinter import Tk
+from tkinter.filedialog import askopenfilename
+import pandas as pd
 
 
 StockToolsUI = importlib.import_module('StockToolsUI').Ui_MainWindow
+Utils = importlib.import_module('utilities').Utils
 SIM = importlib.import_module('GetDailyShortInterest').main
 NSO = importlib.import_module('NasdaqShareOrdersScraper').main
 UES = importlib.import_module('UpcomingEarningsScanner').main
 NSA = importlib.import_module('NewsSentimentAnalysis').main
+TCM = importlib.import_module('TdaClientManager').TdaClientManager
 
 ##################################
 # Class controllers for each tab #
@@ -104,6 +109,7 @@ class QtManager(QMainWindow, StockToolsUI):
         self.getNasdaqShareOrdersButton.clicked.connect(self.triggerGetNasdaqShareOrders)
         self.upcomingEarningsButton.clicked.connect(self.triggerUpcomingEarningsScanner)
         self.newsSentimentAnalysisButton.clicked.connect(self.triggerNewsSentimentAnalysis)
+        self.optionsFilterButton.clicked.connect(self.triggerOptionsFilter)
 
     def triggerGetDailyShortInterest(self):
 
@@ -157,6 +163,51 @@ class QtManager(QMainWindow, StockToolsUI):
     @staticmethod
     def triggerGetNasdaqShareOrders():
         NSO()
+
+    def triggerOptionsFilter(self):
+
+        tcm = TCM()
+
+        symbols = self.optionsFilterSymbols.text()
+        to_date = self.optionsFilterToDate.text()
+        from_date = self.optionsFilterFromDate.text()
+        max_mark = self.optionsFilterMaxMark.text()
+        max_spread = self.optionsFilterMaxSpread.text()
+        min_delta = self.optionsFilterMinDelta.text()
+        max_theta = self.optionsFilterMaxTheta.text()
+        max_iv = self.optionsFilterMaxIV.text()
+        min_oi = self.optionsFilterMinOI.text()
+
+        if symbols == '':
+
+            try:
+                Tk().withdraw()
+                filename = askopenfilename()
+                symbols = pd.read_csv(filename)['Symbol']
+            except FileNotFoundError:
+                return
+
+        if max_mark == '':
+            max_mark = 2
+        if max_spread == '':
+            max_spread = 0.5
+        if min_delta == '':
+            min_delta = 0.3
+        if max_theta == '':
+            max_theta = 0.02
+        if max_iv == '':
+            max_iv = 50
+        if min_oi == '':
+            min_oi = 100
+
+        opts = tcm.find_options(symbols, Utils.time_str_to_datetime(to_date), Utils.time_str_to_datetime(from_date),
+                                float(max_mark), float(max_spread), float(min_delta), float(max_theta), float(max_iv),
+                                float(min_oi))
+
+        # Write to file
+        for sym, sym_opts in opts.items():
+            print('Writing earnings options for {}.'.format(sym))
+            Utils.write_dataframe_to_csv(sym_opts, '../data/Filtered Options/{}_earnings_options.csv'.format(sym))
 
 
 def main():
