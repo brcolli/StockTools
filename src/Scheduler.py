@@ -6,6 +6,7 @@ import datetime
 
 sim = importlib.import_module('GetDailyShortInterest').ShortInterestManager
 nso = importlib.import_module('NasdaqShareOrdersScraper').NasdaqShareOrdersManager
+UES = importlib.import_module('UpcomingEarningsScanner').main
 Utils = importlib.import_module('utilities').Utils
 
 
@@ -22,6 +23,10 @@ class ScheduleManager:
     def call_nasdaq_share_orders():
         nso_obj = nso()
         nso_obj.write_nasdaq_trade_orders()
+
+    @staticmethod
+    def call_upcoming_earnings_scanner():
+        UES()
 
     @staticmethod
     def loop_schedule_task_days(task, num_days=1, dtime_lower='00:00', dtime_upper='23:59'):
