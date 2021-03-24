@@ -1,10 +1,14 @@
-from tkinter import Tk
-from tkinter.filedialog import askopenfilename
+import sys
 import importlib
 import numpy as np
 import pandas as pd
 from os import path
 
+try:
+    from tkinter import Tk
+    from tkinter.filedialog import askopenfilename
+except ImportError:
+    pass
 
 Utils = importlib.import_module('utilities').Utils
 TCM = importlib.import_module('TdaClientManager').TdaClientManager
@@ -510,8 +514,11 @@ class ShortInterestManager:
 
     def import_short_interest_text_from_selection(self):
 
-        Tk().withdraw()
-        f_name = askopenfilename()
+        if 'tkinter' in sys.modules:
+            Tk().withdraw()
+            f_name = askopenfilename()
+        else:
+            f_name = ''
 
         self.load_short_interest_text_and_write_to_csv(f_name)
 
