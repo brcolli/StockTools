@@ -3,8 +3,13 @@ import pandas as pd
 from yahoo_earnings_calendar import YahooEarningsCalendar
 import yfinance as yf
 from os import path
-from tkinter import Tk
-from tkinter.filedialog import askopenfilename
+import sys
+
+try:
+    from tkinter import Tk
+    from tkinter.filedialog import askopenfilename
+except ImportError:
+    pass
 
 
 TCM = importlib.import_module('TdaClientManager').TdaClientManager
@@ -103,7 +108,7 @@ class EarningsManager:
     @staticmethod
     def import_earnings(filename=''):
 
-        if filename == '':
+        if filename == '' and 'tkinter' in sys.modules:
             Tk().withdraw()
             filename = askopenfilename()
 
