@@ -29,9 +29,9 @@ class ScheduleManager:
 
         sim_obj = sim()
         res = sim_obj.get_latest_short_interest_data()
-        for r in res:
-            sub_dir = '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
-            Utils.upload_file_to_gdrive(r, 'Daily Short Data')
+        #for r in res:
+        #    sub_dir = '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
+        #    Utils.upload_file_to_gdrive(r, 'Daily Short Data')
 
     @staticmethod
     def call_nasdaq_share_orders():
@@ -43,7 +43,7 @@ class ScheduleManager:
         UES()
 
     @staticmethod
-    def loop_schedule_task_weekly(task, day, dtime_lower='00:00', dtime_upper='23:59'):
+    def loop_schedule_task_weekly(task, day, dtime_lower='00:00'):
 
         if day == Days.Sun:
             schedule.every().sunday.at(dtime_lower).do(task)
@@ -60,29 +60,14 @@ class ScheduleManager:
         elif day == Days.Sat:
             schedule.every().saturday.at(dtime_lower).do(task)
 
-        d_lower = datetime.datetime.strptime(dtime_lower, '%H:%M').time()
-        d_upper = datetime.datetime.strptime(dtime_upper, '%H:%M').time()
-
-        next_run_date = datetime.datetime.today()
-
-        while True:
-
-            schedule.run_pending()
-            time.sleep(1)  # Only check every 30 minutes
-
-            n = datetime.datetime.now()
-            curr_time = n.time()
-
-            if d_lower < curr_time < d_upper and n.date() == next_run_date.date():
-                schedule.run_all()
-
-            next_run_date = schedule.next_run()
-
     @staticmethod
-    def loop_schedule_task_days(task, num_days=1, dtime_lower='00:00', dtime_upper='23:59'):
+    def loop_schedule_task_days(task, num_days=1, dtime_lower='00:00'):
 
         schedule.every(num_days).day.at(dtime_lower).do(task)
 
+    @staticmethod
+    def run_scheduled_tasks(dtime_lower, dtime_upper):
+
         d_lower = datetime.datetime.strptime(dtime_lower, '%H:%M').time()
         d_upper = datetime.datetime.strptime(dtime_upper, '%H:%M').time()
 
@@ -91,7 +76,7 @@ class ScheduleManager:
         while True:
 
             schedule.run_pending()
-            time.sleep(1)  # Only check every 30 minutes
+            time.sleep(1800)  # Only check every 30 minutes
 
             n = datetime.datetime.now()
             curr_time = n.time()
