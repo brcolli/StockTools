@@ -3,6 +3,7 @@ import importlib
 import numpy as np
 import pandas as pd
 from os import path
+import datetime
 
 try:
     from tkinter import Tk
@@ -110,7 +111,10 @@ class ShortInterestManager:
 
         if len(bad_quote_tickers) > 0:
 
-            new_quotes = tcm.get_quotes_from_iex(bad_quote_tickers.tolist())
+            tick_limit = 100  # IEX's limit for basic query
+            tickers_chunks = [bad_quote_tickers[t:t + tick_limit].tolist()
+                              for t in range(0, len(bad_quote_tickers), tick_limit)]
+            new_quotes = tcm.get_quotes_from_iex(tickers_chunks)
 
             # Just parse out possible bad entries
             new_vals = Utils.reduce_double_dict_to_one(new_quotes, ['latestVolume', 'open', 'close'])
@@ -493,6 +497,9 @@ class ShortInterestManager:
 
         # Check if date passed is current day. If not, cannot use quotes
         if Utils.is_it_today(ymd):
+
+            print('Getting daily short interest for {}.'.format(datetime.datetime.today().date()))
+
             df = self.get_today_df(valid_dates[0], texts, short_file_prefix)
             Utils.write_dataframe_to_csv(df, outputs[1])
         else:

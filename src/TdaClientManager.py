@@ -104,25 +104,27 @@ class TdaClientManager:
         return opts
 
     @staticmethod
-    def get_quotes_from_iex(tickers):
-
-        while True:
-            s = Stock(tickers, token='pk_78c8ddd19775400684a6a51744aaacd6')
-            try:
-                iexq = s.get_quote()
-                break
-            except Exception as e:
-
-                r = re.match(r'Symbol (.*) not found\.', e.__str__())
-
-                # Remove the bad symbol completely and try again
-                if r:
-                    bad_sym = r.group(1)
-                    tickers.remove(bad_sym)
+    def get_quotes_from_iex(tickers_chunks):
 
         ret = {}
-        for index, row in iexq.iterrows():
-            ret[index] = row
+        for tickers in tickers_chunks:
+
+            while True:
+                s = Stock(tickers, token='pk_78c8ddd19775400684a6a51744aaacd6')
+                try:
+                    iexq = s.get_quote()
+                    break
+                except Exception as e:
+
+                    r = re.match(r'Symbol (.*) not found\.', e.__str__())
+
+                    # Remove the bad symbol completely and try again
+                    if r:
+                        bad_sym = r.group(1)
+                        tickers.remove(bad_sym)
+
+            for index, row in iexq.iterrows():
+                ret[index] = row
 
         return ret
 

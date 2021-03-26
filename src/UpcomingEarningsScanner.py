@@ -144,6 +144,7 @@ def main(ymd1='', ymd2='', min_vl=1E6, min_mc=3E8, min_lc=10):
     em = EarningsManager(criteria)
 
     if ymd1 == '':
+        print('Getting next week\'s earnings.')
         es = em.get_next_week_earnings()
     else:
         if ymd2 == '':

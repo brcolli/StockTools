@@ -86,6 +86,7 @@ class ScheduleManager:
             next_run_date = schedule.next_run()
 
             time.sleep(1800)  # Only check every 30 minutes
+            print('Checked to run at: {}.'.format(datetime.datetime.now().time()))
 
 
 def main():

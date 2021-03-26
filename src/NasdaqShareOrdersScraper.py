@@ -109,6 +109,8 @@ class NasdaqShareOrdersManager:
         if not curr_date:
             curr_date = Utils.datetime_to_time_str(datetime.datetime.today())
 
+        print('Getting Nasdaq Share Orders for {}.'.format(curr_date))
+
         if not tickers:
             tickers = Utils.get_tickers_from_csv('../doc/sp-500.csv')
 
