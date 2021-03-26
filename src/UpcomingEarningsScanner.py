@@ -61,6 +61,7 @@ class EarningsManager:
                     curr_info = yf.Ticker(ticker).info
                 except KeyError:
                     print('Bad data for {}. Skipping.'.format(ticker))
+                    data = data[data.ticker != ticker]
                     continue
 
                 curr_info_keys = curr_info.keys()
