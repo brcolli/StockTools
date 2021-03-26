@@ -29,9 +29,9 @@ class ScheduleManager:
 
         sim_obj = sim()
         res = sim_obj.get_latest_short_interest_data()
-        #for r in res:
-        #    sub_dir = '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
-        #    Utils.upload_file_to_gdrive(r, 'Daily Short Data')
+        for r in res:
+            sub_dir = '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
+            Utils.upload_file_to_gdrive(r, 'Daily Short Data')
 
     @staticmethod
     def call_nasdaq_share_orders():
@@ -76,7 +76,6 @@ class ScheduleManager:
         while True:
 
             schedule.run_pending()
-            time.sleep(1800)  # Only check every 30 minutes
 
             n = datetime.datetime.now()
             curr_time = n.time()
@@ -85,6 +84,8 @@ class ScheduleManager:
                 schedule.run_all()
 
             next_run_date = schedule.next_run()
+
+            time.sleep(1800)  # Only check every 30 minutes
 
 
 def main():
