@@ -57,7 +57,12 @@ class EarningsManager:
 
             for ticker in tickers:
 
-                curr_info = yf.Ticker(ticker).info
+                try:
+                    curr_info = yf.Ticker(ticker).info
+                except KeyError:
+                    print('Bad data for {}. Skipping.'.format(ticker))
+                    continue
+
                 curr_info_keys = curr_info.keys()
 
                 if 'volume' in curr_info_keys and 'marketCap' in curr_info_keys and\
