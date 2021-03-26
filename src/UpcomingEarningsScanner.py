@@ -67,7 +67,6 @@ class EarningsManager:
                     vl = curr_info['volume']
                     mc = curr_info['marketCap']
                     lc = curr_info['previousClose']
-                    cr = curr_info['currency']
 
                 else:
                     print('Bad data on ticker ' + ticker + '. Deleting from results.')
@@ -75,7 +74,7 @@ class EarningsManager:
                     continue
 
                 # Check if passes criteria
-                if self.criteria(vl, mc, lc, cr):
+                if self.criteria(vl, mc, lc):
 
                     ticker_data['volume'][vl] = ticker
                     ticker_data['marketCap'][mc] = ticker

@@ -102,14 +102,21 @@ class NasdaqShareOrdersManager:
         if not tickers:
             tickers = Utils.get_tickers_from_csv('../doc/sp-500.csv')
 
-        data = self.get_nasdaq_trade_orders(tickers)
+        # Chunk the data to save on memory
+        tick_limit = 100
+        tickers_chunks = [tickers[t:t + tick_limit] for t in range(0, len(tickers), tick_limit)]
 
-        # Iterate through tickers and write to csvs
-        for ticker in tickers:
-            filename = Utils.get_full_path_from_file_date(curr_date, '{}_share_orders_'.format(ticker),
-                                                          '.csv', '../data/Nasdaq Share Order Flow/', True)
+        # Iterate through each chunk to write out data
+        for ts in tickers_chunks:
 
-            Utils.write_dataframe_to_csv(data[ticker], filename)
+            data = self.get_nasdaq_trade_orders(ts)
+
+            # Iterate through tickers and write to csvs
+            for ticker in ts:
+
+                filename = Utils.get_full_path_from_file_date(curr_date, '{}_share_orders_'.format(ticker),
+                                                              '.csv', '../data/Nasdaq Share Order Flow/', True)
+                Utils.write_dataframe_to_csv(data[ticker], filename)
 
         return data
 
