@@ -4,6 +4,7 @@ import json
 import time
 import datetime
 import pandas as pd
+from os import path
 
 
 Utils = importlib.import_module('utilities').Utils
@@ -54,6 +55,7 @@ class NasdaqShareOrdersManager:
                                 '1&dm=nasdaq.com&si=0lfb4hze973b&ss=kkqdph10&sl=c&tt=36q&obo=7&rl=1"; NSC_W.OEBR.DPN.7070='
                                 'ffffffffc3a0f73345525d5f4f58455e445a4a422dae'}
 
+            data = []
             while True:
                 try:
                     data = requests.get(data_cmd, headers=header)
@@ -86,11 +88,19 @@ class NasdaqShareOrdersManager:
 
         return res
 
-    def get_nasdaq_trade_orders(self, tickers):
+    def get_nasdaq_trade_orders(self, tickers, curr_date):
 
         res = {}
         for ticker in tickers:
-            res[ticker] = pd.DataFrame(self.get_nasdaq_trade_order(ticker))
+
+            # Check if file already exists
+            filename = Utils.get_full_path_from_file_date(curr_date, '{}_share_orders_'.format(ticker),
+                                                          '.csv', '../data/Nasdaq Share Order Flow/', True)
+            if path.exists(filename):
+                res[ticker] = None
+                continue
+
+            res[ticker] = (pd.DataFrame(self.get_nasdaq_trade_order(ticker)), filename)
 
         return res
 
@@ -107,16 +117,15 @@ class NasdaqShareOrdersManager:
         tickers_chunks = [tickers[t:t + tick_limit] for t in range(0, len(tickers), tick_limit)]
 
         # Iterate through each chunk to write out data
+        data = []
         for ts in tickers_chunks:
 
-            data = self.get_nasdaq_trade_orders(ts)
+            data = self.get_nasdaq_trade_orders(ts, curr_date)
 
             # Iterate through tickers and write to csvs
             for ticker in ts:
-
-                filename = Utils.get_full_path_from_file_date(curr_date, '{}_share_orders_'.format(ticker),
-                                                              '.csv', '../data/Nasdaq Share Order Flow/', True)
-                Utils.write_dataframe_to_csv(data[ticker], filename)
+                if data[ticker]:
+                    Utils.write_dataframe_to_csv(data[ticker][0], data[ticker][1])
 
         return data
 
