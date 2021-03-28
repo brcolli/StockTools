@@ -585,13 +585,10 @@ def main(ymd1='', ymd2='', should_upload=True):
     else:
         res = sim.get_regsho_daily_short_to_csv(ymd1, ymd2)
 
-    #res = sim.get_largest_gainers_from_range('20210226')
-    #sim.load_short_interest_text_and_write_to_csv('../data/CNMSshvol20210209.txt')
-
     if should_upload:
         for r in res:
-            sub_dir = '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
-            Utils.upload_file_to_gdrive(r, 'Daily Short Data')
+            sub_dir = 'Daily Short Data/' + '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
+            Utils.upload_file_to_gdrive(r, sub_dir)
 
 
 if __name__ == '__main__':

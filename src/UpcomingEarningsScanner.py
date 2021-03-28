@@ -101,6 +101,10 @@ class EarningsManager:
 
         Utils.write_dataframe_to_csv(data, filename)
 
+        # Upload to drive
+        sub_dir = 'Upcoming Earnings/' + '/'.join(filename.split('/')[3:-1])
+        Utils.upload_file_to_gdrive(filename, sub_dir)
+
         return data
 
     def get_earnings_in_range(self, date_range):

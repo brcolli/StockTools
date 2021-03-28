@@ -116,7 +116,7 @@ class NasdaqShareOrdersManager:
 
         # Chunk the data to save on memory
         tick_limit = 100
-        tickers_chunks = [tickers[t:t + tick_limit] for t in range(0, len(tickers), tick_limit)]
+        tickers_chunks = [tickers[t:t + tick_limit] for t in range(0, len(tickers), tick_limit)][0][:5]
 
         # Iterate through each chunk to write out data
         data = []
@@ -127,7 +127,11 @@ class NasdaqShareOrdersManager:
             # Iterate through tickers and write to csvs
             for ticker in ts:
                 if data[ticker]:
-                    Utils.write_dataframe_to_csv(data[ticker][0], data[ticker][1])
+                    filepath = data[ticker][1]
+                    Utils.write_dataframe_to_csv(data[ticker][0], filepath)
+
+                    sub_dir = 'Share Order Flow/' + '/'.join(filepath.split('/')[3:-1])
+                    Utils.upload_file_to_gdrive(filepath, sub_dir)
 
         return data
 

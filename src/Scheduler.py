@@ -27,14 +27,23 @@ class ScheduleManager:
     @staticmethod
     def call_daily_short_interest():
 
+        # If not a trading day, don't run
+        if Utils.get_last_trading_day() != datetime.datetime.today():
+            return
+
         sim_obj = sim()
         res = sim_obj.get_latest_short_interest_data()
         for r in res:
             sub_dir = '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
-            Utils.upload_file_to_gdrive(r, 'Daily Short Data')
+            Utils.upload_file_to_gdrive(r, 'Daily Short Data', sub_dir)
 
     @staticmethod
     def call_nasdaq_share_orders():
+
+        # If not a trading day, don't run
+        if Utils.get_last_trading_day() != datetime.datetime.today():
+            return
+
         nso_obj = nso()
         nso_obj.write_nasdaq_trade_orders()
 

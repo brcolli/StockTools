@@ -23,12 +23,13 @@ class Utils:
     BDay = CustomBusinessDay(calendar=USFederalHolidayCalendar())
 
     @staticmethod
-    def upload_file_to_gdrive(filepath, gdrive_dir='', sub_dir=''):
+    def upload_file_to_gdrive(filepath, gdrive_dir=''):
 
         if filepath == '':
             return
 
         filename = filepath.split('/')[-1]
+        dirs = gdrive_dir.split('/')
 
         GoogleAuth.DEFAULT_SETTINGS['client_config_file'] = '../doc/client_secrets.json'
         gauth = GoogleAuth()
@@ -59,10 +60,42 @@ class Utils:
         # True,
         # 'supportsAllDrives': True, 'corpora': 'allDrives'}).GetList()
         folder_id = ''
-        for gf in file_list:
-            if gf['title'] == gdrive_dir and gf['shared'] is True:
-                folder_id = gf['id']
-                break
+        curr_dir_id = 0
+        gf_id = 0
+        while gf_id < len(file_list):
+
+            gf = file_list[gf_id]
+            gf_id += 1
+
+            if gf['title'] == dirs[curr_dir_id] and gf['shared'] is True:
+
+                folder_id = gf['id']  # Found latest sub directory
+
+                # Check if there are more subdirectories to iterate on
+                curr_dir_id += 1
+                if len(dirs) == curr_dir_id:
+                    # Have found the last sub directory, exit
+                    break
+                else:
+                    # Update file_list
+                    file_list = drive.ListFile({'q': f"parents in '{folder_id}' and trashed=false",
+                                                'includeItemsFromAllDrives': True, 'supportsAllDrives': True,
+                                                'corpora': 'allDrives'}).GetList()
+                    gf_id = 0
+
+        # If it did not get through the entire sub directory list, must create the rest of the sub dirs
+        if len(dirs) > curr_dir_id:
+
+            while curr_dir_id < len(dirs):
+
+                # Create drive sub folder, add parents
+                sub_dir = drive.CreateFile({'title': dirs[curr_dir_id],
+                                            'mimeType': 'application/vnd.google-apps.folder',
+                                            'parents': [{'id': folder_id}]})
+                sub_dir.Upload()
+                folder_id = sub_dir['id']
+
+                curr_dir_id += 1
 
         if folder_id != '':
             f = drive.CreateFile({'title': filename, 'corpora': 'allDrives', 'includeItemsFromAllDrives': True,
