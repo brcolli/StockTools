@@ -126,7 +126,7 @@ class NasdaqShareOrdersManager:
 
             # Iterate through tickers and write to csvs
             for ticker in ts:
-                if data[ticker] and data[ticker][0]:
+                if data[ticker] and not data[ticker][0].empty():
                     filepath = data[ticker][1]
                     Utils.write_dataframe_to_csv(data[ticker][0], filepath)
 
