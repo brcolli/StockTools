@@ -116,7 +116,7 @@ class NasdaqShareOrdersManager:
 
         # Chunk the data to save on memory
         tick_limit = 100
-        tickers_chunks = [tickers[t:t + tick_limit] for t in range(0, len(tickers), tick_limit)][0][:5]
+        tickers_chunks = [tickers[t:t + tick_limit] for t in range(0, len(tickers), tick_limit)]
 
         # Iterate through each chunk to write out data
         data = []
