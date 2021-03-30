@@ -28,7 +28,7 @@ class ScheduleManager:
     def call_daily_short_interest():
 
         # If not a trading day, don't run
-        if Utils.get_last_trading_day() != datetime.datetime.today():
+        if Utils.get_last_trading_day().date() != datetime.datetime.today().date():
             return
 
         sim_obj = sim()
@@ -41,7 +41,7 @@ class ScheduleManager:
     def call_nasdaq_share_orders():
 
         # If not a trading day, don't run
-        if Utils.get_last_trading_day() != datetime.datetime.today():
+        if Utils.get_last_trading_day().date() != datetime.datetime.today().date():
             return
 
         nso_obj = nso()
