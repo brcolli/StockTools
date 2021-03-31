@@ -49,14 +49,16 @@ class Utils:
         drive = GoogleDrive(gauth)
         f = None
 
+        # WARNING: This assumes that the file list does not change during the for loop!
+        # Only an issue for first level directories
+        file_list = drive.ListFile(
+            {'q': "trashed=false", 'includeItemsFromAllDrives': True,
+             'supportsAllDrives': True, 'corpora': 'allDrives'}).GetList()
+
         for filepath in filepaths:
 
             filename = filepath.split('/')[-1]
             dirs = gdrive_dir.split('/')
-
-            file_list = drive.ListFile(
-                {'q': "trashed=false", 'includeItemsFromAllDrives': True,
-                 'supportsAllDrives': True, 'corpora': 'allDrives'}).GetList()
 
             # folder_id = '12Tcsl57iFVvQyCPr49-VzUfcbHcrXU34'
             # file_list = drive.ListFile({'q': f"parents in '{folder_id}' and trashed=false",
