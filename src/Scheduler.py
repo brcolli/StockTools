@@ -33,9 +33,9 @@ class ScheduleManager:
 
         sim_obj = sim()
         res = sim_obj.get_latest_short_interest_data()
-        for r in res:
-            sub_dir = 'Daily Short Data/' + '/'.join(r.split('/')[2:-1])  # Just get subdirectory path
-            Utils.upload_file_to_gdrive(r, sub_dir)
+
+        sub_dir = 'Daily Short Data/' + '/'.join(res[0].split('/')[2:-1])  # Just get subdirectory path
+        Utils.upload_files_to_gdrive(res, sub_dir)
 
     @staticmethod
     def call_nasdaq_share_orders():
