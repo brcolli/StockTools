@@ -107,9 +107,12 @@ class Utils:
                 file_list = drive.ListFile({'q': f"parents in '{folder_id}' and trashed=false",
                                             'includeItemsFromAllDrives': True, 'supportsAllDrives': True,
                                             'corpora': 'allDrives'}).GetList()
+                duplicate = False
                 for gf in file_list:
                     if gf['title'] == filename:
-                        continue
+                        duplicate = True
+                if duplicate:
+                    continue
 
                 f = drive.CreateFile({'title': filename, 'corpora': 'allDrives', 'includeItemsFromAllDrives': True,
                                       'supportsAllDrives': True,
