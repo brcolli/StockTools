@@ -51,7 +51,7 @@ class Utils:
 
         # WARNING: This assumes that the file list does not change during the for loop!
         # Only an issue for first level directories
-        file_list = drive.ListFile(
+        file_list_root = drive.ListFile(
             {'q': "trashed=false", 'includeItemsFromAllDrives': True,
              'supportsAllDrives': True, 'corpora': 'allDrives'}).GetList()
 
@@ -71,6 +71,7 @@ class Utils:
             folder_id = ''
             curr_dir_id = 0
             gf_id = 0
+            file_list = file_list_root
             while gf_id < len(file_list):
 
                 gf = file_list[gf_id]
