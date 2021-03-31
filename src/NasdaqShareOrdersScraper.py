@@ -131,7 +131,7 @@ class NasdaqShareOrdersManager:
                 filepath = data[ticker][1]
                 files.append(filepath)
 
-                if data[ticker][0] and not data[ticker][0].empty:
+                if not data[ticker][0].empty:
                     Utils.write_dataframe_to_csv(data[ticker][0], filepath)
 
         sub_dir = 'Share Order Flow/' + '/'.join(files[0].split('/')[3:-1])
