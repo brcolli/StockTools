@@ -97,7 +97,7 @@ class NasdaqShareOrdersManager:
             filename = Utils.get_full_path_from_file_date(curr_date, '{}_share_orders_'.format(ticker),
                                                           '.csv', '../data/Nasdaq Share Order Flow/', True)
             if path.exists(filename):
-                res[ticker] = (None, filename)
+                res[ticker] = (pd.DataFrame(), filename)
                 continue
 
             res[ticker] = (pd.DataFrame(self.get_nasdaq_trade_order(ticker)), filename)
