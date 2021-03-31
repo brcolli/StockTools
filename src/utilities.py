@@ -57,6 +57,9 @@ class Utils:
 
         for filepath in filepaths:
 
+            if not path.exists(filepath):
+                continue
+
             filename = filepath.split('/')[-1]
             dirs = gdrive_dir.split('/')
 
