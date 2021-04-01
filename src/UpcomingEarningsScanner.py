@@ -1,7 +1,6 @@
 import importlib
 import pandas as pd
-from yahoo_earnings_calendar import YahooEarningsCalendar
-import yfinance as yf
+import yahoo_fin.stock_info as si
 from os import path
 import sys
 
@@ -20,7 +19,6 @@ class EarningsManager:
 
     def __init__(self, criteria):
 
-        self.yec = YahooEarningsCalendar()
         self.criteria = criteria
 
     def get_earnings(self, date_range):
@@ -29,13 +27,13 @@ class EarningsManager:
                    Utils.get_proper_date_format(date_range[1]) + '_earnings.csv'
 
         # If datafile already exists, load from that instead
-        if path.exists(filename):
+        if path.exists(filename) and False:
             data = Utils.load_csv_to_dataframe(filename)
         else:
             # File doesn't exist, write to it
 
             try:
-                data_dict = self.yec.earnings_between(date_range[0], date_range[1])
+                data_dict = si.get_earnings_in_date_range(date_range[0], date_range[1])
             except:
                 print('Yahoo Finance Earnings Calender is down. Try again later.')
                 return pd.DataFrame()
@@ -58,7 +56,8 @@ class EarningsManager:
             for ticker in tickers:
 
                 try:
-                    curr_info = yf.Ticker(ticker).info
+                    #curr_info = yf.Ticker(ticker).info
+                    curr_info = si.get_quote_data(ticker)
                 except KeyError:
                     print('Bad data for {}. Skipping.'.format(ticker))
                     data = data[data.ticker != ticker]
@@ -66,8 +65,8 @@ class EarningsManager:
 
                 curr_info_keys = curr_info.keys()
 
-                if 'volume' in curr_info_keys and 'marketCap' in curr_info_keys and\
-                   'previousClose' in curr_info_keys and 'currency' in curr_info_keys:
+                if 'regularMarketVolume' in curr_info_keys and 'marketCap' in curr_info_keys and\
+                   'regularMarketPreviousClose' in curr_info_keys and 'currency' in curr_info_keys:
 
                     # Attempt to get ticker data
                     vl = curr_info['volume']
@@ -170,4 +169,3 @@ def main(ymd1='', ymd2='', min_vl=1E6, min_mc=3E8, min_lc=10):
 
 if __name__ == '__main__':
     main('20210405', '20210409')
-

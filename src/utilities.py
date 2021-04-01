@@ -62,6 +62,7 @@ class Utils:
 
             filename = filepath.split('/')[-1]
             dirs = gdrive_dir.split('/')
+            dirs = [x for x in dirs if x]
 
             # folder_id = '12Tcsl57iFVvQyCPr49-VzUfcbHcrXU34'
             # file_list = drive.ListFile({'q': f"parents in '{folder_id}' and trashed=false",
