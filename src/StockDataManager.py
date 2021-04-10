@@ -169,9 +169,13 @@ class StockDataManager:
         end_day = Utils.time_str_to_datetime('20210410')
 
         tcm = TCM()
-        ps = tcm.get_past_history(tickers, start_day, end_day)
 
-        for key, val in ps.items():
+        for ticker in tickers:
+
+            ps = tcm.get_past_history([ticker], start_day, end_day)
+            if not ps:
+                continue
+            val = ps[ticker]
 
             data = []
             for i in range(len(val)):
@@ -184,7 +188,7 @@ class StockDataManager:
                     data.append((Utils.epoch_to_time_str(day['datetime']), day['open'], day['high'], day['low'],
                                  day['close'], val[i-1]['close'], day['volume']))
 
-            self.add_ticker_data(key, data)
+            self.add_ticker_data(ticker, data)
 
 
 def main():
