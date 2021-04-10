@@ -56,7 +56,6 @@ class EarningsManager:
             for ticker in tickers:
 
                 try:
-                    #curr_info = yf.Ticker(ticker).info
                     curr_info = si.get_quote_data(ticker)
                 except KeyError:
                     print('Bad data for {}. Skipping.'.format(ticker))

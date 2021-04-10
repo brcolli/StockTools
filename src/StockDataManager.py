@@ -4,6 +4,7 @@ from os import path
 
 Utils = importlib.import_module('utilities').Utils
 Sqm = importlib.import_module('SqliteManager').SqliteManager
+TCM = importlib.import_module('TdaClientManager').TdaClientManager
 
 
 class StockDataManager:
@@ -13,6 +14,30 @@ class StockDataManager:
         self.database_path = '../data/Databases/stock_data.sqlite'
         self.database = Sqm(self.database_path)
         self.amiquote_path = ami_path
+
+    def add_ticker_data(self, symbol, data):
+
+        print('Adding data for {}.'.format(symbol))
+
+        q = 'CREATE TABLE IF NOT EXISTS [{}] (' \
+            'Date TEXT PRIMARY KEY,' \
+            'Open REAL,' \
+            'High REAL,' \
+            'Low REAL,' \
+            'Close REAL,' \
+            'AdjClose REAL,' \
+            'Volume REAL);'.format(symbol)
+        self.database.execute_query(q)
+
+        # Add symbol to Symbol table
+        q = 'INSERT INTO Symbols (Symbol)' \
+            'VALUES (\'{}\');'.format(symbol)
+        self.database.execute_query(q)
+
+        q = 'INSERT INTO [{}] (Date, Open, High, Low, Close, AdjClose, Volume) ' \
+            'VALUES' \
+            '(?, ?, ?, ?, ?, ?, ?);'.format(symbol)
+        self.database.execute_many_query(q, data)
 
     def create_stock_stats_from_amiquote(self):
 
@@ -49,23 +74,6 @@ class StockDataManager:
                     print('Unable to parse file {}.'.format(sf))
                     continue
 
-                print('Adding data for {}.'.format(symbol))
-
-                q = 'CREATE TABLE IF NOT EXISTS [{}] ('\
-                    'Date TEXT PRIMARY KEY,'\
-                    'Open REAL,' \
-                    'High REAL,' \
-                    'Low REAL,' \
-                    'Close REAL,' \
-                    'AdjClose REAL,' \
-                    'Volume REAL);'.format(symbol)
-                self.database.execute_query(q)
-
-                # Add symbol to Symbol table
-                q = 'INSERT INTO Symbols (Symbol)' \
-                    'VALUES (\'{}\');'.format(symbol)
-                self.database.execute_query(q)
-
                 # Get remainder of data and add to table, if parsed correctly
                 line_data = lines[2:]
                 data = []
@@ -74,10 +82,7 @@ class StockDataManager:
                     data.append((Utils.reformat_time_str(clean[0]), clean[1], clean[2], clean[3], clean[4],
                                  clean[5], clean[6]))
 
-                q = 'INSERT INTO [{}] (Date, Open, High, Low, Close, AdjClose, Volume) ' \
-                    'VALUES' \
-                    '(?, ?, ?, ?, ?, ?, ?);'.format(symbol)
-                self.database.execute_many_query(q, data)
+                self.add_ticker_data(symbol, data)
 
     def update_stock_stats(self, tickers=None):
 
@@ -156,6 +161,31 @@ class StockDataManager:
                     '(?, ?, ?, ?, ?, ?, ?);'.format(symbol)
                 self.database.execute_many_query(q, data)
 
+    def update_stock_stats_all(self):
+
+        tickers = Utils.get_all_tickers()
+
+        start_day = Utils.time_str_to_datetime('19700102')
+        end_day = Utils.time_str_to_datetime('20210410')
+
+        tcm = TCM()
+        ps = tcm.get_past_history(tickers, start_day, end_day)
+
+        for key, val in ps.items():
+
+            data = []
+            for i in range(len(val)):
+                day = val[i]
+
+                if i == 0:
+                    data.append((Utils.epoch_to_time_str(day['datetime']), day['open'], day['high'], day['low'],
+                                 day['close'], 0, day['volume']))
+                else:
+                    data.append((Utils.epoch_to_time_str(day['datetime']), day['open'], day['high'], day['low'],
+                                 day['close'], val[i-1]['close'], day['volume']))
+
+            self.add_ticker_data(key, data)
+
 
 def main():
 
@@ -164,7 +194,8 @@ def main():
     if not path.exists(sdm.database_path):
         sdm.create_stock_stats_from_amiquote()
 
-    sdm.update_stock_stats()
+    #sdm.update_stock_stats()
+    sdm.update_stock_stats_all()
 
 
 if __name__ == '__main__':

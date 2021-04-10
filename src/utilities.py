@@ -151,10 +151,16 @@ class Utils:
 
     # Use an arbitrary day to get finra's ticker list for that day
     @staticmethod
-    def get_all_tickers(day):
+    def get_all_tickers(day=None):
+
+        if not day:
+            day = Utils.get_last_trading_day()
 
         url = 'http://regsho.finra.org'
         short_file_prefix = 'CNMSshvol'
+
+        if type(day) is not str:
+            day = Utils.datetime_to_time_str(day)
 
         # Import finra csv
         filename = short_file_prefix + day
@@ -275,6 +281,10 @@ class Utils:
     @staticmethod
     def epoch_to_datetime(epoch):
         return datetime.datetime.utcfromtimestamp(epoch / 1000)
+
+    @staticmethod
+    def epoch_to_time_str(epoch):
+        return Utils.datetime_to_time_str(Utils.epoch_to_datetime(epoch))
 
     @staticmethod
     def write_list_of_dicts_to_csv(data, filename):

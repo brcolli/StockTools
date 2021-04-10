@@ -160,7 +160,7 @@ class ShortInterestManager:
 
         return fs_df
 
-    def generate_past_df(self, short_file_prefix, tcm, tickers, valid_dates):
+    def generate_past_df(self, short_file_prefix, tcm, tickers, valid_dates, should_filter=False):
 
         # Add VIX to tickers list
         vk = '$VIX.X'
@@ -247,8 +247,9 @@ class ShortInterestManager:
             ps_df = pd.DataFrame(temp).transpose()
 
             # Filter out tickers that don't meet volume and value criteria
-            ps_df = ps_df[ps_df['volume'] > 5E5]
-            ps_df = ps_df[ps_df['close'] > 5]
+            if should_filter:
+                ps_df = ps_df[ps_df['volume'] > 5E5]
+                ps_df = ps_df[ps_df['close'] > 5]
 
             ps_df.replace(0, np.nan, inplace=True)
 
@@ -381,7 +382,7 @@ class ShortInterestManager:
 
         return dfs
 
-    def get_today_df(self, prev_day, texts, short_file_prefix, tickers=None):
+    def get_today_df(self, prev_day, texts, short_file_prefix, tickers=None, should_filter=False):
 
         df = Utils.regsho_txt_to_df(texts[1])
         past_df = Utils.regsho_txt_to_df(texts[0])
@@ -417,8 +418,9 @@ class ShortInterestManager:
         qs_df = qs_df.sort_index()
 
         # Filter on volume minimum and open price minimum
-        qs_df = qs_df[qs_df['totalVolume'] > 5E5]
-        qs_df = qs_df[qs_df['regularMarketLastPrice'] > 5]
+        if should_filter:
+            qs_df = qs_df[qs_df['totalVolume'] > 5E5]
+            qs_df = qs_df[qs_df['regularMarketLastPrice'] > 5]
 
         # Remove any remaining excess tickers
         qs_syms = qs_df.index.tolist()
