@@ -503,6 +503,7 @@ class ShortInterestManager:
             print('Getting daily short interest for {}.'.format(datetime.datetime.today().date()))
 
             df = self.get_today_df(valid_dates[0], texts, short_file_prefix)
+            Utils.write_dataframe_to_sqlite(df, Sdm().database)
             Utils.write_dataframe_to_csv(df, outputs[1])
         else:
 

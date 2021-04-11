@@ -11,7 +11,7 @@ class StockDataManager:
 
     def __init__(self, ami_path):
 
-        self.database_path = '../data/Databases/stock_data.sqlite'
+        self.database_path = '../data/Databases/stock_data_old_dirty.sqlite'
         self.database = Sqm(self.database_path)
         self.amiquote_path = ami_path
 
@@ -29,10 +29,13 @@ class StockDataManager:
             'Volume REAL);'.format(symbol)
         self.database.execute_query(q)
 
-        # Add symbol to Symbol table
-        q = 'INSERT INTO Symbols (Symbol)' \
-            'VALUES (\'{}\');'.format(symbol)
-        self.database.execute_query(q)
+        # Check if symbol exists in Symbol table
+        if not self.database.check_if_key_exists('Symbols', 'Symbol', symbol):
+            
+            # Add symbol to Symbol table
+            q = 'INSERT INTO Symbols (Symbol)' \
+                'VALUES (\'{}\');'.format(symbol)
+            self.database.execute_query(q)
 
         q = 'INSERT INTO [{}] (Date, Open, High, Low, Close, AdjClose, Volume) ' \
             'VALUES' \
@@ -199,7 +202,7 @@ def main():
         sdm.create_stock_stats_from_amiquote()
 
     #sdm.update_stock_stats()
-    sdm.update_stock_stats_all()
+    #sdm.update_stock_stats_all()
 
 
 if __name__ == '__main__':

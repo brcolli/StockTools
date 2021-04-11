@@ -308,6 +308,8 @@ class Utils:
             except:
                 print('Could not open ' + filename + '. Is the file open?')
 
+    #@staticmethod
+    #def write_dataframe_to_sqlite(df, database):
 
     '''
     Writes a pandas DataFrame to a csv
