@@ -14,7 +14,6 @@ except ImportError:
 Utils = importlib.import_module('utilities').Utils
 TCM = importlib.import_module('TdaClientManager').TdaClientManager
 Sqm = importlib.import_module('SqliteManager').SqliteManager
-Sdm = importlib.import_module('StockDataManager').StockDataManager
 
 
 class ShortInterestManager:
@@ -205,6 +204,7 @@ class ShortInterestManager:
             else:
                 # If even one date fails, call all get_past_history
                 not_all_done = True
+                break
 
         if not not_all_done:
             return ps
@@ -268,6 +268,8 @@ class ShortInterestManager:
         df['Sector'] = fs['sector']
         df['Total Volume'] = qs['totalVolume']
         df['Open'] = qs['openPrice']
+        df['High'] = qs['highPrice']
+        df['Low'] = qs['lowPrice']
         df['Close'] = qs['regularMarketLastPrice']
         df['VIX Close'] = qs['VIX Close']
         df['Days to Cover'] = df['ShortVolume'] / fs['vol10DayAvg']
@@ -312,6 +314,8 @@ class ShortInterestManager:
         df['Sector'] = fs['sector']
         df['Total Volume'] = curr_data['volume']
         df['Open'] = curr_data['open']
+        df['High'] = curr_data['high']
+        df['Low'] = curr_data['low']
         df['Close'] = curr_data['close']
         df['VIX Close'] = curr_data['VIX Close']
         df['Days to Cover'] = df['ShortVolume'] / fs['vol10DayAvg']
@@ -503,7 +507,7 @@ class ShortInterestManager:
             print('Getting daily short interest for {}.'.format(datetime.datetime.today().date()))
 
             df = self.get_today_df(valid_dates[0], texts, short_file_prefix)
-            Utils.write_dataframe_to_sqlite(df, Sdm().database)
+            Utils.write_stock_data_dataframe_to_sqlite(df)
             Utils.write_dataframe_to_csv(df, outputs[1])
         else:
 
@@ -594,4 +598,6 @@ def main(ymd1='', ymd2='', should_upload=True):
 
 
 if __name__ == '__main__':
-    main()
+    #main()
+    df = Utils.load_csv_to_dataframe('../data/2021/0328-0403/CNMSshvol20210330.csv')
+    Utils.write_stock_data_dataframe_to_sqlite(df)

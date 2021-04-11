@@ -9,9 +9,9 @@ TCM = importlib.import_module('TdaClientManager').TdaClientManager
 
 class StockDataManager:
 
-    def __init__(self, ami_path):
+    def __init__(self, ami_path='C:\Program Files\AmiBroker\AmiQuote\Download'):
 
-        self.database_path = '../data/Databases/stock_data_old_dirty.sqlite'
+        self.database_path = '../data/Databases/stock_data.sqlite'
         self.database = Sqm(self.database_path)
         self.amiquote_path = ami_path
 
@@ -31,7 +31,7 @@ class StockDataManager:
 
         # Check if symbol exists in Symbol table
         if not self.database.check_if_key_exists('Symbols', 'Symbol', symbol):
-            
+
             # Add symbol to Symbol table
             q = 'INSERT INTO Symbols (Symbol)' \
                 'VALUES (\'{}\');'.format(symbol)
@@ -202,7 +202,7 @@ def main():
         sdm.create_stock_stats_from_amiquote()
 
     #sdm.update_stock_stats()
-    #sdm.update_stock_stats_all()
+    sdm.update_stock_stats_all()
 
 
 if __name__ == '__main__':

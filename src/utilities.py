@@ -10,6 +10,7 @@ import fnmatch
 from pydrive.drive import GoogleDrive
 from pydrive.auth import GoogleAuth
 from io import StringIO
+import importlib
 import csv
 import re
 
@@ -308,8 +309,16 @@ class Utils:
             except:
                 print('Could not open ' + filename + '. Is the file open?')
 
-    #@staticmethod
-    #def write_dataframe_to_sqlite(df, database):
+    @staticmethod
+    def write_stock_data_dataframe_to_sqlite(df):
+
+        Sdm = importlib.import_module('StockDataManager').StockDataManager
+        sdm = Sdm()
+
+        for row, col in df.iterrows():
+            adj_close = col['Close'] / (col['Close % Delta'] + 1)
+            sdm.add_ticker_data(row, [(col['Date'], col['Open'], col['High'], col['Low'], col['Close'], adj_close,
+                                       col['Total Volume'])])
 
     '''
     Writes a pandas DataFrame to a csv
