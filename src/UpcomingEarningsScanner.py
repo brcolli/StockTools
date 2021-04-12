@@ -61,6 +61,10 @@ class EarningsManager:
                     print('Bad data for {}. Skipping.'.format(ticker))
                     data = data[data.ticker != ticker]
                     continue
+                except IndexError:
+                    print('Worse data for {}. Skipping.'.format(ticker))
+                    data = data[data.ticker != ticker]
+                    continue
 
                 curr_info_keys = curr_info.keys()
 
@@ -68,9 +72,9 @@ class EarningsManager:
                    'regularMarketPreviousClose' in curr_info_keys and 'currency' in curr_info_keys:
 
                     # Attempt to get ticker data
-                    vl = curr_info['volume']
+                    vl = curr_info['regularMarketVolume']
                     mc = curr_info['marketCap']
-                    lc = curr_info['previousClose']
+                    lc = curr_info['regularMarketPreviousClose']
 
                 else:
                     print('Bad data on ticker ' + ticker + '. Deleting from results.')
