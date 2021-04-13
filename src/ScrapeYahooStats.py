@@ -3,7 +3,7 @@ import importlib
 import json
 from os import path
 import time
-import yfinance
+import yfinance as yf
 
 
 Utils = importlib.import_module('utilities').Utils
@@ -73,7 +73,7 @@ def add_sector_column_to_fundamentals(stats_table, tickers):
     for ticker in tickers:
 
         print('Getting sector data for {}'.format(ticker))
-        t = yfinance.Ticker(ticker)
+        t = yf.Ticker(ticker)
 
         try:
             sector = t.info['sector']

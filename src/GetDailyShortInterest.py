@@ -434,7 +434,7 @@ class ShortInterestManager:
         qs_syms = qs_df.index.tolist()
 
         fs_df = fs_df.loc[qs_syms]
-        df = df.loc[qs_syms]
+        df = df.reindex(index=qs_syms)
 
         (prev_short_perc, prev_vol_perc) = self.get_past_short_vol(qs_syms, tcm, prev_day,
                                                                    past_df, short_file_prefix)
@@ -598,6 +598,6 @@ def main(ymd1='', ymd2='', should_upload=True):
 
 
 if __name__ == '__main__':
-    #main()
-    df = Utils.load_csv_to_dataframe('../data/2021/0328-0403/CNMSshvol20210330.csv')
-    Utils.write_stock_data_dataframe_to_sqlite(df)
+    main()
+    #df = Utils.load_csv_to_dataframe('../data/2021/0328-0403/CNMSshvol20210330.csv')
+    #Utils.write_stock_data_dataframe_to_sqlite(df)

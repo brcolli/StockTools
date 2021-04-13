@@ -1,6 +1,5 @@
 from tda.auth import easy_client
 from tda.streaming import StreamClient
-import yfinance as yf
 from iexfinance.stocks import Stock
 import json
 import time
@@ -195,15 +194,6 @@ class TdaClientManager:
             ret[key] = temp
 
         return ret
-
-    @staticmethod
-    def get_prev_day_data(tickers_list):
-
-        data = {}
-        for tickers in tickers_list:
-            data = yf.download(tickers, period='1d')
-
-        return data
 
     def get_past_history(self, tickers, start_day, end_day=None):
 
