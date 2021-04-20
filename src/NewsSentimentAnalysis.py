@@ -242,6 +242,4 @@ def main(phrase='', filter_in=None, filter_out=None, history_count=1000):
 
 if __name__ == '__main__':
 
-    #nm = NewsManager()
-    #nm.get_tickers_news(['AAPL', 'TSLA'])
-    main('$AMD', filter_out=['vine', 'retweets', 'links'])
+    main('$AAPL', filter_out=['vine', 'retweets', 'links'])

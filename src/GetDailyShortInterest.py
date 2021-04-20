@@ -196,7 +196,8 @@ class ShortInterestManager:
                 vd_df = self.cleanup_quotes_df(tcm, vd_df)
 
                 # Reformat to dataframe
-                temp = {'open': vd_df['openPrice'], 'close': vd_df['closePrice'],
+                temp = {'open': vd_df['openPrice'], 'high': vd_df['highPrice'], 'low': vd_df['lowPrice'],
+                        'close': vd_df['closePrice'],
                         'volume': vd_df['totalVolume'],
                         'datetime': vd,
                         'VIX Close': 'VIX Close', 'Symbol': 'Symbol'}
