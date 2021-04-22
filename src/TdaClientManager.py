@@ -80,8 +80,13 @@ class TdaClientManager:
             opts[ticker] = []
 
             # Iterate through all calls and puts and filter on criteria
-            call_dates = data['callExpDateMap']
-            put_dates = data['putExpDateMap']
+            try:
+                call_dates = data['callExpDateMap']
+                put_dates = data['putExpDateMap']
+            except Exception as e:
+                print(f'Bad options data for {ticker} due to {e}. Skipping.')
+                continue
+
             opt_list = []
 
             for call_date, calls in call_dates.items():
