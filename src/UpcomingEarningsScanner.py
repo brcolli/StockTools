@@ -40,6 +40,10 @@ class EarningsManager:
 
             data = pd.DataFrame.from_dict(data_dict)
 
+            if data.empty:
+                print('Failed to get earnings data, please try again.')
+                return data
+
             # Remove unused columns
             unused = ['startdatetimetype', 'timeZoneShortName', 'gmtOffsetMilliSeconds', 'quoteType']
             data.drop(unused, axis=1, inplace=True)
@@ -57,12 +61,8 @@ class EarningsManager:
 
                 try:
                     curr_info = si.get_quote_data(ticker)
-                except KeyError:
-                    print('Bad data for {}. Skipping.'.format(ticker))
-                    data = data[data.ticker != ticker]
-                    continue
-                except IndexError:
-                    print('Worse data for {}. Skipping.'.format(ticker))
+                except Exception as e:
+                    print('Bad data for {} due to {}. Skipping.'.format(ticker, e))
                     data = data[data.ticker != ticker]
                     continue
 
@@ -84,17 +84,17 @@ class EarningsManager:
                 # Check if passes criteria
                 if self.criteria(vl, mc, lc):
 
-                    ticker_data['volume'][vl] = ticker
-                    ticker_data['marketCap'][mc] = ticker
-                    ticker_data['lastClose'][lc] = ticker
+                    ticker_data['volume'][ticker] = vl
+                    ticker_data['marketCap'][ticker] = mc
+                    ticker_data['lastClose'][ticker] = lc
                 else:
                     print('Ticker ' + ticker + ' did not meet the criteria. Deleting from results.')
                     data = data[data.ticker != ticker]
 
             # Add new columns that passed criteria to dataframe
-            data['volume'] = ticker_data['volume']
-            data['marketCap'] = ticker_data['marketCap']
-            data['lastClose'] = ticker_data['lastClose']
+            data['volume'] = ticker_data['volume'].values()
+            data['marketCap'] = ticker_data['marketCap'].values()
+            data['lastClose'] = ticker_data['lastClose'].values()
 
             data.reset_index(drop=True, inplace=True)  # Reset indices after removing
 
@@ -171,4 +171,4 @@ def main(ymd1='', ymd2='', min_vl=1E6, min_mc=3E8, min_lc=10):
 
 
 if __name__ == '__main__':
-    main('20210405', '20210409')
+    main()
