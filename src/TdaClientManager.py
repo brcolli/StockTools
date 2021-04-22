@@ -9,10 +9,27 @@ import os
 import pandas as pd
 
 
+"""TdaClientManager
+
+Description:
+Used for all API function calls regarding stock data gathering. Primary focus is using the TD Ameritrade API.
+
+Authors: Benjamin Collins
+Date: April 22, 2021 
+"""
+
+
 class TdaClientManager:
+
+    """Used for all API function calls regarding stock data gathering. Primary focus is using the TD Ameritrade API.
+    """
 
     def __init__(self):
 
+        """Constructor method, creates a TD API client and stream object.
+        """
+
+        #  TODO Remove these hardcoded inputs for an encrypted cloud file
         self.account_id = '275356186'
         self.key = 'FA3ISKLEGYIFXQRSUJQCB93AKXFRGZUK'
         self.callback_url = 'https://localhost:8080'
@@ -31,6 +48,9 @@ class TdaClientManager:
 
     def authenticate(self):
 
+        """Authenticates a TD client that has expired. Typical expiration time is 30 days.
+        """
+
         from selenium import webdriver
         from webdriver_manager.chrome import ChromeDriverManager
 
@@ -42,6 +62,35 @@ class TdaClientManager:
 
     def find_options(self, tickers, to_date=None, from_date=None, max_mark=2, max_spread=0.5, min_delta=0.3,
                      max_theta=0.02, max_iv=50, min_oi=100):
+
+        """Finds a list of options for tickers given criteria. With a list of tickers, this will get all current options
+        within a date range that meet a criteria.
+
+        :param tickers: A list of tickers to search for options
+        :type tickers: list(str)
+        :param to_date: End date for range to search for options; defaults to None
+        :type to_date: datetime
+        :param from_date: Start date for range to search for options; defaults to None
+        :type from_date: datetime
+        :param max_mark: The maximum value that an options contract was last traded at; defaults to 2
+        :type max_mark: float
+        :param max_spread: The maximum difference between the ask and bid, will be taken as an absolute value;
+                           defaults to 0.5
+        :type max_spread: float
+        :param min_delta: The minimum value of delta for a contract, will be taken as an absolute value; defaults to 0.3
+        :type min_delta: float
+        :param max_theta: The maximum value of theta for a contract, will be taken as an absolute value;
+                          defaults to 0.02
+        :type max_theta: float
+        :param max_iv: The maximum value of implied volatility for a contract; defaults to 50
+        :type max_iv: float
+        :param min_oi: The minimum value of open interest for a contract; defaults to 100
+        :type min_oi: int
+
+        :return: A dictionary of :class:`pandas.core.frame.DataFrame` for each ticker,
+                 containing possible options contracts of interest; defaults to empty dictionary
+        :rtype: dict(str-> :class:`pandas.core.frame.DataFrame`)
+        """
 
         opts = {}
 
@@ -87,6 +136,7 @@ class TdaClientManager:
                 print(f'Bad options data for {ticker} due to {e}. Skipping.')
                 continue
 
+            #  Collect call and put options that pass the criteria in a dictionary
             opt_list = []
 
             for call_date, calls in call_dates.items():
@@ -110,10 +160,24 @@ class TdaClientManager:
     @staticmethod
     def get_quotes_from_iex(tickers_chunks):
 
+        """Gets daily quotes from IEX Finance given a list of lists of tickers. Requires nested lists as IEX Finance
+        has a maximum amount of tickers that can be requested at a given time.
+
+        :param tickers_chunks: A list of lists of tickers, where max chunk size is 100 tickers
+        :type tickers_chunks: list(list(str))
+
+        :return: A dictionary of :class:`pandas.core.frame.DataFrame` for each ticker,
+                 containing quote data; defaults to empty dictionary
+        :rtype: dict(str-> :class:`pandas.core.frame.DataFrame`)
+        """
+
         ret = {}
         for tickers in tickers_chunks:
 
+            #  Continue to iterate on the ticker in each chunk to deal with rate limiting
             while True:
+
+                #  TODO replace token with encrypted cloud file
                 s = Stock(tickers, token='pk_78c8ddd19775400684a6a51744aaacd6')
                 try:
                     iexq = s.get_quote()
@@ -134,18 +198,31 @@ class TdaClientManager:
 
     def get_quotes_from_tda(self, tickers_list):
 
+        """Gets daily quotes from TD Ameritrade given a list of lists of tickers. Requires nested lists as TD Ameritrade
+        has a maximum amount of tickers that can be requested at a given time.
+
+        :param tickers_list: A list of lists of tickers, where max chunk size is 300 tickers
+        :type tickers_list: list(list(str))
+
+        :return: A dictionary of :class:`pandas.core.frame.DataFrame` for each ticker,
+                 containing quote data; defaults to empty dictionary
+        :rtype: dict(str-> :class:`pandas.core.frame.DataFrame`)
+        """
+
         qs = {}
         for tickers in tickers_list:
 
+            #  Continue to iterate on the ticker in each chunk to deal with rate limiting
             while True:
 
+                r = None
                 while True:
                     try:
                         r = self.client.get_quotes(tickers)
                         break
                     except Exception as e:
 
-                        if type(e) is type(InvalidGrantError()) and e.args == InvalidGrantError().args:
+                        if isinstance(e, InvalidGrantError) and e.args == InvalidGrantError().args:
                             if os.path.exists('../doc/token'):
                                 os.remove('../doc/token')
                             self.authenticate()
@@ -153,6 +230,7 @@ class TdaClientManager:
                         time.sleep(1)
                         continue
 
+                #  Attempt to parse the data
                 data = r.json()
 
                 if not data:
@@ -165,7 +243,7 @@ class TdaClientManager:
                 if first_key != 'error':
                     break
                 else:
-                    time.sleep(5)
+                    time.sleep(5)  # Most likely rate limited, wait 5 seconds and try again
 
             qs.update(data)
 
@@ -173,8 +251,20 @@ class TdaClientManager:
 
     def get_fundamentals_from_tda(self, tickers_list):
 
+        """Gets fundamentals from TD Ameritrade given a list of lists of tickers. Requires nested lists as TD Ameritrade
+        has a maximum amount of tickers that can be requested at a given time.
+
+        :param tickers_list: A list of lists of tickers, where max chunk size is 300 tickers
+        :type tickers_list: list(list(str))
+
+        :return: A dictionary of :class:`pandas.core.frame.DataFrame` for each ticker,
+                 containing fundamental data; defaults to empty dictionary
+        :rtype: dict(str-> :class:`pandas.core.frame.DataFrame`)
+        """
+
         fs = {}
         for tickers in tickers_list:
+
             while True:
 
                 r = self.client.search_instruments(tickers, self.client.Instrument.Projection.FUNDAMENTAL)
@@ -202,6 +292,18 @@ class TdaClientManager:
 
     def get_past_history(self, tickers, start_day, end_day=None):
 
+        """Gets historical stock data for a ticker given a range of dates. Data includes open, high, low, close, and
+        volume for a ticker on a specific day. Calls one ticker at a time as TD API does not support multiple tickers
+        for a single call.
+
+        :param tickers: A list of tickers
+        :type tickers: list(str)
+
+        :return: A dictionary of :class:`pandas.core.frame.DataFrame` for each ticker,
+                 containing fundamental data; defaults to empty dictionary
+        :rtype: dict(str-> :class:`pandas.core.frame.DataFrame`)
+        """
+
         tickers_history = {}
 
         if end_day is None:
@@ -209,8 +311,10 @@ class TdaClientManager:
 
         for ticker in tickers:
 
+            #  Loop on a single ticker to ensure data is retrieved and we don't get rate limited out
             while True:
 
+                # Second internal loop to handle possible authentication timeouts
                 while True:
                     try:
                         r = self.client.get_price_history(ticker,
