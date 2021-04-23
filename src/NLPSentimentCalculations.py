@@ -10,9 +10,27 @@ import string
 import re
 
 
+"""TdaClientManager
+
+Description:
+Module for handling all natural language processing (NLP) calculations. Designed to work on generic classification
+problems. Includes methods for data parsing, sanitization, and tagging. Goal is to be able to sanitize text,
+classify words and phrases, and split up text strings to token clusters with logical grouping.
+
+Authors: Benjamin Collins
+Date: April 22, 2021 
+"""
+
+
 class NLPSentimentCalculations:
 
+    """Handles any function calls related to NLP classifications.
+    """
+
     def __init__(self):
+
+        """Constructor method, downloads necessary NLTK data.
+        """
 
         self.classifier = None
         NLPSentimentCalculations.download_nltk_common()
@@ -20,29 +38,87 @@ class NLPSentimentCalculations:
     @staticmethod
     def download_nltk_common():
 
+        """Downloads specific NLTK data for NLP analysis.
+        """
+
         nltk.download('wordnet')                     # For determining base words
         nltk.download('punkt')                       # Pretrained model to help with tokenizing
         nltk.download('averaged_perceptron_tagger')  # For determining word context
 
     def train_naivebayes_classifier(self, train_data):
+
+        """Trains a simple Naive Bayes classification model on training data.
+
+        :param train_data: A list of tuples of a dictionary and a string. The dictionary is a map of features to truths.
+                           Contains a list of features and classification tags to train a Naive Bayes model
+        :type train_data: list(tuple(dict(str-> bool)))
+        """
         self.classifier = NaiveBayesClassifier.train(train_data)
 
     def test_classifier(self, test_data):
-        print('Accuracy is:', classify.accuracy(self.classifier, test_data))
+
+        """Tests a classifier on test data.
+
+        :param test_data: A list of tuples of a dictionary and a string. The dictionary is a map of features to truths.
+                          Contains a list of features and classification tags to test a model
+        :type test_data: list(tuple(dict(str-> bool)))
+
+        :return: The accuracy of the model based on test data
+        :rtype: float
+        """
+
+        #  TODO include F-score from precision and recall
+        accuracy = classify.accuracy(self.classifier, test_data)
+        print(f'Accuracy is:{accuracy}')
         print(self.classifier.show_most_informative_features(10))
 
+        return accuracy
+
     def classify_text(self, text):
+
+        """Classifies text using a model that has been trained. Takes in unclean data and passes it through a
+        sanitization function. Clean tokens are then parsed into a dictionary of features and passed to the classifier.
+
+        :param text: Text to be classified
+        :type text: str
+
+        :return: The classification tag
+        :rtype: str
+        """
+
         custom_tokens = NLPSentimentCalculations.sanitize_text(word_tokenize(text))
         return self.classifier.classify(dict([token, True] for token in custom_tokens))
 
     @staticmethod
     def get_all_words(all_tokens):
+
+        """Iterates through a list of lists of tokens and returns each token.
+
+        :param all_tokens: A list of lists of tokens
+        :type all_tokens: list(list(str))
+
+        :return: One token at a time
+        :rtype: str
+        """
+
         for tokens in all_tokens:
             for token in tokens:
                 yield token
 
     @staticmethod
     def get_clean_tokens(all_tokens, stop_words=()):
+
+        """Iterates through a list of tokens and sanitizes each one, returning a list of clean tokens. Sanitizing in
+        this context means to remove noise such as stop words, bad characters, and emojis.
+
+        :param all_tokens: A list of lists of tokens
+        :type all_tokens: list(list(str))
+        :param stop_words: A list of the most common words in English that are typically not useful in analysis
+        :type stop_words: list(str)
+
+        :return: A list of lists of sanitized tokens
+        :rtype: list(list(str))
+        """
 
         cleaned_tokens = []
         for tokens in all_tokens:
@@ -51,11 +127,31 @@ class NLPSentimentCalculations:
 
     @staticmethod
     def get_freq_dist(all_tokens):
+
+        """Gets the frequency distribution of all the words in a set of tokens
+
+        :param all_tokens: A list of lists of tokens
+        :type all_tokens: list(list(str))
+
+        :return: A dictionary of word to count pairs
+        :rtype: dict(str-> int)
+        """
+
         all_words = NLPSentimentCalculations.get_all_words(all_tokens)
         return FreqDist(all_words)
 
     @staticmethod
     def get_basic_data_tag(all_tokens):
+
+        """Simple convert of a list of lists of tokens to a mapping of features.
+
+        :param all_tokens: A list of lists of tokens
+        :type all_tokens: list(list(str))
+
+        :return: A dictionary of feature mappings
+        :rtype: dict(str-> bool)
+        """
+
         for tokens in all_tokens:
             yield dict([token, True] for token in tokens)
 

@@ -5,6 +5,7 @@ import pandas as pd
 from os import path
 import datetime
 
+#  Needed to handle systems that don't support Tk, i.e. cloud servers without a graphic interface
 try:
     from tkinter import Tk
     from tkinter.filedialog import askopenfilename

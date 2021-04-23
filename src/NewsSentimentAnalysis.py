@@ -111,7 +111,7 @@ class TwitterManager:
     PhraseSearchHistory
     Searches historic tweets for a phrase
     '''
-    def PhraseSearchHistory(self, phrase, count=1000):
+    def phrase_search_history(self, phrase, count=1000):
 
         print('Collecting tweets from phrase: ' + phrase + '...')
 
@@ -232,7 +232,7 @@ def main(phrase='', filter_in=None, filter_out=None, history_count=1000):
 
     # Search phrase
     query = tw.ConstructTwitterQuery(phrase, filter_in=filter_in, filter_out=filter_out)
-    tweets = tw.PhraseSearchHistory(query, history_count)
+    tweets = tw.phrase_search_history(query, history_count)
     Utils.write_dataframe_to_csv(tweets, '../data/News Sentiment Analysis/'
                                          '' + phrase + '_tweet_history_search.csv')
 

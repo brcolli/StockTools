@@ -130,7 +130,7 @@ class Utils:
                 f = drive.CreateFile({'title': filename})
 
             f.SetContentFile(filepath)
-            f.Upload(param={'supportsAllDrives': True})
+            f.Upload(param={'supportsAllDrives': True})  # TODO handle BrokenPipeError: [Errno 32]
 
         f = None  # Recommended generic cleanup
 

@@ -30,8 +30,8 @@ class EarningsManager:
         if path.exists(filename) and False:
             data = Utils.load_csv_to_dataframe(filename)
         else:
-            # File doesn't exist, write to it
 
+            # File doesn't exist, write to it
             try:
                 data_dict = si.get_earnings_in_date_range(date_range[0], date_range[1])
             except:

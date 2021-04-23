@@ -126,7 +126,7 @@ class TdaClientManager:
                 break
 
             data = r.json()
-            opts[ticker] = pd.DataFrame.empty
+            opts[ticker] = pd.DataFrame()
 
             # Iterate through all calls and puts and filter on criteria
             try:
