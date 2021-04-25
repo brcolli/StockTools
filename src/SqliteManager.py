@@ -52,6 +52,12 @@ class SqliteManager:
         q = 'UPDATE {} SET {} = ? WHERE {} = ?'.format(table_name, column_name, id_name)
         return self.execute_many_query(q, data)
 
+    def database_empty(self):
+
+        cursor = self.connection.cursor()
+        cursor.execute('SELECT name FROM sqlite_master WHERE type=\'table\';')
+        return bool(cursor.fetchall())
+
     def check_if_key_exists(self, table_name, column_name, key):
 
         cursor = self.connection.cursor()

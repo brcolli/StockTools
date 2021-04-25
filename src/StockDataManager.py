@@ -1,10 +1,10 @@
 import importlib
 from os import path
+import yahoo_fin.stock_info as si
 
 
 Utils = importlib.import_module('utilities').Utils
 Sqm = importlib.import_module('SqliteManager').SqliteManager
-TCM = importlib.import_module('TdaClientManager').TdaClientManager
 
 
 class StockDataManager:
@@ -41,6 +41,14 @@ class StockDataManager:
             'VALUES' \
             '(?, ?, ?, ?, ?, ?, ?);'.format(symbol)
         self.database.execute_many_query(q, data)
+
+    def create_stock_stats(self):
+
+        self.database.execute_query('CREATE TABLE IF NOT EXISTS Symbols ('
+                                    'id INTEGER PRIMARY KEY AUTOINCREMENT,'
+                                    'Symbol TEXT);')
+
+        self.update_stock_stats_all()
 
     def create_stock_stats_from_amiquote(self):
 
@@ -166,43 +174,38 @@ class StockDataManager:
 
     def update_stock_stats_all(self):
 
-        tickers = Utils.get_all_tickers()
+        tickers = Utils.get_all_tickers()[:50]
 
         start_day = Utils.time_str_to_datetime('19700102')
-        end_day = Utils.time_str_to_datetime('20210410')
-
-        tcm = TCM()
+        end_day = Utils.get_last_trading_day()
 
         for ticker in tickers:
 
-            ps = tcm.get_past_history([ticker], start_day, end_day)
-            if not ps:
+            try:
+                ps = si.get_data(ticker, start_date=start_day, end_date=end_day)
+            except Exception as e:
+                print('Bad data for {} due to {}. Skipping.'.format(ticker, e))
                 continue
-            val = ps[ticker]
 
-            data = []
-            for i in range(len(val)):
-                day = val[i]
+            if ps.empty:
+                continue
 
-                if i == 0:
-                    data.append((Utils.epoch_to_time_str(day['datetime']), day['open'], day['high'], day['low'],
-                                 day['close'], 0, day['volume']))
-                else:
-                    data.append((Utils.epoch_to_time_str(day['datetime']), day['open'], day['high'], day['low'],
-                                 day['close'], val[i-1]['close'], day['volume']))
+            # Remove ticker column and convert index to datetime string
+            ps = ps.drop(['ticker'], axis=1)
+            ps.index = ps.index.map(lambda d: Utils.datetime_to_time_str(d.date()))
+
+            # Convert dataframe to list of tuples
+            data = list(ps.itertuples(name=None))
 
             self.add_ticker_data(ticker, data)
 
 
 def main():
 
-    sdm = StockDataManager('C:\Program Files\AmiBroker\AmiQuote\Download')
+    sdm = StockDataManager()
 
-    if not path.exists(sdm.database_path):
-        sdm.create_stock_stats_from_amiquote()
-
-    #sdm.update_stock_stats()
-    sdm.update_stock_stats_all()
+    if not sdm.database.database_empty():
+        sdm.create_stock_stats()
 
 
 if __name__ == '__main__':
