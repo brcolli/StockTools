@@ -174,7 +174,7 @@ class StockDataManager:
 
     def update_stock_stats_all(self):
 
-        tickers = Utils.get_all_tickers()[:50]
+        tickers = Utils.get_all_tickers()
 
         start_day = Utils.time_str_to_datetime('19700102')
         end_day = Utils.get_last_trading_day()
