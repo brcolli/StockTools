@@ -11,10 +11,34 @@ Utils = importlib.import_module('utilities').Utils
 NSC = importlib.import_module('NLPSentimentCalculations').NLPSentimentCalculations
 
 
+"""NewsSentimentAnalysis
+
+Description:
+Module for working with News Sentiment Analysis. Uses the NLPSentimentCalculations module for all the backend generic
+calls, like data sanitization. This works with data gathering, filtering, and I/O. Current focus is on news headlines,
+tweets, and articles. Can support data streams and data input classification.
+
+Authors: Benjamin Collins
+Date: April 22, 2021 
+"""
+
+
 class NewsManager:
 
+    """Handles news headline and article classification.
+    """
+
     @staticmethod
-    def get_ticker_news(ticker):
+    def get_ticker_news_headlines(ticker):
+
+        """Given a ticker, scrapes finviz for news headlines.
+
+        :param ticker: Ticker to scan for news headlines about
+        :type ticker: str
+
+        :return: A list of news headlines regarding the ticker
+        :rtype: list(str)
+        """
 
         url = 'https://finviz.com/quote.ashx?t=' + ticker
 
@@ -40,23 +64,36 @@ class NewsManager:
 
         return data
 
-    def get_tickers_news(self, tickers):
+    def get_tickers_news_headlines(self, tickers):
+
+        """Gets news headlines for a list of tickers
+
+        :param tickers: List of tickers to scan for news headlines about
+        :type tickers: list(str)
+
+        :return: A dictionary of tickers to dataframes of news headlines
+        :rtype: dict(str-> :class:`pandas.core.frame.DataFrame`)
+        """
 
         data = {}
         for ticker in tickers:
-            data[ticker] = pd.DataFrame(self.get_ticker_news(ticker))
+            data[ticker] = pd.DataFrame(self.get_ticker_news_headlines(ticker))
 
         return data
 
 
 class TwitterManager:
 
-    '''
-    Constructor
-    '''
+    """Handles sentiment analysis for Twitter data, i.e. tweets. Can tag input data or a live stream of tweets.
+    """
+
     def __init__(self):
 
+        """Constructor method, creates a login session for the Twitter API, and sets up a stream listener.
+        """
+
         # Tokens and keys
+        #  TODO move keys to a hashed file on a cloud server
         self.shKey = 'BUYwpbmEi3A29cm9kOXeX9y8n'
         self.scKey = 'MF5w3g6jmn7WnYM6DG8xtIWkdjnEhInnBSf5bU6HclTF4wSkJ9'
         self.shToken = '4149804506-DrTR0UhuQ8pWf16r9wm8NYdkGNSBWuib2Y8nUlw'
@@ -77,6 +114,10 @@ class TwitterManager:
 
     def initialize_nltk_twitter(self):
 
+        """Uses a basic NLTK dataset to train and test a positive/negative binary classifier.
+        """
+
+        # Download all the common NLTK data samples
         nltk.download('twitter_samples')
         nltk.download('stopwords')
 
@@ -98,28 +139,58 @@ class TwitterManager:
 
     @staticmethod
     def get_dataset_from_tweet(tweet_tokens, classifier_tag):
+
+        """Given a list of tweet tokens, clean the tweets into tokens with removed stopwords, bad ascii, and so on. For
+        the full list, see NLPSentimentCalculations::get_clean_tokens. Then, splits them into a list of dictionaries
+        for easy token manipulation and training on a classifier.
+
+        :param tweet_tokens: List of tweet tokens, which is itself a list of strings
+        :type tweet_tokens: list(list(str))
+        :param classifier_tag: A classification label to mark all tokens
+        :type classifier_tag: str
+
+        :return: A list of tuples of dictionaries of feature mappings to classifiers
+        :rtype: list(dict(str-> bool), str)
+        """
+
         tweets_clean = NSC.get_clean_tokens(tweet_tokens, stopwords.words('english'))
         return NSC.get_basic_dataset(tweets_clean, classifier_tag)
 
     def get_tweet_sentiment(self, text):
+
+        """Calls the model classifier on a tweet to get the sentiment.
+
+        :param text: List of tweet tokens, which is itself a list of strings
+        :type text: str
+
+        :return: A list of tuples of dictionaries of feature mappings to classifiers
+        :rtype: list(dict(str-> bool), str)
+        """
+
         sentiment = self.nsc.classify_text(text)
         print('Text:', text)
         print('Sentiment:', sentiment)
         return sentiment
 
-    '''
-    PhraseSearchHistory
-    Searches historic tweets for a phrase
-    '''
     def phrase_search_history(self, phrase, count=1000):
+
+        """Searches historic tweets for a phrase
+
+        :param phrase: A phrase to search for
+        :type phrase: str
+        :param count: Amount of tweets to grab; defaults to 1000
+        :type count: int
+
+        :return: A dataframe of tweets and data that match the phrase
+        :rtype: :class:`pandas.core.frame.DataFrame`
+        """
 
         print('Collecting tweets from phrase: ' + phrase + '...')
 
         tweets = []
         tweet_keys = ['Date', 'User', 'Text', 'Sentiment']
 
-        limited = True
-        while limited:
+        while True:  # Iterate if tweet collection fails
 
             data = tweepy.Cursor(self.api.search,
                                  q=phrase,
@@ -142,23 +213,39 @@ class TwitterManager:
 
                     tweets.append(temp_dict)
 
-                limited = False
+                break
             except tweepy.error.TweepError as e:
                 if 'code = 429' in e:
                     new_count = count - 100
                     print('Error 429 received, lowering history count from {} to {}.'.format(count, new_count))
                     count = new_count
 
-        df = pd.DataFrame(data=tweets, columns=tweet_keys)
+        return pd.DataFrame(data=tweets, columns=tweet_keys)
 
-        return df
-
-    '''
-    Constructs a proper advanced twitter search query given certain operations.
-    Refer to https://developer.twitter.com/en/docs/twitter-api/v1/rules-and-filtering/overview/standard-operators
-    '''
     @staticmethod
-    def ConstructTwitterQuery(phrase, filter_in=[], filter_out=[], exact_phrase=''):
+    def construct_twitter_query(phrase, filter_in=None, filter_out=None, exact_phrase=''):
+
+        """Constructs a proper advanced twitter search query given certain operations.
+        Refer to https://developer.twitter.com/en/docs/twitter-api/v1/rules-and-filtering/overview/standard-operators
+
+        :param phrase: The phrase to create the query with
+        :type phrase: str
+        :param filter_in: Types of data to include in query; defaults to []
+        :type filter_in: list(str)
+        :param filter_out: Types of data to remove from query; defaults to []
+        :type filter_out: list(str)
+        :param exact_phrase: An exact phrase to look for in the tweets; defaults to ''
+        :type exact_phrase: str
+
+        :return: The properly formatted query for a Twitter API call
+        :rtype: str
+        """
+
+        # Default to [], to hide the mutable warning
+        if not filter_in:
+            filter_in = []
+        if not filter_out:
+            filter_out = []
 
         # Specify query phrasing
         query = ''
@@ -177,7 +264,18 @@ class TwitterManager:
 
         return query
 
-    def StartStream(self, phrases, limit=-1):
+    def start_stream(self, phrases, limit=-1):
+
+        """Starts a stream to collect tweets based on search phrases
+
+        :param phrases: The phrases to search for in a stream
+        :type phrases: list(str)
+        :param limit: The number of tweets to limit in your stream scanning, currently unused; defaults to -1
+        :type limit: int
+
+        :return: The properly formatted query for a Twitter API call
+        :rtype: str
+        """
 
         print('Starting stream on ' + str(phrases))
 
@@ -192,12 +290,25 @@ class TwitterManager:
 
 class TwitterStreamListener(tweepy.StreamListener):
 
+    """Handles the stream event-driven methods, inherits tweepy.StreamListener
+    """
+
     def __init__(self):
+
+        """Constructor method, calls parent class initializer
+        """
+
         super(TwitterStreamListener, self).__init__()
         self.header_written = False
         self.output_file = ''
 
     def on_status(self, status):
+
+        """Main event method for when a stream listener gets a tweet. Writes to a file.
+
+        :param status: The event status data from the listener stream
+        :type status: :class:`tweepy.api.API`
+        """
 
         # Set write type, where 'w' is write from scratch and 'a' is append
         if not self.header_written:
@@ -231,15 +342,15 @@ def main(phrase='', filter_in=None, filter_out=None, history_count=1000):
     #tw.get_tweet_sentiment('Tesla can suck it')
 
     # Search phrase
-    query = tw.ConstructTwitterQuery(phrase, filter_in=filter_in, filter_out=filter_out)
+    query = tw.construct_twitter_query(phrase, filter_in=filter_in, filter_out=filter_out)
     tweets = tw.phrase_search_history(query, history_count)
     Utils.write_dataframe_to_csv(tweets, '../data/News Sentiment Analysis/'
                                          '' + phrase + '_tweet_history_search.csv')
 
     # Start query stream
-    #tw.StartStream(['$PTON'])
+    #tw.start_stream(['$GME'])
 
 
 if __name__ == '__main__':
 
-    main('$AAPL', filter_out=['vine', 'retweets', 'links'])
+    main()

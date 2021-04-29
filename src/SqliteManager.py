@@ -1,9 +1,29 @@
 import sqlite3
 
 
+"""SqliteManager
+
+Description:
+Module for handling generic Sqlite3 database calls. Used for all sqlite3 database backend API methods.
+
+Authors: Benjamin Collins
+Date: April 22, 2021 
+"""
+
+
 class SqliteManager:
 
+    """Class for all generic Sqlite3 backend methods.
+    """
+
     def __init__(self, path='../data/data.sqlite'):
+
+        """Constructor method, opens a connection to a given database path.
+
+        :param path: Path to sqlite database; defaults to ../data/data.sqlite
+        :type path: str
+        """
+
         self.connection = None
         try:
             self.connection = sqlite3.connect(path)
@@ -11,6 +31,12 @@ class SqliteManager:
             print(f"The error '{e}' occurred")
 
     def execute_query(self, query):
+
+        """Executes a PUT-style query on the database.
+
+        :param query: Sqlite-style database query
+        :type query: str
+        """
 
         cursor = self.connection.cursor()
         try:
@@ -21,6 +47,14 @@ class SqliteManager:
 
     def execute_many_query(self, query, data):
 
+        """Executes a PUT-style query on the database, but allows for multiple data posts in one command.
+
+        :param query: Sqlite-style database query
+        :type query: str
+        :param data: List of data to be posted to the database
+        :type data: list(tuple(object))
+        """
+
         cursor = self.connection.cursor()
         try:
             cursor.executemany(query, data)
@@ -30,6 +64,15 @@ class SqliteManager:
 
     def execute_read_query(self, query):
 
+        """Executes a GET-style query on the database, able to return requested data.
+
+        :param query: Sqlite-style database query
+        :type query: str
+
+        :return: Data fetch results
+        :rtype: list(object)
+        """
+
         cursor = self.connection.cursor()
         try:
             cursor.execute(query)
@@ -38,10 +81,37 @@ class SqliteManager:
             print(f"The error '{e}' occurred")
 
     def get_column_names(self, table_name):
+
+        """Gets the column names of a given table
+
+        :param table_name: Table name in database
+        :type table_name: str
+
+        :return: Column names of the table
+        :rtype: list(str)
+        """
+
         cursor = self.connection.execute('SELECT * from {}'.format(table_name))
         return list(map(lambda x: x[0], cursor.description))
 
     def add_new_column_with_data(self, table_name, id_name, column_name, data_type, data):
+
+        """Adds a new column with data for each row to a given table
+
+        :param table_name: Table name in database
+        :type table_name: str
+        :param id_name: Name of the primary key index column
+        :type id_name: str
+        :param column_name: Name of the column to add
+        :type column_name: str
+        :param data_type: Type of data in the column to be added, in sqlite3 format
+        :type data_type: str
+        :param data: List of tuple data to be added
+        :type data: list(tuple(object))
+
+        :return: Data from new column
+        :rtype: list(object)
+        """
 
         columns = self.get_column_names(table_name)
         if column_name not in columns:
@@ -54,11 +124,30 @@ class SqliteManager:
 
     def database_empty(self):
 
+        """Returns true if the database is completely empty, including no tables. Otherwise false.
+
+        :return: True if database is empty, else false
+        :rtype: bool
+        """
+
         cursor = self.connection.cursor()
         cursor.execute('SELECT name FROM sqlite_master WHERE type=\'table\';')
         return bool(cursor.fetchall())
 
     def check_if_key_exists(self, table_name, column_name, key):
+
+        """Searches for a key in a column for a specific table.
+
+        :param table_name: Table name in database
+        :type table_name: str
+        :param column_name: Name of the column to search
+        :type column_name: str
+        :param key: Key to search for, represented as a string
+        :type key: str
+
+        :return: True if table has exact key/column pair, else false
+        :rtype: bool
+        """
 
         cursor = self.connection.cursor()
         try:
@@ -68,16 +157,49 @@ class SqliteManager:
             print(f"The error '{e}' occurred")
 
     def get_first_row(self, table_name, column_sort):
+
+        """Gets the first row in a table based on sorting the given column in ascending order.
+
+        :param table_name: Table name in database
+        :type table_name: str
+        :param column_sort: Column to sort by in ascending order
+        :type column_sort: str
+
+        :return: The first row in the table based on the sorted column
+        :rtype: list(object)
+        """
+
         cursor = self.connection.execute('SELECT * FROM {} ORDER BY {} ASC LIMIT 1;'.format(table_name, column_sort))
         return cursor.fetchone()
 
     def get_last_row(self, table_name, column_sort):
+
+        """Gets the last row in a table based on sorting the given column by sorting in descending order and
+        getting the first row.
+
+        :param table_name: Table name in database
+        :type table_name: str
+        :param column_sort: Column to sort by in descending order
+        :type column_sort: str
+
+        :return: The last row in the table based on the sorted column
+        :rtype: list(object)
+        """
+
         cursor = self.connection.execute('SELECT * FROM {} ORDER BY {} DESC LIMIT 1;'.format(table_name, column_sort))
         return cursor.fetchone()
 
     # List of all SQLITE reserved keywords
     @staticmethod
     def get_sqlite_keywords():
+
+        """Returns a string of all the keywords that are reserved by sqlite3 that cannot be used as names or other
+        variable naming.
+
+        :return: Whitespace-split string of all sqlite3 reserved keywords
+        :rtype: str
+        """
+
         return 'ABORT ACTION ADD AFTER ALL ALTER ALWAYS ANALYZE AND AS ASC ATTACH AUTOINCREMENT BEFORE BEGIN BETWEEN' \
                'BY CASCADE CASE CAST CHECK COLLATE COLUMN COMMIT CONFLICT CONSTRAINT CREATE CROSS CURRENT' \
                'CURRENT_DATE CURRENT_TIME CURRENT_TIMESTAMP DATABASE DEFAULT DEFERRABLE DEFERRED DELETE DESC DETACH' \

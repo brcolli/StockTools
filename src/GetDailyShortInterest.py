@@ -273,6 +273,7 @@ class ShortInterestManager:
         df['High'] = qs['highPrice']
         df['Low'] = qs['lowPrice']
         df['Close'] = qs['regularMarketLastPrice']
+        df['Unadjusted Close'] = qs['closePrice']
         df['VIX Close'] = qs['VIX Close']
         df['Days to Cover'] = df['ShortVolume'] / fs['vol10DayAvg']
 
@@ -319,6 +320,7 @@ class ShortInterestManager:
         df['High'] = curr_data['high']
         df['Low'] = curr_data['low']
         df['Close'] = curr_data['close']
+        df['Unadjusted Close'] = curr_data['close']
         df['VIX Close'] = curr_data['VIX Close']
         df['Days to Cover'] = df['ShortVolume'] / fs['vol10DayAvg']
 
@@ -436,6 +438,8 @@ class ShortInterestManager:
         qs_syms = qs_df.index.tolist()
 
         fs_df = fs_df.loc[qs_syms]
+
+        df = df.astype({'Date': str})  # Convert Date series to strings
         df = df.reindex(index=qs_syms)
 
         (prev_short_perc, prev_vol_perc) = self.get_past_short_vol(qs_syms, tcm, prev_day,
@@ -601,5 +605,3 @@ def main(ymd1='', ymd2='', should_upload=True):
 
 if __name__ == '__main__':
     main()
-    #df = Utils.load_csv_to_dataframe('../data/2021/0328-0403/CNMSshvol20210330.csv')
-    #Utils.write_stock_data_dataframe_to_sqlite(df)

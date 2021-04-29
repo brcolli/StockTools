@@ -316,9 +316,8 @@ class Utils:
         sdm = Sdm()
 
         for row, col in df.iterrows():
-            adj_close = col['Close'] / (col['Close % Delta'] + 1)
-            sdm.add_ticker_data(row, [(col['Date'], col['Open'], col['High'], col['Low'], col['Close'], adj_close,
-                                       col['Total Volume'])])
+            sdm.add_ticker_data(row, [(col['Date'], col['Open'], col['High'], col['Low'], col['Unadjusted Close'],
+                                       col['Close'], col['Total Volume'])])
 
     '''
     Writes a pandas DataFrame to a csv

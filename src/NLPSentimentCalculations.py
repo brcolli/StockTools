@@ -10,7 +10,7 @@ import string
 import re
 
 
-"""TdaClientManager
+"""NLPSentimentCalculations
 
 Description:
 Module for handling all natural language processing (NLP) calculations. Designed to work on generic classification
@@ -113,7 +113,8 @@ class NLPSentimentCalculations:
 
         :param all_tokens: A list of lists of tokens
         :type all_tokens: list(list(str))
-        :param stop_words: A list of the most common words in English that are typically not useful in analysis
+        :param stop_words: A list of the most common words in English that are typically not useful in analysis;
+                           defaults to empty set
         :type stop_words: list(str)
 
         :return: A list of lists of sanitized tokens
@@ -157,11 +158,34 @@ class NLPSentimentCalculations:
 
     @staticmethod
     def get_basic_dataset(all_tokens, classifier_tag):
+
+        """Uses a simple tagging of features to tag and collect data, calls get_basic_data_tag
+
+        :param all_tokens: A list of lists of tokens
+        :type all_tokens: list(list(str))
+        :param classifier_tag: A classification label to mark all tokens
+        :type classifier_tag: str
+
+        :return: A list of tuples of dictionaries of feature mappings to classifiers
+        :rtype: list(dict(str-> bool), str)
+        """
+
         token_tags = NLPSentimentCalculations.get_basic_data_tag(all_tokens)
         return [(class_dict, classifier_tag) for class_dict in token_tags]
 
     @staticmethod
     def sanitize_text(tweet_tokens, stop_words=()):
+
+        """Uses a simple tagging of features to tag and collect data, calls get_basic_data_tag
+
+        :param tweet_tokens: A list of lists of tokens
+        :type tweet_tokens: list(list(str))
+        :param stop_words: A classification label to mark all tokens; defaults to empty set
+        :type stop_words: str
+
+        :return: A list of tuples of dictionaries of feature mappings to classifiers
+        :rtype: list(dict(str-> bool), str)
+        """
 
         cleaned_tokens = []
 
@@ -179,22 +203,62 @@ class NLPSentimentCalculations:
 
         return cleaned_tokens
 
-    # Discards all punctuation as classified by string.punctuation
     @staticmethod
     def remove_punctuation(text):
+
+        """Discards all punctuation as classified by string.punctuation
+
+        :param text: String text to be cleaned
+        :type text: str
+
+        :return: String with removed punctuation
+        :rtype: str
+        """
+
         return "".join([char for char in text if char not in string.punctuation])
 
-    # Remove non-standard ASCII characters below char value 128
     @staticmethod
     def remove_bad_ascii(text):
+
+        """Remove non-standard ASCII characters below char value 128
+
+        :param text: String text to be cleaned
+        :type text: str
+
+        :return: String with removed bad ascii
+        :rtype: str
+        """
+
         return "".join(i for i in text if ord(i) < 128)
 
     @staticmethod
     def collect_hashtags(text):
+
+        """Collects all hashtags in a string
+
+        :param text: String text to be parsed
+        :type text: str
+
+        :return: List of all strings that follow a hashtag symbol
+        :rtype: list(str)
+        """
+
         return re.findall(r'#(\S*)\s?', text)
 
     @staticmethod
-    def compute_tf_idf(tweets):
+    def compute_tf_idf(texts):
+
+        """Computes Term Frequency-Inverse Document Frequency for a list of text strings. TF-IDF is a numerical
+        representation of how important a word is to a document. This weight is proportional to the frequency of the
+        term. This vectorizes a list of text, counts the feature name frequencies, and stores them in a dictionary,
+        one for each text.
+
+        :param texts: List of strings to be counted
+        :type texts: list(str)
+
+        :return: A pandas series of the frequency of each feature
+        :rtype: :class:`pandas.core.series.Series`
+        """
 
         # Dummy function to trick sklearn into taking token list
         def dummy_func(doc):
@@ -207,7 +271,7 @@ class NLPSentimentCalculations:
             token_pattern=None
         )
 
-        vectors = vectorizer.fit_transform(tweets)
+        vectors = vectorizer.fit_transform(texts)
         feature_names = vectorizer.get_feature_names()
 
         dense = vectors.todense()
@@ -215,10 +279,10 @@ class NLPSentimentCalculations:
 
         # Map TF-IDF results to dictionary
         tf_idf_list = []
-        for tweetList in denselist:
+        for texttList in denselist:
             tf_idf_dict = dict.fromkeys(feature_names, 0)
             for i in range(0, len(feature_names)):
-                tf_idf_dict[feature_names[i]] = tweetList[i]
+                tf_idf_dict[feature_names[i]] = texttList[i]
             tf_idf_list.append(tf_idf_dict)
 
         return pd.Series(data=tf_idf_list)
