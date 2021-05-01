@@ -340,11 +340,15 @@ class Utils:
         else:
             print('Writing data to ' + filename + '...')
 
+            makedirs(path.dirname(filename), exist_ok=True)
             # Attempt to write to csv
             try:
                 df.to_csv(filename)
+                return True
             except:
                 print('Could not open ' + filename + '. Is the file open?')
+                return False
+
 
     @staticmethod
     def load_csv_to_dataframe(filename):
