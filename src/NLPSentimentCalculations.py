@@ -1,13 +1,19 @@
+import importlib
 import nltk
 from nltk import classify
 from nltk import NaiveBayesClassifier
 from nltk.tokenize import word_tokenize
 import pandas as pd
+import numpy as np
 from nltk.tag import pos_tag
 from nltk import FreqDist
 from sklearn.feature_extraction.text import TfidfVectorizer
 import string
 import re
+import math
+
+
+Utils = importlib.import_module('utilities').Utils
 
 
 """NLPSentimentCalculations
@@ -246,15 +252,21 @@ class NLPSentimentCalculations:
         return re.findall(r'#(\S*)\s?', text)
 
     @staticmethod
-    def compute_tf_idf(texts):
+    def generate_n_gram(tokens, n):
+        return nltk.ngrams(tokens, n)
+
+    @staticmethod
+    def compute_tf_idf(train_tokens, test_tokens):
 
         """Computes Term Frequency-Inverse Document Frequency for a list of text strings. TF-IDF is a numerical
         representation of how important a word is to a document. This weight is proportional to the frequency of the
         term. This vectorizes a list of text, counts the feature name frequencies, and stores them in a dictionary,
         one for each text.
 
-        :param texts: List of strings to be counted
-        :type texts: list(str)
+        :param train_tokens: List of tokens from the training set
+        :type train_tokens: list(str)
+        :param test_tokens: List of tokens from the test set
+        :type test_tokens: list(str)
 
         :return: A pandas series of the frequency of each feature
         :rtype: :class:`pandas.core.series.Series`
@@ -265,27 +277,68 @@ class NLPSentimentCalculations:
             return doc
 
         vectorizer = TfidfVectorizer(
+            ngram_range=(1, 2),
+            decode_error='replace',
+            min_df=2,
             analyzer='word',
             tokenizer=dummy_func,
             preprocessor=dummy_func,
             token_pattern=None
         )
 
-        vectors = vectorizer.fit_transform(texts)
-        feature_names = vectorizer.get_feature_names()
+        x_train = vectorizer.fit_transform(train_tokens)
+        #feature_names = vectorizer.get_feature_names()
 
-        dense = vectors.todense()
-        denselist = dense.tolist()
+        x_test = vectorizer.transform(test_tokens)
+
+        #dense = x_train.todense()
+        #denselist = dense.tolist()
 
         # Map TF-IDF results to dictionary
+        '''
         tf_idf_list = []
         for texttList in denselist:
             tf_idf_dict = dict.fromkeys(feature_names, 0)
             for i in range(0, len(feature_names)):
                 tf_idf_dict[feature_names[i]] = texttList[i]
             tf_idf_list.append(tf_idf_dict)
+        '''
 
-        return pd.Series(data=tf_idf_list)
+        # TODO maybe filter for just the top 20,000 best features, use sklearn.SelectKBest (will need train labels)
+
+        return x_train, x_test
+
+    @staticmethod
+    def show_data_statistics(tokens_class_a, tokens_class_b):
+
+        """Displays various statistics about the given datasets, can be used to analyze and think about the approach.
+
+        :param tokens_class_a: List of data of classification A
+        :type tokens_class_a: list(str)
+        :param tokens_class_b: List of data of classification B
+        :type tokens_class_b: list(str)
+        """
+
+        tokens_class_a_count = len(tokens_class_a)
+        tokens_class_b_count = len(tokens_class_b)
+
+        dataset = tokens_class_a + tokens_class_b
+        dataset_count = len(dataset)
+
+        print(f'Amount of data for classification A: {tokens_class_a_count}; '
+              f'{(tokens_class_a_count / dataset_count) * 100}% of total data')
+        print(f'Amount of data for classification B: {tokens_class_b_count}; '
+              f'{(tokens_class_b_count / dataset_count) * 100}% of total data')
+
+        print(f'Total amount of data: {dataset_count}')
+
+        word_median = np.median([len(s) for s in dataset])
+        print(f'Median number of words in sample: {word_median}')
+
+        print(f'amount of data points / median number of words per point: '
+              f'{math.ceil(dataset_count / word_median)}')
+
+        # TODO maybe plot some things, like frequency distribution of ngrams
 
 
 def main():

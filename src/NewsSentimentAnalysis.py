@@ -6,6 +6,7 @@ import pandas as pd
 import nltk
 from nltk.corpus import twitter_samples
 from nltk.corpus import stopwords
+import tensorflow as tf
 
 Utils = importlib.import_module('utilities').Utils
 NSC = importlib.import_module('NLPSentimentCalculations').NLPSentimentCalculations
@@ -112,10 +113,58 @@ class TwitterManager:
 
         self.nsc = NSC()
 
-    def initialize_nltk_twitter(self):
+    def tokenize_spam_dataset_from_dataframe(self, dataframe):
+
+        dataframe = dataframe.drop(['Tweet id', 'Label', 'date'], axis=1)  # Drop columns we don't use (yet)
+
+        data_list = dataframe['text'].values.tolist()  # TODO remove text filter to operate on all features
+        tokens = []
+        for row in data_list:
+
+            curr_token = NSC.get_clean_tokens(row[0], stopwords.words('english'))
+            #tokens.append(curr_token + row[1:])
+            tokens.append()
+
+        return tokens
+
+    def initialize_twitter_spam_model(self):
+
+        """Initializes, trains, and tests a Twitter spam detection model.
+        """
+
+        twitter_df = pd.read_csv('../data/Learning Data/twitter_spam_filtered_text_extended_no_index.csv')
+
+        # Split each set into spam and not spam, then split them into tokens and a list of classified features
+        s_dataframe = twitter_df.loc[twitter_df['Label'] == 1]
+        s_tokens = self.tokenize_spam_dataset_from_dataframe(s_dataframe)
+        s_dataset = TwitterManager.get_dataset_from_tweet(s_tokens, 'Spam')
+
+        c_dataframe = twitter_df.loc[twitter_df['Label'] == 0]
+        c_tokens = self.tokenize_spam_dataset_from_dataframe(c_dataframe)
+        c_dataset = TwitterManager.get_dataset_from_tweet(c_tokens, 'Clean')
+
+        # Display info about the data
+        self.nsc.show_data_statistics(s_dataframe['text'].tolist(), c_dataframe['text'].tolist())
+
+        dataset = s_dataset + c_dataset
+        dataset = Utils.shuffle_data(dataset)
+
+        # TODO consider changing to ensure a % of each set contains a fixed ratio of spam and not spam
+        split_count = int(len(dataset) * 0.7)  # Does a 70:30 split for train/test data
+        train_data = dataset[:split_count]
+        test_data = dataset[split_count:]
+
+        # TODO look at a possible sequence model replacement (RNN, CNN); recall one-hot encoding
+
+        self.nsc.train_naivebayes_classifier(train_data)
+        self.nsc.test_classifier(test_data)
+
+    def initialize_twitter_sentiment_model(self):
 
         """Uses a basic NLTK dataset to train and test a positive/negative binary classifier.
         """
+
+        # TODO use transfer learning with spam model
 
         # Download all the common NLTK data samples
         nltk.download('twitter_samples')
@@ -128,12 +177,15 @@ class TwitterManager:
         n_dataset = TwitterManager.get_dataset_from_tweet(n_tweets_tokens, 'Negative')
 
         dataset = p_dataset + n_dataset
-        Utils.shuffle_list(dataset)
+        Utils.shuffle_data(dataset)
 
         split_count = int(len(dataset) * 0.7)  # Does a 70:30 split for train/test data
+
+        # TODO add spam dataset but only to train_data! Only add non-spam, as spam should be filtered out at this stage
         train_data = dataset[:split_count]
         test_data = dataset[split_count:]
 
+        # TODO update to use Tensorflow
         self.nsc.train_naivebayes_classifier(train_data)
         self.nsc.test_classifier(test_data)
 
@@ -264,12 +316,14 @@ class TwitterManager:
 
         return query
 
-    def start_stream(self, phrases, limit=-1):
+    def start_stream(self, phrases, default_sentiment='', limit=-1):
 
         """Starts a stream to collect tweets based on search phrases
 
         :param phrases: The phrases to search for in a stream
         :type phrases: list(str)
+        :param default_sentiment: The default sentiment to assign to all incoming tweets; defaults to empty
+        :type default_sentiment: str
         :param limit: The number of tweets to limit in your stream scanning, currently unused; defaults to -1
         :type limit: int
 
@@ -284,6 +338,7 @@ class TwitterManager:
         for phrase in phrases:
             filename += phrase + "_"
         self.listener.output_file = '../data/' + filename + 'tweets_stream.csv'
+        self.listener.default_sentiment = default_sentiment
 
         self.stream.filter(track=phrases, is_async=True)
 
@@ -301,6 +356,7 @@ class TwitterStreamListener(tweepy.StreamListener):
         super(TwitterStreamListener, self).__init__()
         self.header_written = False
         self.output_file = ''
+        self.default_sentiment = ''
 
     def on_status(self, status):
 
@@ -323,13 +379,18 @@ class TwitterStreamListener(tweepy.StreamListener):
                 f.write('Date,User,Text,\n')
                 self.header_written = True
 
-            data = str(status.created_at) + ',' + status.user.name + ',' + status.text.replace('\n', '') + ',\n'
+            if self.default_sentiment != '':
+                self.default_sentiment += ','
+
+            data = str(status.created_at) + ',' + status.user.name + ',' + status.text.replace('\n', '') +\
+                ',' + self.default_sentiment + '\n'
             print(data)
             f.write(data)
             print('Tweet saved...')
 
 
-def main(phrase='', filter_in=None, filter_out=None, history_count=1000):
+def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter_in=None, filter_out=None,
+         history_count=1000):
 
     if not filter_in:
         filter_in = []
@@ -338,19 +399,24 @@ def main(phrase='', filter_in=None, filter_out=None, history_count=1000):
 
     tw = TwitterManager()
 
-    tw.initialize_nltk_twitter()
-    #tw.get_tweet_sentiment('Tesla can suck it')
+    if use_ml:
+        tw.initialize_twitter_spam_model()
+        tw.initialize_twitter_sentiment_model()
 
     # Search phrase
-    query = tw.construct_twitter_query(phrase, filter_in=filter_in, filter_out=filter_out)
-    tweets = tw.phrase_search_history(query, history_count)
-    Utils.write_dataframe_to_csv(tweets, '../data/News Sentiment Analysis/'
-                                         '' + phrase + '_tweet_history_search.csv')
+    if search_past:
+        query = tw.construct_twitter_query(phrase, filter_in=filter_in, filter_out=filter_out)
+        tweets = tw.phrase_search_history(query, history_count)
+        Utils.write_dataframe_to_csv(tweets, '../data/News Sentiment Analysis/'
+                                             '' + phrase + '_tweet_history_search.csv')
+    if search_stream:
 
-    # Start query stream
-    #tw.start_stream(['$GME'])
+        # Start query stream
+        if isinstance(phrase, list):
+            tw.start_stream(phrase)
+        else:
+            tw.start_stream(([phrase]))
 
 
 if __name__ == '__main__':
-
     main()

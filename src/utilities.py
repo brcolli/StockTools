@@ -172,9 +172,19 @@ class Utils:
         return df['Symbol'].tolist()
 
     @staticmethod
-    def shuffle_list(data):
-        random.shuffle(data)
-        return data
+    def shuffle_data(data, seed=123):
+
+        if isinstance(data, pd.DataFrame) or isinstance(data, pd.Series):
+            data = data.sample(frac=1).reset_index(drop=True)
+            return data
+        else:
+            random.seed(seed)
+            random.shuffle(data)
+            return data
+
+    @staticmethod
+    def sample_data(data, sample_size):
+        return random.sample(data, sample_size)
 
     @staticmethod
     def get_previous_trading_day_from_date(sel_date=datetime.datetime.today()):
