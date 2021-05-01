@@ -407,8 +407,12 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
     if search_past:
         query = tw.construct_twitter_query(phrase, filter_in=filter_in, filter_out=filter_out)
         tweets = tw.phrase_search_history(query, history_count)
-        Utils.write_dataframe_to_csv(tweets, '../data/News Sentiment Analysis/'
-                                             '' + phrase + '_tweet_history_search.csv')
+        # Writes the file to csv and creates appropriate directories (if non-existent).
+        # If failed, writes data to current directory to avoid data loss
+        if not Utils.write_dataframe_to_csv(tweets, '../data/News Sentiment Analysis/'
+                                             '' + phrase + '_tweet_history_search.csv'):
+            Utils.write_dataframe_to_csv(tweets, '' + phrase + '_tweet_history_search.csv')
+
     if search_stream:
 
         # Start query stream
