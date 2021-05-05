@@ -6,7 +6,6 @@ import pandas as pd
 import nltk
 from nltk.corpus import twitter_samples
 from nltk.corpus import stopwords
-import tensorflow as tf
 
 Utils = importlib.import_module('utilities').Utils
 NSC = importlib.import_module('NLPSentimentCalculations').NLPSentimentCalculations
@@ -410,7 +409,7 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
         # Writes the file to csv and creates appropriate directories (if non-existent).
         # If failed, writes data to current directory to avoid data loss
         if not Utils.write_dataframe_to_csv(tweets, '../data/News Sentiment Analysis/'
-                                             '' + phrase + '_tweet_history_search.csv'):
+                                            '' + phrase + '_tweet_history_search.csv'):
             Utils.write_dataframe_to_csv(tweets, '' + phrase + '_tweet_history_search.csv')
 
     if search_stream:
@@ -423,4 +422,11 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
 
 
 if __name__ == '__main__':
-    main()
+
+    create_ml_models = False
+    if create_ml_models:
+        import tensorflow as tf
+    else:
+        tensorflow = None
+
+    main(use_ml=create_ml_models)
