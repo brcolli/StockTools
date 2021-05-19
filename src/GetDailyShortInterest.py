@@ -129,6 +129,10 @@ class ShortInterestManager:
             qs_df['openPrice'].update(pd.Series(new_vals[1]))
             qs_df['regularMarketLastPrice'].update(pd.Series(new_vals[2]))
 
+        # Drop any remaining bad values
+        qs_df.drop(qs_df[(qs_df['totalVolume'] == 0) | (qs_df['openPrice'] == 0) |
+                         (qs_df['regularMarketLastPrice'] == 0)].index, inplace=True)
+
         # Add VIX close
         qs_df['VIX Close'] = self.get_vix_close(tcm)
 

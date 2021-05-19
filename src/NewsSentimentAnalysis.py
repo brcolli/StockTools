@@ -1,4 +1,5 @@
 import importlib
+import functools
 import tweepy
 from bs4 import BeautifulSoup
 import requests
@@ -112,19 +113,34 @@ class TwitterManager:
 
         self.nsc = NSC()
 
-    def tokenize_spam_dataset_from_dataframe(self, dataframe):
+    @staticmethod
+    def get_dataset_from_tweet_spam(dataframe, classifier_tag):
+
+        """Converts the text feature to a dataset of labeled unigrams and bigrams.
+
+        :param dataframe: A dataframe containing the text key with all the text features to parse
+        :type dataframe: :class:`pandas.core.frame.DataFrame`
+        :param classifier_tag: A classification label to mark all tokens
+        :type classifier_tag: str
+
+        :return: A list of tuples of dictionaries of feature mappings to classifiers
+        :rtype: list(dict(str-> bool), str)
+        """
 
         dataframe = dataframe.drop(['Tweet id', 'Label', 'date'], axis=1)  # Drop columns we don't use (yet)
 
-        data_list = dataframe['text'].values.tolist()  # TODO remove text filter to operate on all features
-        tokens = []
-        for row in data_list:
+        # Create unigrams through simple token and clean...
+        tokens = dataframe['text'].map(NSC.tokenize_string)
+        clean_unigrams = NSC.get_clean_tokens(tokens.tolist(), stopwords.words('english'))
 
-            curr_token = NSC.get_clean_tokens(row[0], stopwords.words('english'))
-            #tokens.append(curr_token + row[1:])
-            tokens.append()
+        # ...pass unigrams to create bigrams...
+        create_bigrams = functools.partial(NSC.generate_n_grams, n=2)
+        clean_bigrams = list(map(create_bigrams, clean_unigrams))
 
-        return tokens
+        # ...and combine the grams together
+        clean_tokens = [clean_unigrams[i] + clean_bigrams[i] for i in range(len(clean_unigrams))]
+
+        return NSC.get_basic_dataset(clean_tokens, classifier_tag)
 
     def initialize_twitter_spam_model(self):
 
@@ -135,12 +151,10 @@ class TwitterManager:
 
         # Split each set into spam and not spam, then split them into tokens and a list of classified features
         s_dataframe = twitter_df.loc[twitter_df['Label'] == 1]
-        s_tokens = self.tokenize_spam_dataset_from_dataframe(s_dataframe)
-        s_dataset = TwitterManager.get_dataset_from_tweet(s_tokens, 'Spam')
+        s_dataset = TwitterManager.get_dataset_from_tweet_spam(s_dataframe, 'Spam')
 
         c_dataframe = twitter_df.loc[twitter_df['Label'] == 0]
-        c_tokens = self.tokenize_spam_dataset_from_dataframe(c_dataframe)
-        c_dataset = TwitterManager.get_dataset_from_tweet(c_tokens, 'Clean')
+        c_dataset = TwitterManager.get_dataset_from_tweet_spam(s_dataframe, 'Clean')
 
         # Display info about the data
         self.nsc.show_data_statistics(s_dataframe['text'].tolist(), c_dataframe['text'].tolist())
@@ -154,7 +168,6 @@ class TwitterManager:
         test_data = dataset[split_count:]
 
         # TODO look at a possible sequence model replacement (RNN, CNN); recall one-hot encoding
-
         self.nsc.train_naivebayes_classifier(train_data)
         self.nsc.test_classifier(test_data)
 
@@ -399,7 +412,7 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
     tw = TwitterManager()
 
     if use_ml:
-        tw.initialize_twitter_spam_model()
+        #tw.initialize_twitter_spam_model()
         tw.initialize_twitter_sentiment_model()
 
     # Search phrase
@@ -423,7 +436,7 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
 
 if __name__ == '__main__':
 
-    create_ml_models = False
+    create_ml_models = True
     if create_ml_models:
         import tensorflow as tf
     else:

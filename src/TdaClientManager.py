@@ -1,6 +1,7 @@
 from tda.auth import easy_client
 from tda.streaming import StreamClient
 from iexfinance.stocks import Stock
+import robin_stocks as rs
 import json
 import time
 import re
@@ -59,6 +60,13 @@ class TdaClientManager:
                                       redirect_uri=self.callback_url,
                                       token_path=self.token_path,
                                       webdriver_func=driver)
+
+    @staticmethod
+    def get_option_historical_data():
+
+        data = rs.robinhood.get_option_historicals(symbol='AAPL', expirationDate='2021-01-08', strikePrice='130',
+                                                   optionType='call')
+        print(data)
 
     def find_options(self, tickers, to_date=None, from_date=None, max_mark=2, max_spread=0.5, min_delta=0.3,
                      max_theta=0.02, max_iv=50, min_oi=100):

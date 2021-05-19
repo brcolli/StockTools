@@ -3,11 +3,11 @@ import nltk
 from nltk import classify
 from nltk import NaiveBayesClassifier
 from nltk.tokenize import word_tokenize
-import pandas as pd
 import numpy as np
 from nltk.tag import pos_tag
 from nltk import FreqDist
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
 import string
 import re
 import math
@@ -57,7 +57,7 @@ class NLPSentimentCalculations:
 
         :param train_data: A list of tuples of a dictionary and a string. The dictionary is a map of features to truths.
                            Contains a list of features and classification tags to train a Naive Bayes model
-        :type train_data: list(tuple(dict(str-> bool)))
+        :type train_data: list(tuple(dict(str-> bool)), str)
         """
         self.classifier = NaiveBayesClassifier.train(train_data)
 
@@ -79,6 +79,20 @@ class NLPSentimentCalculations:
         print(self.classifier.show_most_informative_features(10))
 
         return accuracy
+
+    @staticmethod
+    def tokenize_string(text):
+
+        """Tokenizes a string, to unigrams.
+
+        :param text: Text to be tokenized
+        :type text: str
+
+        :return: The tokens from the text
+        :rtype: list(str)
+        """
+
+        return word_tokenize(text)
 
     def classify_text(self, text):
 
@@ -252,8 +266,40 @@ class NLPSentimentCalculations:
         return re.findall(r'#(\S*)\s?', text)
 
     @staticmethod
-    def generate_n_gram(tokens, n):
-        return nltk.ngrams(tokens, n)
+    def generate_n_grams(tokens, n):
+
+        """Creates n-grams from a list of tokens. An n-gram is an N pairing of adjacent strings in text.
+
+        :param tokens: List of tokens to create n-grams from.
+        :type tokens: list(str)
+        :param n: The gram value to create.
+        :type n: int
+
+        :return: Returns an n-gram list.
+        :rtype: list(str)
+        """
+
+        return [' '.join(grams) for grams in nltk.ngrams(tokens, n)]
+
+    @staticmethod
+    def split_data_to_train_test(x, y, test_size=0.3, random_state=11):
+
+        """Splits data into randomized train and test subsets.
+
+        :param x: The input data.
+        :type x: list(obj)
+        :param y: The output data.
+        :type y: list(obj)
+        :param test_size: The size of the test dataset, between 0.0 and 1.0, as a fractional portion of the train size.
+        :type test_size: float
+        :param random_state: Randomization seed
+        :type random_state: int
+
+        :return: A tuple of arrays of x and y train and test sets.
+        :rtype: tuple(list(obj), list(obj), list(obj), list(obj))
+        """
+
+        return train_test_split(x, y, test_size=test_size, random_state=random_state)
 
     @staticmethod
     def compute_tf_idf(train_tokens, test_tokens):
