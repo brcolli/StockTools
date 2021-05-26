@@ -423,4 +423,4 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
 
 
 if __name__ == '__main__':
-    main()
+    main(search_past=True)
