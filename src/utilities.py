@@ -343,7 +343,7 @@ class Utils:
             makedirs(path.dirname(filename), exist_ok=True)
             # Attempt to write to csv
             try:
-                df.to_csv(filename)
+                df.to_csv(filename, index=False)
                 return True
             except:
                 print('Could not open ' + filename + '. Is the file open?')
