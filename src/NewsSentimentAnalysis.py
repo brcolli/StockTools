@@ -442,4 +442,4 @@ if __name__ == '__main__':
     else:
         tensorflow = None
 
-    main(use_ml=create_ml_models)
+    main(use_ml=create_ml_models, search_past=True)

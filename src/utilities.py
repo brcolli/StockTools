@@ -343,8 +343,10 @@ class Utils:
             # Attempt to write to csv
             try:
                 df.to_csv(filename, index=write_index)
+                return True
             except:
                 print('Could not open ' + filename + '. Is the file open?')
+                return False
 
     @staticmethod
     def load_csv_to_dataframe(filename):
