@@ -89,4 +89,4 @@ def main(clear_data, source_data_path, output_path, output_file):
 
 
 if __name__ == '__main__':
-    main(False, '../data/BotometerTesting2/U1000TO2.csv', '../data/BotometerTesting2/', 'U1000TOLabeled.csv')
+    main(False, '../data/BotometerTesting2/U1000TOLabeled.csv', '../data/BotometerTesting2/', 'U1000TOLabeled.csv')

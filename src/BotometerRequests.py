@@ -56,6 +56,30 @@ class BotometerRequests:
         b = a + len("english")
         return key[:a] + 'universal' + key[b:]
 
+    def next_result_or_blank(self, result):
+        if 'error' == next(iter(result[1])):
+            return self.bot_null_result
+        else:
+            return result[1]
+
+    def request_botometer_results_map(self, user_ids):
+        """Requests botometer scores and returns a map of dictionaries with the provided scores, errors replaced with -1
+
+                        :param user_ids: list of Twitter user ids
+                        :type user_ids: list(str)
+
+                        :return: map of dictionaries of results from botometer, error replaced with blanks
+                        :rtype: map(dict)
+                        """
+        while True:
+            try:
+                bom_generator = self.bom.check_accounts_in(user_ids)
+                break
+            except:
+                print('Some error with botometer... Trying again in 1 second')
+                time.sleep(1)
+        return map(self.next_result_or_blank, bom_generator)
+
     def request_botometer_results(self, user_ids):
         """Requests botometer scores and returns a list of dictionaries with the provided scores, cleaned for errors
 
