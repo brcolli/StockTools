@@ -11,6 +11,9 @@ import ast
 import json
 Utils = importlib.import_module('utilities').Utils
 
+# TODO Add wrapper functions for main entry points
+# TODO Add functions for accuracy, recall, precision, F-scores
+# TODO Add doc string comments for all methods, class, and the overall module
 
 class BotometerRequests:
 
