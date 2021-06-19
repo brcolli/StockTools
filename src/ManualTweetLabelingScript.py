@@ -42,7 +42,7 @@ class Labeler:
             listener.join()
 
     def clear_labels(self):
-        self.tweet_csv['label'] = -2
+        self.tweet_csv['Label'] = -2
         print("All labels cleared to -2\n")
 
     def loop(self):
@@ -71,8 +71,8 @@ class Labeler:
         return [True, False]
 
     def save(self):
-        if not Utils.write_dataframe_to_csv(self.tweet_csv, self.output_path + self.output_file_name):
-            Utils.write_dataframe_to_csv(self.tweet_csv, f'{self.output_path}{time.time()}.csv')
+        if not Utils.write_dataframe_to_csv(self.tweet_csv, self.output_path+self.output_file_name, write_index=False):
+            Utils.write_dataframe_to_csv(self.tweet_csv, f'{self.output_path}{time.time()}.csv', write_index=False)
 
 
 def main(clear_data, source_data_path, output_path, output_file):
@@ -89,4 +89,4 @@ def main(clear_data, source_data_path, output_path, output_file):
 
 
 if __name__ == '__main__':
-    main(False, '../data/BotometerTesting2/U1000TOLabeled.csv', '../data/BotometerTesting2/', 'U1000TOLabeled.csv')
+    main(False, '../data/BotometerTesting2/Stock_tweet_history_search.csv', '../data/BotometerTesting2/', 'Stock200Labeled.csv')
