@@ -2,18 +2,18 @@ import pandas as pd
 import importlib
 import webbrowser
 from pynput import keyboard
+from tkinter import filedialog as fd
+from tkinter import Tk
 import time
 
 Utils = importlib.import_module('utilities').Utils
 
 
 class Labeler:
-    def __init__(self, source_data_path, output_path, output_file_name):
+    def __init__(self, source_data_path):
         self.source_data_path = source_data_path
-        self.output_path = output_path
-        self.output_file_name = output_file_name
         self.TINPUT = -1
-        self.hotkeys = 'aqrsl'
+        self.hotkeys = '10rslb'
         self.col_list = ["Tweet id", "Label"]
         self.tweet_base_url = 'https://twitter.com/i/web/status/'
         self.tweet_csv = pd.read_csv(self.source_data_path, usecols=self.col_list, dtype={'Tweet id': str, 'Label': int})
@@ -44,6 +44,7 @@ class Labeler:
     def clear_labels(self):
         self.tweet_csv['Label'] = -2
         print("All labels cleared to -2\n")
+        self.count = 0
 
     def loop(self):
         url = self.tweet_base_url + self.tweet_csv['Tweet id'][self.count]
@@ -54,12 +55,16 @@ class Labeler:
 
         print(f'{self.count}\t{url}\n')
 
-        if self.TINPUT == 'a':
+        if self.TINPUT == '0':
             self.tweet_csv.at[self.count, 'Label'] = 0
-        elif self.TINPUT == 'q':
+        elif self.TINPUT == '1':
             self.tweet_csv.at[self.count, 'Label'] = 1
         elif self.TINPUT == 'r':
             self.tweet_csv.at[self.count, 'Label'] = -1
+        elif self.TINPUT == 'b':
+            self.count -= 1
+            self.tweet_csv.at[self.count, 'Label'] = -2
+            self.count -= 1
         elif self.TINPUT == 's':
             return [False, True]
         elif self.TINPUT == 'l':
@@ -71,12 +76,17 @@ class Labeler:
         return [True, False]
 
     def save(self):
-        if not Utils.write_dataframe_to_csv(self.tweet_csv, self.output_path+self.output_file_name, write_index=False):
-            Utils.write_dataframe_to_csv(self.tweet_csv, f'{self.output_path}{time.time()}.csv', write_index=False)
+        try:
+            self.tweet_csv.to_csv(self.source_data_path, index=False)
+        except:
+            self.tweet_csv.to_csv('backup.csv', index=False)
 
 
-def main(clear_data, source_data_path, output_path, output_file):
-    labeler = Labeler(source_data_path, output_path, output_file)
+def main(file_path, clear_data=False):
+    if file_path == 0:
+        Tk().withdraw()
+        file_path = fd.askopenfilename()
+    labeler = Labeler(file_path)
     if clear_data:
         labeler.clear_labels()
     active = True
@@ -89,4 +99,4 @@ def main(clear_data, source_data_path, output_path, output_file):
 
 
 if __name__ == '__main__':
-    main(False, '../data/BotometerTesting2/Stock_tweet_history_search.csv', '../data/BotometerTesting2/', 'Stock200Labeled.csv')
+    main(0)
