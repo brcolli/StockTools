@@ -13,7 +13,7 @@ class Labeler:
     def __init__(self, source_data_path):
         self.source_data_path = source_data_path
         self.TINPUT = -1
-        self.hotkeys = '10rslb'
+        self.hotkeys = '103rslb'
         self.col_list = ["Tweet id", "Label"]
         self.tweet_base_url = 'https://twitter.com/i/web/status/'
         self.tweet_csv = pd.read_csv(self.source_data_path, usecols=self.col_list, dtype={'Tweet id': str, 'Label': int})
@@ -65,6 +65,8 @@ class Labeler:
             self.count -= 1
             self.tweet_csv.at[self.count, 'Label'] = -2
             self.count -= 1
+        elif self.TINPUT == '3':
+            self.tweet_csv.at[self.count, 'Label'] = 2
         elif self.TINPUT == 's':
             return [False, True]
         elif self.TINPUT == 'l':
