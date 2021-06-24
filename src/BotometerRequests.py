@@ -1,21 +1,21 @@
 import botometer
-import numpy as np
 import pandas
 import pandas as pd
 import importlib
 import os
 from dotenv import load_dotenv
-from enum import Enum
 import time
 import itertools
 import tweepy
 import ast
-import json
+
+
 Utils = importlib.import_module('utilities').Utils
 
 # TODO Add wrapper functions for main entry points
 # TODO Add functions for accuracy, recall, precision, F-scores
 # TODO Add doc string comments for all methods, class, and the overall module
+# @TODO reorganize columns in a df
 
 
 class BotometerRequests:
@@ -26,6 +26,7 @@ class BotometerRequests:
     def __init__(self, twitter_api=False):
 
         load_dotenv('../doc/BotometerKeys.env')
+        
         self.rapidapi_key = os.getenv('rapidapi_key')
         self.twitter_app_auth = {
             'consumer_key': os.getenv('consumer_key'),
@@ -50,17 +51,17 @@ class BotometerRequests:
 
     def setup_tweepy_api(self):
         """
-        Initializes the tweepy API using keys from stored env file
+        Initializes the tweepy API using keys from stored env file.
         """
         self.auth = tweepy.OAuthHandler(self.twitter_app_auth['consumer_key'], self.twitter_app_auth['consumer_secret'])
         self.auth.set_access_token(os.getenv('shToken'), os.getenv('scToken'))
         self.twitter_api = tweepy.API(self.auth, wait_on_rate_limit=True)
 
     @staticmethod
-    def replace_english_with_universal(key):
+    def replace_english_with_universal(key: str) -> str:
         """
         Replaces the word "english" with "universal" in a string... May be used for generating Botometer universal keys
-        given an english key
+        given an english key.
 
         :param key: string key with english in it
         :type key: str
@@ -76,7 +77,7 @@ class BotometerRequests:
 
     def next_result_or_blank(self, result):
         """
-        Returns either the Botometer score dictionary from a result or a blank version if there is an error
+        Returns either the Botometer score dictionary from a result or a blank version if there is an error.
 
         :param result: Result dictionary exactly as provided by bom.check_account
         :param type: dict
@@ -91,26 +92,26 @@ class BotometerRequests:
 
     def request_botometer_results_map(self, user_ids):
         """
-        Requests botometer scores and returns a map of dictionaries with the provided scores, errors replaced with -1
+        Requests botometer scores and returns a map of dictionaries with the provided scores, errors replaced with -1.
 
         :param user_ids: list of Twitter user ids
         :type user_ids: list(str)
 
-        :return: map of dictionaries of results from botometer, errors replaced with blanks
+        :return: map of dictionaries of results from botometer, errors replaced with -1
         :rtype: map(dict)
         """
         while True:
             try:
                 bom_generator = self.bom.check_accounts_in(user_ids)
                 break
-            except:
-                print('Some error with botometer... Trying again in 1 second')
+            except Exception as e:
+                print(f'Some error {e} with botometer... Trying again in 1 second')
                 time.sleep(1)
         return map(self.next_result_or_blank, bom_generator)
 
     def request_botometer_results(self, user_ids):
         """
-        Requests botometer scores and returns a list of dictionaries with the provided scores, cleaned for errors
+        Requests botometer scores and returns a list of dictionaries with the provided scores, cleaned for errors.
 
         :param user_ids: list of Twitter user ids
         :type user_ids: list(str)
@@ -130,8 +131,8 @@ class BotometerRequests:
                         results.append(self.bot_null_result)
                         error_count += 1
                 break
-            except:
-                print('Some error with botometer... Trying again in 1 second')
+            except Exception as e:
+                print(f'Some error {e} with botometer... Trying again in 1 second')
                 time.sleep(1)
 
         print(f'Unable to score {error_count} users... {len(results)-error_count} users scored')
@@ -158,7 +159,7 @@ class BotometerRequests:
     @staticmethod
     def replace_errors(results, null_result):
         """
-        Replaces error instances from a list of botometer results with -1 dictionary skeleton
+        Replaces error instances from a list of botometer results with -1 dictionary skeleton.
 
         :param results: list of botometer result dictionaries
         :type results: list(dict)
@@ -170,7 +171,7 @@ class BotometerRequests:
 
     def get_unwanted_keys(self, wanted_keys):
         """
-        Takes a list of wanted botometer keys and subtracts it from the list of all botometer keys to yield unwanted
+        Takes a list of wanted botometer keys and subtracts it from the list of all botometer keys to yield unwanted.
 
         :param wanted_keys: list of keys to store in dataframe
         :type wanted_keys: list(str)
@@ -183,7 +184,7 @@ class BotometerRequests:
     def results_to_dataframe(self, results, wanted_keys):
         """
         Takes a list of botometer results and converts them to a pandas dataframe placing user ids at the front
-        followed by wanted keys
+        followed by wanted keys.
 
         :param results: list of botometer result dictionaries
         :type user_ids: list(dict)
@@ -199,12 +200,14 @@ class BotometerRequests:
         ids = all_keys['user.user_data.id_str']
         dropped = all_keys.drop(labels=self.get_unwanted_keys(wanted_keys), axis=1)
         dropped.insert(0, "user_id", ids)
+        
         return dropped
 
     @staticmethod
     def min_of_columns(df_results: pandas.DataFrame, columns):
         """
-        Returns a column of minimums from a dataframe and a list of keys
+        @TODO move to utils file
+        Returns a column of minimums from a dataframe and a list of keys.
 
         :param df_results: pandas dataframe
         :type df_results: pandas.DataFrame
@@ -220,7 +223,8 @@ class BotometerRequests:
     @staticmethod
     def max_of_columns(df_results: pandas.DataFrame, columns):
         """
-        Returns a column of maximums from a dataframe and a list of keys
+        @TODO move to utils file
+        Returns a column of maximums from a dataframe and a list of keys.
 
         :param df_results: pandas dataframe
         :type df_results: pandas.DataFrame
@@ -236,7 +240,7 @@ class BotometerRequests:
     @staticmethod
     def classify_results(data, threshold):
         """
-        Takes a list of values and returns a label list based on the threshold
+        Takes a list of values and returns a label list based on the threshold.
 
         :param data: list of values, -1 for null or score
         :type user_ids: list(float)
@@ -255,17 +259,15 @@ class BotometerRequests:
         """
         Takes a list of thresholds and a list of classifiers and returns a comprehensive list of each classifier with
         each threshold:
-        [botscore, u_botscore] & [0.5, 0.6] --> [botscore.0.5, u_botscore.0.5, botscore.0.6, u_botscore.0.6]
+        [botscore, u_botscore] & [0.5, 0.6] --> [botscore.0.5, u_botscore.0.5, botscore.0.6, u_botscore.0.6].
 
         :param thresholds: a list of thresholds to be applied
         :type thresholds: list(float)
-
         :param classifiers: a list of classifiers in the form of key strings from the applicable dataframe
         :type classifiers: list(str)
 
         :return: list of threshold values, classifiers, and names with matching indices
         :rtype: list(float), list(str), list(str)
-
         """
 
         new_thresholds = [t for t in thresholds for c in classifiers]
@@ -281,19 +283,15 @@ class BotometerRequests:
 
         :param df_results: a dataframe with classifiers and float scores
         :type df_results: pandas.DataFrame
-
         :param thresholds: a list of float spam thresholds
         :type thresholds: list(float)
-
         :param classifiers: a list of classifier keys (column names from df_results)
         :type classifiers: list(str)
-
         :param names: a list of new column names for the resulting label columns
         :type names: list(str)
 
         :return: A dataframe full of labels for the threholds and classifiers
         :rtype: pandas.DataFrame()
-
         """
         labels = {n: self.classify_results(df_results[c], t) for c, t, n in zip(classifiers, thresholds, names)}
         return pd.DataFrame(labels)
@@ -305,10 +303,8 @@ class BotometerRequests:
 
         :param df_results: a dataframe with classifiers and float scores
         :type df_results: pandas.DataFrame
-
         :param thresholds: a list of float spam thresholds
         :type thresholds: list(float)
-
         :param classifiers: a list of classifier keys (column names from df_results)
         :type classifiers: list(str)
 
@@ -322,6 +318,7 @@ class BotometerRequests:
     @staticmethod
     def segment_list(lst, n):
         """
+        @TODO move to utils file
         Segments a list into lists of size n with the last list being the smallest if len(lst)%n != 0
 
         :param lst: list to segment
@@ -338,6 +335,7 @@ class BotometerRequests:
     @staticmethod
     def flatten(lst):
         """
+        @TODO move to utils file
         Flattens a list of lists into one list
         :param lst: list of lists to flatten
         :type lst: list
@@ -350,7 +348,7 @@ class BotometerRequests:
     def request_botometer_lite_tweet_results_from_objects(self, tweets):
         """
         Takes a list of json tweet objects (either as dictionaries or strings) and returns a list of Botometer lite
-        results
+        results.
 
         :param tweets: list of json tweet objects
         :type tweets: list(dict) or list(str)
@@ -388,9 +386,9 @@ class BotometerRequests:
             try:
                 tweets.append(api.get_status(tid)._json)
                 print(f'Tweet number: {len(tweets) + error_count}')
-            except:
+            except Exception as e:
                 tweets.append(-1)
-                print(f'Tweet number: {len(tweets) + error_count} error')
+                print(f'Tweet number: {len(tweets) + error_count} error {e}.')
                 error_count += 1
         print(f'Unable to fetch {error_count} tweets... fetched {len(tweets)} tweets')
 
@@ -398,7 +396,7 @@ class BotometerRequests:
 
     def request_botometer_lite_user_results(self, user_ids):
         """
-        Takes a list of user ids and returns a list of Botometer lite results for those users
+        Takes a list of user ids and returns a list of Botometer lite results for those users.
 
         :param user_ids: list of user ids
         :type user_ids: list(str)
@@ -417,7 +415,7 @@ class BotometerRequests:
 
     def lite_results_to_dataframe(self, results, keep_tweet_ids=True):
         """
-        Takes a list of Botometer lite results and returns a pandas dataframe
+        Takes a list of Botometer lite results and returns a pandas dataframe.
 
         :param results: list of Botometer lite results
         :type results: list(dict)
@@ -432,7 +430,7 @@ class BotometerRequests:
         df = pd.json_normalize(results)
         df = df[self.ALL_LITE_KEYS]
 
-        if None == df['tweet_id'][0]:
+        if not df['tweet_id'][0]:
             df = df.rename(columns={'botscore': 'u_botscore'})
 
         if not keep_tweet_ids:
@@ -442,7 +440,8 @@ class BotometerRequests:
     @staticmethod
     def strings_to_dicts(strings):
         """
-        Converts a list of json style strings to dictionaries
+        @TODO move to utils file
+        Converts a list of json style strings toa list of dictionaries.
 
         :param strings: list of strings
         :type strings: list(str)
@@ -455,12 +454,13 @@ class BotometerRequests:
 
     def merge_dataframes(self, original, new, original_id_key, new_id_key, new_data_keys):
         """
-        Merges two dataframes with replacement of missing values in the new according to an id column in both dataframes
+        @TODO move to utils file
+        Merges two dataframes with replacement of missing values in the new according to an id column in both dataframes.
 
         :param original: original dataframe (must include in it all of the ids of the new dataframe)
         :type original: pandas.DataFrame
 
-        :param new: new dataframe (may have an equal amount or less rows than original, but can not have ids not in the
+        :param new: new dataframe (may have an equal amount or less rows than original, but cannot have ids not in the
                                     original)
         :type new: pandas.DataFrame
 
@@ -475,7 +475,6 @@ class BotometerRequests:
 
         :return: Merged dataframe
         :rtype: pandas.DataFrame
-
         """
         if original.shape[0] != new.shape[0]:
             insertion_indices = self.find_missed(original[original_id_key].tolist(), new[new_id_key].tolist())
@@ -490,6 +489,7 @@ class BotometerRequests:
     @staticmethod
     def basic_merge(original, new):
         """
+        @TODO add to utils file
         Merges two pandas dataframe of equal size
 
         :param original: original df
@@ -509,7 +509,8 @@ class BotometerRequests:
     @staticmethod
     def find_missed(expected, result):
         """
-        Returns a list of missed indices between an expected and result list
+        @TODO add to utils file
+        Returns a list of missed indices between an ordered expected and result list.
 
         :param expected: expected data
         :type expected: list
@@ -535,9 +536,9 @@ class BotometerRequests:
         return my
 
     @staticmethod
-    def insert_at_indices(data, indices, null):
+    def insert_at_indices(data, indices, null=-1):
         """
-        Inserts some null value into a list of data at the appropriate indices
+        Inserts some null value into a list of data at the appropriate indices.
 
         :param data: data with missed values
         :type data: list
@@ -556,9 +557,10 @@ class BotometerRequests:
         return data
 
     @staticmethod
-    def replace_missed(expected, result_indices, results, null_result):
+    def replace_missed(expected, result_indices, results, null_result=-1):
         """
-        Inserts some null value into a list of data at spots where result_indices do not line up with expected
+        @TODO review for deletion
+        Inserts some null value into a list of data at spots where result_indices do not line up with expected.
 
         :param expected: list of expected ids
         :type expected: list
@@ -587,7 +589,7 @@ class BotometerRequests:
     @staticmethod
     def calculate_measures(results, labels):
         """
-        Calculates the accuracy, precision, recall, and f1 score from a list of result labels and actual labels
+        Calculates the accuracy, precision, recall, and f1 score from a list of result labels and actual labels.
 
         :param results: list of result labels
         :type results: list(int)
@@ -632,7 +634,7 @@ class BotometerRequests:
     @staticmethod
     def calc_averages(results, labels):
         """
-        Calculates the average clean and spam value from results according to labels
+        Calculates the average clean and spam value from results according to labels.
 
         :param results: list of float values representing scores
         :type results: list(float)
@@ -664,7 +666,7 @@ class BotometerRequests:
                 thresholds=None, classifiers=None, existing_api=None, wanted_bot_keys=None):
 
         """
-        A wrapper method to work with BotometerRequests
+        A wrapper method to work with BotometerRequests.
 
         :param from_file: a string filepath to a csv file to use as the input data. Data column keys should match
                             self.file_keys
@@ -706,6 +708,7 @@ class BotometerRequests:
         :type wanted_bot_keys: list(str)
         """
 
+        #  Pulls data from input file to use for Botometer data requests
         existing_file = False
         if from_file:
             existing_file = True
@@ -720,31 +723,44 @@ class BotometerRequests:
 
             tweet_ids, user_ids, tweet_objects = cols
 
+        #  In case you don't have the data, catches error request to Botometer
         if user_ids is None:
             bot_user_request = False
             lite_user_request = False
 
+        #  Grabs tweet objects if available, otherwise looks up objects using Twitter API
         if tweet_objects is None:
+            
+            #  In case you don't have the data, catches error request to Botometer lite
             if tweet_ids is None:
                 lite_tweet_request = False
+            
+            #  Otherwise, grabs Tweet objects from the API
             elif lite_tweet_request:
                 if existing_api is None:
                     self.setup_tweepy_api()
                     api = self.twitter_api
                 else:
                     api = existing_api
+                    
                 print("Collecting tweet jsons from ids... Might take a while")
                 tweet_objects = self.get_tweets_from_ids(tweet_ids, api)
+                
+                #  If existing file exists, will add the JSON objects
                 if existing_file:
                     from_file['json'] = tweet_objects
+                    
+        #  If no Tweet IDs, extracts the IDs to be used as a column from the tweet objects
         elif tweet_ids is None:
             tweet_ids = [obj['id'] for obj in tweet_objects]
             if existing_file:
                 from_file['Tweet id'] = tweet_ids
 
+        #  If no wanted keys given, set to grab english
         if wanted_bot_keys is None:
             wanted_bot_keys = ['cap.english']
 
+        #  If no thresholds or classifiers given, don't classify
         if thresholds is None or classifiers is None:
             classify = False
         else:
@@ -752,28 +768,33 @@ class BotometerRequests:
 
         result_df = pd.DataFrame()
 
+        #  If a lite request, then use Botometer lite
         if lite_tweet_request:
             lite_results = self.request_botometer_lite_tweet_results_from_objects(tweet_objects)
             temp_df = self.lite_results_to_dataframe(lite_results)
             result_df['Tweet id'] = tweet_ids
             result_df = self.merge_dataframes(result_df, temp_df, 'Tweet id', 'tweet_id', ['botscore'])
 
+        #  If a lite user request, then use Botometer lite on users
         if lite_user_request:
             lite_user_results = self.request_botometer_lite_user_results(user_ids)
             temp_df = self.lite_results_to_dataframe(lite_user_results)
             result_df['User id'] = user_ids
             result_df = self.merge_dataframes(result_df, temp_df, 'User id', 'user_id', ['u_botscore'])
 
+        #  If a regular user request, then use Botometer
         if bot_user_request:
             bot_user_results = self.request_botometer_results_map(user_ids)
             temp_df = self.results_to_dataframe(bot_user_results, wanted_bot_keys)
             temp_df = temp_df.drop('user_id', axis=1)
             result_df = self.basic_merge(result_df, temp_df)
 
+        # If specified to classify, classify for each threshold
         if classify:
             label_df = self.classify_for_each_threshold(result_df, thresholds, classifiers)
             result_df = self.basic_merge(result_df, label_df)
 
+        #  Write to output file
         if to_file:
             if existing_file:
                 write_df = self.basic_merge(from_file, result_df)
