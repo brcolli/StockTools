@@ -22,6 +22,22 @@ class MyTestCase(unittest.TestCase):
 
         self.assertListEqual([1, -1, 3, 4, 5, -1, 7, -1, -1, 10], res2)
 
+    def test_segment_list(self):
+        br = BotometerRequests.BotometerRequests()
+        to_seg = [x for x in range(1, 11)]
+        res = br.segment_list(to_seg, 2)
+        expected = [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]
+
+        self.assertListEqual(expected, res)
+
+    def test_flatten(self):
+        br = BotometerRequests.BotometerRequests()
+        to_flatten = [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]
+        res = br.flatten(to_flatten)
+        expected = [x for x in range(1, 11)]
+
+        self.assertListEqual(expected, res)
+
 
 
 if __name__ == '__main__':

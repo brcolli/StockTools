@@ -73,7 +73,12 @@ class Labeler:
             return [False, True]
 
         self.count += 1
-        return [True, False]
+
+        if self.count >= len(self.tweet_csv):
+            return [False, True]
+
+        else:
+            return [True, False]
 
     def save(self):
         try:
