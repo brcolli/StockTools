@@ -80,6 +80,64 @@ class SqliteManager:
         except sqlite3.Error as e:
             print(f"The error '{e}' occurred")
 
+    def create_table(self, table_name, key_type_pairs):
+
+        """Creates a table if it doesn't exist.
+
+        :param table_name: Table name in database
+        :type table_name: str
+        :param key_type_pairs: List pairs for the column key names to their types, where the first entry MUST be the
+                               primary key
+        :type table_name: list(str, str)
+        """
+
+        q = f'CREATE TABLE IF NOT EXISTS[{table_name}] ('
+
+        for pair in range(len(key_type_pairs)):
+            if pair == 0:
+                q += f'{key_type_pairs[pair][0]} {key_type_pairs[pair][1]} PRIMARY KEY,'
+            else:
+                q += f'{key_type_pairs[pair][0]} {key_type_pairs[pair][1]},'
+        q = q[:-1] + ');'
+
+        self.execute_query(q)
+
+    def insert_row(self, table_name, row_vals):
+
+        """Inserts a single data row into a table.
+
+        :param table_name: Table name in database
+        :type table_name: str
+        :param row_vals: An iterable row of objects to insert into the table, where order MUST match the column order
+        :type row_vals: iterable(object)
+        """
+
+        columns = self.get_column_names(table_name)
+
+        q = f'INSERT INTO {table_name} ('
+        q += ', '.join(columns) + ') VALUES (' + ', '.join(map(str, row_vals))
+        q = q[:-2] + ');'
+
+        self.execute_query(q)
+
+    def insert_many_rows(self, table_name, data):
+
+        """Inserts many rows into a table.
+
+        :param table_name: Table name in database
+        :type table_name: str
+        :param data: List of data to be posted to the database
+        :type data: list(tuple(object))
+        """
+
+        columns = self.get_column_names(table_name)
+
+        q = f'INSERT INTO {table_name} ('
+        q += ', '.join(columns) + ') VALUES (' + '?, ' * len(columns)
+        q = q[:-2] + ');'
+
+        self.execute_many_query(q, data)
+
     def get_column_names(self, table_name):
 
         """Gets the column names of a given table

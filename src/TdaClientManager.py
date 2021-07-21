@@ -336,7 +336,7 @@ class TdaClientManager:
 
                         if e == InvalidGrantError():
                             if os.path.exists('../doc/token'):
-                                os.remove('../doc/token')
+                                os.remove('../ doc/token')
                             self.authenticate()
                         time.sleep(1)
                 try:
