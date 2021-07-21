@@ -16,7 +16,8 @@ class Labeler:
         self.hotkeys = '103rslb'
         self.col_list = ["Tweet id", "Label"]
         self.tweet_base_url = 'https://twitter.com/i/web/status/'
-        self.tweet_csv = pd.read_csv(self.source_data_path, usecols=self.col_list, dtype={'Tweet id': str, 'Label': int})
+        self.tweet_csv = pd.read_csv(self.source_data_path, usecols=self.col_list,
+                                     dtype={'Tweet id': str, 'Label': int})
         try:
             self.count = list(self.tweet_csv['Label']).index(-2)
         except ValueError:
@@ -85,12 +86,12 @@ class Labeler:
     def save(self):
         try:
             self.tweet_csv.to_csv(self.source_data_path, index=False)
-        except:
+        except Exception as e:
             self.tweet_csv.to_csv('backup.csv', index=False)
 
 
 def main(file_path, clear_data=False):
-    if file_path == 0:
+    if not file_path:
         Tk().withdraw()
         file_path = fd.askopenfilename()
     labeler = Labeler(file_path)
@@ -106,4 +107,4 @@ def main(file_path, clear_data=False):
 
 
 if __name__ == '__main__':
-    main(0)
+    main('')
