@@ -34,6 +34,7 @@ class BotometerRequests:
             }
         self.ALL_BOT_KEYS = os.getenv('ALL_BOT_KEYS').split(',')
         self.ALL_LITE_KEYS = ['user_id', 'tweet_id', 'botscore']
+        self.excel_keys = ['Tweet id', 'User id', 'user.majority_lang', 'user.user_data.screen_name', 'Label', 'botscore', 'u_botscore', 'cap.english', 'cap.universal', 'raw_scores.english.astroturf', 'raw_scores.english.fake_follower', 'raw_scores.english.financial', 'raw_scores.english.other', 'raw_scores.english.overall', 'raw_scores.english.self_declared', 'raw_scores.english.spammer', 'raw_scores.universal.astroturf', 'raw_scores.universal.fake_follower', 'raw_scores.universal.financial', 'raw_scores.universal.other', 'raw_scores.universal.overall', 'raw_scores.universal.self_declared', 'raw_scores.universal.spammer']
 
         self.bot_null_result = ast.literal_eval(os.getenv('null_bot_dictionary'))
         self.lite_null_result = {"botscore": -1, "tweet_id": -1, "user_id": -1}
@@ -661,12 +662,38 @@ class BotometerRequests:
 
         return clean_sum/clean_num, spam_sum/spam_num
 
-    def wrapper(self, from_file=False, to_file=False, tweet_ids=None, tweet_objects=None,
+    @staticmethod
+    def order_dataframe(dataframe, new_order):
+        """
+        Changes the order of a dataframe's columns using the new order
+
+        :param dataframe: dataframe
+        :type dataframe: pd.DataFrame
+
+        :param new_order: The new order of columns as a list of strings.
+        :type new_order: list(str)
+
+        :return: reordered dataframe
+        :rtype: pd.DataFrame
+        """
+        dataframe = dataframe[new_order]
+        return dataframe
+
+    def to_excel_analysis_format(self, dataframe):
+        dataframe = self.order_dataframe(dataframe, self.excel_keys)
+        dataframe['Tweet id'] = ["'" + str(id) for id in dataframe['Tweet id'].tolist()]
+        dataframe['User id'] = ["'" + str(id) for id in dataframe['User id'].tolist()]
+        return dataframe
+
+    def wrapper(self, from_dataframe=False, from_file=False, to_file=False, tweet_ids=None, tweet_objects=None,
                 user_ids=None, bot_user_request=False, lite_user_request=False, lite_tweet_request=False,
                 thresholds=None, classifiers=None, existing_api=None, wanted_bot_keys=None):
 
         """
         A wrapper method to work with BotometerRequests.
+
+        :param from_dataframe: a dataframe with data to label
+        :type: pd.DataFrame
 
         :param from_file: a string filepath to a csv file to use as the input data. Data column keys should match
                             self.file_keys
@@ -710,10 +737,13 @@ class BotometerRequests:
 
         #  Pulls data from input file to use for Botometer data requests
         existing_file = False
-        if from_file:
+        if from_file or from_dataframe is not False:
             existing_file = True
-            file_path = from_file
-            from_file = pd.read_csv(from_file)
+            if from_file:
+                from_file = pd.read_csv(from_file)
+            else:
+                from_file = from_dataframe
+
             cols = [[], [], []]
             for ci in range(len(cols)):
                 try:
@@ -784,7 +814,7 @@ class BotometerRequests:
 
         #  If a regular user request, then use Botometer
         if bot_user_request:
-            bot_user_results = self.request_botometer_results_map(user_ids)
+            bot_user_results = self.request_botometer_results(user_ids)
             temp_df = self.results_to_dataframe(bot_user_results, wanted_bot_keys)
             temp_df = temp_df.drop('user_id', axis=1)
             result_df = self.basic_merge(result_df, temp_df)

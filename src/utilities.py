@@ -13,6 +13,8 @@ from io import StringIO
 import importlib
 import csv
 import re
+import itertools
+import ast
 
 
 class Utils:
@@ -347,6 +349,189 @@ class Utils:
             except:
                 print('Could not open ' + filename + '. Is the file open?')
                 return False
+
+    @staticmethod
+    def order_dataframe_columns(df, keys, cut=True):
+        if not cut:
+            diff = set(keys) ^ set(df.columns.tolist())
+            keys = keys + list(diff)
+
+        return df[keys]
+
+    @staticmethod
+    def min_of_columns(df_results: pd.DataFrame, columns):
+        """
+        Returns a column of minimums from a dataframe and a list of keys.
+
+        :param df_results: pandas dataframe
+        :type df_results: pandas.DataFrame
+
+        :param columns: list of column names to compare
+        :type columns: list(str)
+
+        :return: A column of row-wise minimums for the given keys
+        :rtype: pandas Dataframe column
+        """
+        return df_results[columns].min(axis=1)
+
+    @staticmethod
+    def max_of_columns(df_results: pd.DataFrame, columns):
+        """
+        Returns a column of maximums from a dataframe and a list of keys.
+
+        :param df_results: pandas dataframe
+        :type df_results: pandas.DataFrame
+
+        :param columns: list of column names to compare
+        :type columns: list(str)
+
+        :return: A column of row-wise maximums for the given keys
+        :rtype: pandas Dataframe column
+        """
+        return df_results[columns].max(axis=1)
+
+    @staticmethod
+    def segment_list(lst, n):
+        """
+        Segments a list into lists of size n with the last list being the smallest if len(lst)%n != 0
+
+        :param lst: list to segment
+        :type lst: list
+
+        :param n: number of elements per list
+        :type n: int
+
+        :return: segmented list
+        :rtype: list(list, list, list)
+        """
+        return [lst[i:i + n] for i in range(0, len(lst), n)]
+
+    @staticmethod
+    def flatten(lst):
+        """
+        Flattens a list of lists into one list
+        :param lst: list of lists to flatten
+        :type lst: list
+
+        :return: flattened list
+        :rtype: list
+        """
+        return list(itertools.chain.from_iterable(lst))
+
+    @staticmethod
+    def strings_to_dicts(strings):
+        """
+        Converts a list of json style strings toa list of dictionaries.
+
+        :param strings: list of strings
+        :type strings: list(str)
+
+        :return: list of dicts
+        :rtype: list(dict)
+
+        """
+        return [ast.literal_eval(s) for s in strings]
+
+    def merge_dataframes(self, original, new, original_id_key, new_id_key, new_data_keys):
+        """
+        Merges two dataframes with replacement of missing values in the new according to an id column in both dataframes.
+
+        :param original: original dataframe (must include in it all of the ids of the new dataframe)
+        :type original: pandas.DataFrame
+
+        :param new: new dataframe (may have an equal amount or less rows than original, but cannot have ids not in the
+                                    original)
+        :type new: pandas.DataFrame
+
+        :param original_id_key: key of the id column in the original df
+        :type original_id_key: str
+
+        :param new_id_key: key of the id column in the new df
+        :type new_id_key: str
+
+        :param new_data_keys: list of data keys in the new df (to merge onto original)
+        :type new_data_keys: list(str)
+
+        :return: Merged dataframe
+        :rtype: pandas.DataFrame
+        """
+        if original.shape[0] != new.shape[0]:
+            insertion_indices = self.find_missed(original[original_id_key].tolist(), new[new_id_key].tolist())
+            for key in new_data_keys:
+                original[key] = self.insert_at_indices(new[key].tolist(), insertion_indices, -1)
+        else:
+            for key in new_data_keys:
+                original[key] = new[key]
+
+        return original
+
+    @staticmethod
+    def basic_merge(original, new):
+        """
+        Merges two pandas dataframe of equal size
+
+        :param original: original df
+        :type original: pd.DataFrame
+
+        :param new: new df
+        :type new: pd.DataFrame
+
+        :return: merged df
+        :rtype: pandas.DataFrame
+        """
+
+        duplicates = list(set(original.keys()) & set(new.keys()))
+        new = new.drop(labels=duplicates, axis=1)
+        return pd.concat([original, new], axis=1)
+
+    @staticmethod
+    def find_missed(expected, result):
+        """
+        Returns a list of missed indices between an ordered expected and result list.
+
+        :param expected: expected data
+        :type expected: list
+
+        :param result: the result data with missing values
+        :type result: list
+
+        :return: list of indices to reinsert missed values
+        :rtype: list(int)
+        """
+        if len(expected) == len(result):
+            return []
+        my = []
+        x = 0
+        for i in range(len(expected)):
+            try:
+                if result[i - x] != expected[i]:
+                    my.append(i)
+                    x += 1
+            except IndexError:
+                my.append(i)
+
+        return my
+
+    @staticmethod
+    def insert_at_indices(data, indices, null=-1):
+        """
+        Inserts some null value into a list of data at the appropriate indices.
+
+        :param data: data with missed values
+        :type data: list
+
+        :param indices: list of indices to insert at, from self.find_missed method
+        :type indices: list(int)
+
+        :param null: null value to insert at missing places
+        :type null: any
+
+        :return: data with nulls inserted for missing values
+        :rtype: list
+        """
+        for i in indices:
+            data.insert(i, null)
+        return data
 
     @staticmethod
     def load_csv_to_dataframe(filename):
