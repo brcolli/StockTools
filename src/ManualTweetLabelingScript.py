@@ -16,8 +16,7 @@ class Labeler:
         self.hotkeys = '103rslb'
         self.col_list = ["Tweet id", "Label"]
         self.tweet_base_url = 'https://twitter.com/i/web/status/'
-        self.tweet_csv = pd.read_csv(self.source_data_path, usecols=self.col_list,
-                                     dtype={'Tweet id': str, 'Label': int})
+        self.tweet_csv = pd.read_csv(self.source_data_path)
         try:
             self.count = list(self.tweet_csv['Label']).index(-2)
         except ValueError:
@@ -48,7 +47,7 @@ class Labeler:
         self.count = 0
 
     def loop(self):
-        url = self.tweet_base_url + self.tweet_csv['Tweet id'][self.count]
+        url = self.tweet_base_url + str(self.tweet_csv['Tweet id'][self.count])
 
         webbrowser.open_new(url)
         self.TINPUT = -1
