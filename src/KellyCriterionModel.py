@@ -179,6 +179,9 @@ class KellyModel:
     def to_dict(self):
         """
         Exports values of a single simulation to a dictionary
+
+        :return: dictionary of result values
+        :rtype: dict
         """
         values = [self.ending_capital, self.curr_capital, self.win_v_loss, self.largest_win_streak,
                   self.largest_loss_streak,
@@ -224,5 +227,10 @@ class KellyModel:
     def save_df(df: pd.DataFrame, name: str):
         """
         Save a dataframe to a csv which can then be opened in Excel for analysis
+
+        :param df: dataframe to save
+        :type df: pd.DataFrame
+        :param name: file path and name
+        :type name: str
         """
         df.to_csv(name, index=False)
