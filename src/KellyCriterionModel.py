@@ -456,7 +456,3 @@ class KellyModel:
             else:
                 length = max(len(self.as_text(cell.value)) for cell in column_cells) + 2
                 ws.column_dimensions[openpyxl.utils.get_column_letter(column_cells[0].column)].width = length
-
-
-KM = KellyModel('../data/KellyCriterion/Test.xlsx')
-df = KM.multi_sim(1000)
