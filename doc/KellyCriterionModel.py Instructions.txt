@@ -1,6 +1,0 @@
-1. Run file in python console
-2. Instantiate Class with variables (can change code to set defaults): KM = KellyCriterion(variable=1234, variable2=456)
-3. Run simulations and save to dataframe: df = KM.multi_sim(number_of_sims)
-4. Save dataframe to csv (save to excel soon to be made): KM.save_df(df, FileName/Path))
-
-5. To change variables reinstantiate the class: KM = KellyCriterion(variable=4321, variable2=654)
