@@ -13,7 +13,12 @@ Sqm = SqliteManager.SqliteManager(path='../data/TweetData/TweetDataBase.db')
 
 
 class TweetManager:
+    """
+    Used to collect historical tweets and run botometer on them as well as multiple other useful functions
+    """
     def __init__(self):
+        # These are the keys used in our Spam Model training database in the correct order
+        # Note: modifying keys here affects Line 51 - use caution
         self.keys = ['Tweet id', 'User id', 'Screen name', 'Label', 'Search term', 'json', 'user.majority_lang',
                      'botscore',
                      'cap.english', 'cap.universal', 'raw_scores.english.astroturf', 'raw_scores.english.fake_follower',
@@ -23,12 +28,25 @@ class TweetManager:
                      'raw_scores.universal.other', 'raw_scores.universal.overall', 'raw_scores.universal.self_declared',
                      'raw_scores.universal.spammer']
         self.BR = br.BotometerRequests()
+
+        # Path to save tweets to
         self.path = '../data/TweetData/Tweets'
 
     def modify(self, to_execute: list):
         pass
 
     def req_tweets(self, keyword: str, num: int):
+        """
+        Request a historical Twitter search and botometer scores... Uses TweetCollector.py and BotometerRequests.py
+
+        :param keyword: Keyword to look for in Twitter
+        :type keyword: str
+        :param num: Number of tweets to collect (Best to do more requests of less tweets (100 or so at a time))
+        :type num: int
+
+        :return: Dataframe with all of the keys found in self.keys
+        :rtype: pd.DataFrame
+        """
         tweets = TweetCollector.collect_tweets(phrase=keyword, history_count=num)
         bot_labels = self.BR.wrapper(from_dataframe=tweets, lite_tweet_request=True, bot_user_request=True,
                                      wanted_bot_keys=([self.keys[6]] + self.keys[8:]))
@@ -37,26 +55,95 @@ class TweetManager:
 
         return full_df
 
-    def save_tweets(self, keyword: str, num: int):
+    def save_tweets(self, keyword: str, num: int, filename=None):
+        """
+        Same as req_tweets but also saves the dataframe to a csv in the self.path directory
+
+        :param keyword: Keyword to look for in Twitter
+        :type keyword: str
+        :param num: Number of tweets to collect (Best to do more requests of less tweets (100 or so at a time))
+        :type num: int
+        :param filename: Name of the file to save to (not directory),
+                        otherwise saves to an auto-generated time based filename.csv
+        :type filename: None or str
+
+        :return: Dataframe with all of the keys found in self.keys (also saves the dataframe to csv)
+        :rtype: pd.DataFrame
+        """
         df = self.req_tweets(keyword, num)
-        df.to_csv(self.path + '/' + str(time.time()) + '.csv', index=False)
+        if filename is None:
+            filename = str(time.time())
+        df.to_csv(self.path + '/' + filename + '.csv', index=False)
         return df
 
-    def vertical_merge(self, directory_path):
+    def save_multiple_keywords(self, keywords: list[str], num: int, same_file=True, filename=None):
+        """
+        Same as save_tweets, but on multiple keywords with num # of tweets for each keyword
+
+        :param keywords: List of string keywords to look for in Twitter
+        :type keywords: list(str)
+        :param num: Number of tweets to collect for each keyword
+                    (Best to do more requests of less tweets (100 or so at a time))
+        :type num: int
+        :param same_file: Whether to save all the keyword searches to the same file or different ones
+        :type same_file: bool
+        :param filename: Name of the file to save to (not directory), otherwise saves to an auto-generated time based
+                        filename.csv. Used only if same_file = True
+        :type filename: None or str
+
+        :return: Dataframe of all the keywords with all of the keys found in self.keys (also saves the dataframe to csv)
+                or a separate csv for each keyword search
+        :rtype: pd.DataFrame
+        """
+        if same_file:
+            full_df = pd.concat([self.req_tweets(k, num) for k in keywords])
+            if filename is None:
+                filename = str(time.time())
+            full_df.to_csv(self.path + '/' + filename + '.csv', index=False)
+        else:
+            full_df = [self.save_tweets(k, num) for k in keywords]
+
+        return full_df
+
+    def vertical_merge(self, directory_path: str):
+        """
+        Takes in a directory of CSVs and concats all of the dataframes into one vertically
+
+        :param directory_path: Relative directory path (from working directory), must only contain CSVs with dataframes
+                                of matching columns
+        :type directory_path: str
+
+        :return: Dataframe of all the CSVs in directory vertically combined into one
+        :rtype: pd.DataFrame
+        """
         files = os.listdir(path=directory_path)
         full_df = pd.DataFrame(columns=self.keys)
         for f in files:
-            df = pd.read_csv(directory_path+'/'+f)
+            df = pd.read_csv(directory_path + '/' + f)
             full_df = pd.concat([full_df, df])
 
         return full_df
 
     def merge_and_cut(self, directory_path):
+        """
+        Takes in a directory of CSVs and concats all of the dataframes into one vertically, then deletes all the files
+        in directory, then saves the merged dataframe into one file named Merged.csv
+
+        Caution: All files in directory should be CSVs with matching Dataframes (column key wise). Deletes Files!
+
+        :param directory_path: Relative directory path (from working directory), must only contain CSVs with dataframes
+                                of matching columns
+        :type directory_path: str
+
+        :return: Dataframe of all the CSVs in directory vertically combined into one, saves to directory/Merged.csv file
+        :rtype: pd.DataFrame
+        """
         df = self.vertical_merge(directory_path)
         for f in os.listdir(directory_path):
             os.remove(os.path.join(directory_path, f))
 
         df.to_csv(os.path.join(directory_path, 'Merged.csv'), index=False)
+        return df
 
 
 TM = TweetManager()

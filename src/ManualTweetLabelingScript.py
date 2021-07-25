@@ -20,7 +20,8 @@ class Labeler:
         try:
             self.count = list(self.tweet_csv['Label']).index(-2)
         except ValueError:
-            self.count = 0
+            print("Everything already labeled")
+            quit()
         print(f"Starting at #{self.count}\n")
 
     def on_press(self, key):
