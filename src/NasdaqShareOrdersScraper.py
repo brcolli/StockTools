@@ -39,21 +39,30 @@ class NasdaqShareOrdersManager:
             data_cmd = 'https://api.nasdaq.com' + url_extension
             header = {'authority': 'api.nasdaq.com',
                       'path': url_extension,
-                      'cookie': 'recentlyViewedList=AMD|Stocks,AAPL|Stocks,NDAQ|Stocks,CRM|Stocks,AMC|Stocks; visid_incap_'
-                                '2170999=AUmeTSAJR9iHbuH7NDYK2V2BG2AAAAAAQUIPAAAAAAARn/KCFFum59zF2XJESLJt; incap_ses_1163_'
-                                '2170999=FDajM6YP1WZckMnOkM4jEF6BG2AAAAAAg286bAKJxp8xhHGwzkcE9g==; bm_mi=8261F0F97854EFC3E'
-                                'A27B7BD8952C115~Iocy2Bqx/0lL/0wb215WggylM9SqS5doA5U1arCMEvcQ0nhvlydEIqkH9hzsC26ds4mX5ymSH'
-                                '2JibJsv8ghqax3d6r6zXcy5yGZ2XSYtv+BTLAcBOAENKbSXCK6kX7EshI+HDZBiZMCg5nY4x1hWDRBpB3Zp0mNFEm'
-                                'V7HFfp30IliewQDjadY6caN96VLH31ntfAdMeTECK8o2wbfUocgMQbvk+Geb8JEPoo6cTUOnQNO3g1FsoM2EPOsPO'
-                                '4wOL8; bm_sv=86C8803AA28B555F82C5561180C57C4D~enV9al4MrEyTm6UC5NTcRoZ8WlrETeGJlo4CJ2n1aNv'
-                                'S1oEQnKc6xqrgw9mrEi94iQJOKmgjVjo1ztV6P6Hxnb7EKU/zNfYsTirjZ3dMGq/6NQ81whPAqnphteVvDVErFY4O'
-                                '4e6lSeTxs9gGRwP8lQFbdIR6/dPgIA7qdyH7WpY=; ak_bmsc=A6FA0CB8CA5A2FF9BB47F7EB78BA661FB81B8CB'
-                                '58A350000787C1B6054EADD42~pla//dtKpllOD61TscYyNh2S2Cu92iiEfC86YpNYoAnSOI93/miqXrVUiyHOhEP'
-                                'uwy44M4NNaoZBM7NXlwPM49U+7iNP/+1bj1PkrbsdRqBLyqeG10LZjICYIEknCBrDqvC/0sha9Xa3D/B30ZfXai0m'
-                                'PsK+ZKTxDhPzZinwIGHNn+bCpQaVo1DbcRNswl/jBQp/GQSFghcfJ0EkIIBgV0IUwj43Zo9MrmgxUgLv5W8SqJItI'
-                                'C1aw95bpK37TkyWL1BL3gp8ko4GvnIbxzCvsgPVZVm7LNhWu+cTmXk8yG6uPhX7QUvMmu0hnb6+7UEwJR; RT="z='
-                                '1&dm=nasdaq.com&si=0lfb4hze973b&ss=kkqdph10&sl=c&tt=36q&obo=7&rl=1"; NSC_W.OEBR.DPN.7070='
-                                'ffffffffc3a0f73345525d5f4f58455e445a4a422dae'}
+                      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                                    'Chrome/92.0.4515.107 Safari/537.36',
+                      'cookie': '_ga=GA1.2.738673769.1627537799; recentlyViewedList=AMC|Stocks; OptanonAlertBoxClosed=2'
+                                '021-07-29T05:51:20.068Z; AKA_A2=A; ak_bmsc=DAC8EC27D832FB445F194E89BA57E6F7~0000000000'
+                                '00000000000000000000~YAAQhowbuMf/fLF6AQAAPUD/CQwYVQu5vz1MWai/wI7IwAVuDhglzIyp0S2kmXhJF'
+                                'TmVcCf7NeVtDaoPSWLuwNqMNQ13ZOI87KMItpGkT3C7K/hI4tqWzVeTN3lMtbdH9VpTTxdtDC7r/Ptazhr/FdX'
+                                'FzkYZOA6A+8vlHmldKlCO9es6ciSlXEttT5nMgVIQ6gqBmsD3UtmP2TgHLZ+0KrQ+AxdbOHwFKd5Mh0hU1cioG'
+                                '9Ch5BcJtJV2IHB8peXyUnJADYi5pnbWTkNYguChAYTc3TmW0t+o8rRr365XNO4yQm7OT+NjseYcBOrt/W1/P/T'
+                                'C99U+FpRs/2AK6l08SW1o3au0ih0GqZtBlRhZmOZmNdJesPbe75tR7sqFfal4uZTBafqPtow1vy8fWCAzeZbSB'
+                                'iB0V1/JRgr0JJDdBrFPgFe/; _gid=GA1.2.2008760097.1627960329; _gat=1; entryUrl=https://ww'
+                                'w.nasdaq.com/market-activity/stocks/amc/latest-real-time-trades; entryReferringURL=htt'
+                                'ps://www.nasdaq.com/market-activity/stocks/amc/real-time; OptanonConsent=isGpcEnabled='
+                                '0&datestamp=Mon+Aug+02+2021+20:12:09+GMT-0700+(Pacific+Daylight+Time)&version=6.20.0&i'
+                                'sIABGlobal=false&hosts=&landingPath=NotLandingPage&groups=C0004:0,C0001:1,C0003:0,C000'
+                                '2:0&AwaitingReconsent=false&geolocation=US;CA; RT="z=1&dm=nasdaq.com&si=0b2a4886-7e75-'
+                                '4879-ad91-5598c2e66c17&ss=kru1okq2&sl=1&tt=tm&bcn=//173e255e.akstat.io/&ld=1fv4lr"; bm'
+                                '_mi=80018A64474C629F3ADC3444857903DB~ZeO2lbpajvkwN0uTyZqe15nLxsJB/hVTWXeyipf0N3zFj9srW'
+                                '8wFIA0pCB3HWi6a2rcG8+zL6bk4mPRF0+Cf/XtcYeuEAwtKYzWOXhsWPY+AGiY9Wd2Q/wcJ8Gcg9hxrWPmMUUh'
+                                'ZgEljbtORQ4hrAEL5cDIVriwVV2GUqvG8tlxpT8MSPvqvzzAJAomjCPTxNNllsSNi+aMDLdJRAUIga0uX2X6kZ'
+                                'NEZ2ZXv8cTkxbxnyBCrWzLg3scCmgAiisWCSEMiIEuUwF1qBLkhIY+QNFkQhg/Qc/w9XP0wASEwvtU=; NSC_W'
+                                '.OEBR.DPN.7070=ffffffffc3a0f70e45525d5f4f58455e445a4a422dae; bm_sv=A12268D33318D7E814F'
+                                'BA4032B570BDB~eQdHNzlGQP9bQd8YuRBN/7NNIDBASPKpKiWrKz8tBcgTPeCLhPyi/KiCtRoondrVaCx8wLnS'
+                                'iTpTVTX/mMfQu90YB+OnOWBwo5qQtOY09fc9yDfYQDMA7IhFEuHbBsmrCqI59WUnjF07chLFsUjakkqzYsUXLW'
+                                'o6pi+gg2yH2pw='}
 
             data = []
             jdata = {'data': None}
