@@ -5,6 +5,7 @@ import time
 import datetime
 import pandas as pd
 from os import path
+import os
 
 
 Utils = importlib.import_module('utilities').Utils
@@ -39,8 +40,6 @@ class NasdaqShareOrdersManager:
             data_cmd = 'https://api.nasdaq.com' + url_extension
             header = {'authority': 'api.nasdaq.com',
                       'path': url_extension,
-                      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
-                                    'Chrome/92.0.4515.107 Safari/537.36',
                       'cookie': '_ga=GA1.2.738673769.1627537799; recentlyViewedList=AMC|Stocks; OptanonAlertBoxClosed=2'
                                 '021-07-29T05:51:20.068Z; AKA_A2=A; ak_bmsc=DAC8EC27D832FB445F194E89BA57E6F7~0000000000'
                                 '00000000000000000000~YAAQhowbuMf/fLF6AQAAPUD/CQwYVQu5vz1MWai/wI7IwAVuDhglzIyp0S2kmXhJF'
@@ -63,6 +62,16 @@ class NasdaqShareOrdersManager:
                                 'BA4032B570BDB~eQdHNzlGQP9bQd8YuRBN/7NNIDBASPKpKiWrKz8tBcgTPeCLhPyi/KiCtRoondrVaCx8wLnS'
                                 'iTpTVTX/mMfQu90YB+OnOWBwo5qQtOY09fc9yDfYQDMA7IhFEuHbBsmrCqI59WUnjF07chLFsUjakkqzYsUXLW'
                                 'o6pi+gg2yH2pw='}
+
+            # Set header attribute based on operating system
+            if os.name == 'nt':
+                # Windows
+                header['user-agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like ' \
+                                       'Gecko) Chrome/92.0.4515.107 Safari/537.36'
+            else:
+                # Assume linux
+                header['user-agent'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) ' \
+                                       'Chrome/90.0.4430.212 Safari/537.36'
 
             data = []
             jdata = {'data': None}
