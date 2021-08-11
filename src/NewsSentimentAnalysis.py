@@ -147,7 +147,7 @@ class TwitterManager:
         """Initializes, trains, and tests a Twitter spam detection model.
         """
 
-        twitter_df = pd.read_csv('../data/Learning Data/twitter_spam_filtered_text_extended_no_index.csv')
+        twitter_df = pd.read_csv('../data/Learning Data/spam_learning.csv')
 
         # Split each set into spam and not spam, then split them into tokens and a list of classified features
         s_dataframe = twitter_df.loc[twitter_df['Label'] == 1]
@@ -412,8 +412,8 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
     tw = TwitterManager()
 
     if use_ml:
-        #tw.initialize_twitter_spam_model()
-        tw.initialize_twitter_sentiment_model()
+        tw.initialize_twitter_spam_model()
+        #tw.initialize_twitter_sentiment_model()
 
     # Search phrase
     if search_past:
