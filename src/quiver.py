@@ -17,4 +17,4 @@ else:
     data = quiver.congress_trading(politician, politician=True)
 
 print(data)
-Utils.write_dataframe_to_csv(data, '../data/')
+#Utils.write_dataframe_to_csv(data, '../data/')
