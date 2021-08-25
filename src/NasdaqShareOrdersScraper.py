@@ -7,14 +7,14 @@ import pandas as pd
 from os import path
 import os
 
-
 Utils = importlib.import_module('utilities').Utils
 
 
 class NasdaqShareOrdersManager:
+    def __init__(self):
+        self.session = requests.Session()
 
-    @staticmethod
-    def get_nasdaq_trade_order(ticker):
+    def get_nasdaq_trade_order(self, ticker):
 
         print('Getting {} data'.format(ticker))
 
@@ -54,7 +54,7 @@ class NasdaqShareOrdersManager:
                 # Assume linux
                 header['user-agent'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) ' \
                                        'Chrome/90.0.4430.212 Safari/537.36'
-
+                
             data = []
             jdata = {'data': None}
             while True:

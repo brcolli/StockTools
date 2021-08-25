@@ -421,7 +421,7 @@ class Utils:
     @staticmethod
     def strings_to_dicts(strings):
         """
-        Converts a list of json style strings toa list of dictionaries.
+        Converts a list of json style strings to a list of dictionaries.
 
         :param strings: list of strings
         :type strings: list(str)
