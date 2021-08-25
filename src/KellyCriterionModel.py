@@ -6,6 +6,7 @@ from openpyxl.chart import AreaChart, Reference, Series
 import os
 import numpy as np
 import string
+from typing import List
 
 # Todos in priority order
 # TODO: Create a database and indexing system for storing all ending capitals vs a single cell string in Excel
@@ -15,6 +16,7 @@ import string
 
 
 class KellyModel:
+
     """
     Used to simulate trading with the kelly model, either single simulation of n trades or multiple simulations of n
     trades.
@@ -367,7 +369,7 @@ class KellyModel:
             q, r = divmod(num - 1, n)
             return self.int_to_column_id(q) + alphabet[r]
 
-    def histogram(self, column: list[float], sheet_name: str, wb: openpyxl.Workbook()):
+    def histogram(self, column: List[float], sheet_name: str, wb: openpyxl.Workbook()):
         """
         Generates and plots an area style histogram in Excel of any dataset (though is intended for the Final Ending
         Capital column of the results dataframe).

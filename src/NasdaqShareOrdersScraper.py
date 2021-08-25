@@ -5,6 +5,7 @@ import time
 import datetime
 import pandas as pd
 from os import path
+import os
 
 Utils = importlib.import_module('utilities').Utils
 
@@ -24,6 +25,10 @@ class NasdaqShareOrdersManager:
         curr_data = ''
         curr_time = datetime.datetime.strptime('09:30', '%H:%M')
 
+        # Start session
+        session = requests.Session()
+        cookies = session.cookies
+
         while not repeating:
 
             curr_hour = str(curr_time.hour)
@@ -34,21 +39,27 @@ class NasdaqShareOrdersManager:
             if curr_time.minute < 10:
                 curr_min = '0' + curr_min
 
-            url_extension = '/api/quote/{}/realtime-trades?&limit={}&fromTime={}'.format(ticker, limit, curr_hour + ':' +
-                                                                                         curr_min)
+            url_extension = '/api/quote/{}/realtime-trades?&limit={}&fromTime={}'.format(ticker, limit, curr_hour + ':'
+                                                                                         + curr_min)
             data_cmd = 'https://api.nasdaq.com' + url_extension
             header = {'authority': 'api.nasdaq.com',
-                      'path': url_extension,
-                      'cookies': '80566D57C1A0C8E7D449F00A684ACBB9~000000000000000000000000000000~YAAQLvEkF0s53xl7AQAAJA82GgxKO5HGYp6XJfXTVJIgYMRUlvzjBGUi2Uku4UmtkLzlza4Zd4SXgQATwOoE46Iu+wEVF2OZ/vOzTKVefNPv+QJuRLe6/xIS7ViloGmUxaudq19SgPzJk2/Gp0RD6nSuW8enJ/tneLN/ewRtda2nk/MAkfXgZ9iZpkh+ZUUmNvdeCwAesZpLC5p0oMOCrDKnKbTK4t59VCXWeejR5AwjfHFGHdr7mzwgCTo0rCLzyhi4hsWU5v2SO4F5cO489IzIDMQu/NEeRpiR1IwpBqLs0gbq5Kn4+dqG5HwC6+ZTY5ElngiGSm7xAew6XeTyemKNh1lm8UxNXZcXbpQtbca3/t1uk1SqzmQ6+tb/w+FRR0/7UUaoYG9D'}
+                      'path': url_extension}
 
+            # Set header attribute based on operating system
+            if os.name == 'nt':
+                # Windows
+                header['user-agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like ' \
+                                       'Gecko) Chrome/92.0.4515.107 Safari/537.36'
+            else:
+                # Assume linux
+                header['user-agent'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) ' \
+                                       'Chrome/90.0.4430.212 Safari/537.36'
+                
             data = []
             jdata = {'data': None}
             while True:
                 try:
-                    print('Getting')
-                    data = requests.get(data_cmd, headers=header)
-                    #data = self.session.get(data_cmd, headers=header)
-                    print('Got')
+                    data = session.get(data_cmd, headers=header, cookies=cookies)
                     jdata = json.loads(data.text)
                     break
                 except:
