@@ -1,4 +1,5 @@
 import datetime
+import json
 import pandas as pd
 from pandas.tseries.holiday import USFederalHolidayCalendar
 from pandas.tseries.holiday import GoodFriday
@@ -664,3 +665,51 @@ class Utils:
             return m.groups()
         else:
             return ()
+
+    @staticmethod
+    def clean_json_bad_str_char(json_data):
+
+        p = re.compile('(?<!\\\\)\'')
+        clean = p.sub('\"', json_data)
+        clean = clean.replace("\\'s", "\'s")
+
+        return clean
+
+    @staticmethod
+    def safe_str_to_dict(string: str or dict) -> dict:
+        """
+        If you are unsure whether you are working with a dictionary or string representation of dictionary, returns a
+        dictionary
+
+        :param string: Either string (json) dictionary or dictionary (generally a json of a stored tweet)
+        :type string: str or dict
+
+        :return: The dictionary version of the string (or dictionary itself)
+        :rtype: dict
+        """
+        if type(string) == str:
+            string = eval(string)
+        return string
+
+    @staticmethod
+    def parse_json_botometer_data(filename, json_headers):
+
+        df = pd.read_csv(filename)
+        json_dict = {}
+        for header in json_headers:
+            json_dict[header] = []
+
+        for row, col in df.iterrows():
+
+            json_data = Utils.safe_str_to_dict(col['json'])
+            for header in json_headers:
+
+                if header == 'full_text' and 'full_text' not in json_data.keys():
+                    json_dict[header].append(json_data['text'])
+                else:
+                    json_dict[header].append(json_data[header])
+
+        for header in json_headers:
+            df[header] = json_dict[header]
+
+        return df

@@ -1,4 +1,5 @@
 import importlib
+import matplotlib.pyplot as plt
 import nltk
 from nltk import classify
 from nltk import NaiveBayesClassifier
@@ -8,6 +9,8 @@ from nltk.tag import pos_tag
 from nltk import FreqDist
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
+from sklearn import preprocessing
+import tensorflow as tf
 import string
 import re
 import math
@@ -41,6 +44,8 @@ class NLPSentimentCalculations:
         self.classifier = None
         NLPSentimentCalculations.download_nltk_common()
 
+        self.tokenizer = tf.keras.preprocessing.text.Tokenizer()
+
     @staticmethod
     def download_nltk_common():
 
@@ -60,6 +65,89 @@ class NLPSentimentCalculations:
         :type train_data: list(tuple(dict(str-> bool)), str)
         """
         self.classifier = NaiveBayesClassifier.train(train_data)
+
+    @staticmethod
+    def keras_preprocessing(x, y):
+
+        """Categorizes and preprocesses feature and label datasets
+
+        :param x: The input data.
+        :type x: list(obj)
+        :param y: The output data.
+        :type y: list(obj)
+
+        :return: A tuple of arrays of x and y train and test sets.
+        :rtype: tuple(dataframe(obj), dataframe(obj), dataframe(obj), dataframe(obj))
+        """
+
+        label_encoder = preprocessing.LabelEncoder()
+
+        # TODO change to TF-IDF?
+        y = label_encoder.fit_transform(y)
+
+        x_train, x_test, y_train, y_test = NLPSentimentCalculations.split_data_to_train_test(x, y)
+
+        y_train = tf.keras.utils.to_categorical(y_train)
+        y_test = tf.keras.utils.to_categorical(y_test)
+
+        return x_train, x_test, y_train, y_test
+
+    def keras_word_embeddings(self, x, maxlen=300):
+
+        x_sequence = self.tokenizer.texts_to_sequences(x)
+        return tf.keras.preprocessing.sequence.pad_sequences(x_sequence, padding='post', maxlen=maxlen)
+
+    def create_glove_word_vectors(self, trained_vector_file='../data/Learning Data/GloVe/glove.6B/glove.6B.100d.txt'):
+
+        embeddings_dict = dict()
+
+        with open(trained_vector_file, encoding='utf8') as gf:
+
+            for line in gf:
+
+                records = line.split()
+                word = records[0]
+                vector_dimensions = np.asarray(records[1:], dtype='float32')
+                embeddings_dict[word] = vector_dimensions
+
+        embedding_matrix = np.zeros((len(self.tokenizer.word_index) + 1, 100))
+        for word, index in self.tokenizer.word_index.items():
+
+            embedding_vector = embeddings_dict.get(word)
+            if embedding_vector is not None:
+                embedding_matrix[index] = embedding_vector
+
+        return embedding_matrix
+
+    def create_text_meta_model(self, embedding_matrix, meta_feature_size, maxlen=300):
+
+        input_text_layer, lstm_text_layer = self.create_text_submodel(embedding_matrix, maxlen)
+        input_meta_layer, dense_meta_layer = NLPSentimentCalculations.create_meta_submodel(meta_feature_size)
+
+        concat_layer = tf.keras.layers.Concatenate()([lstm_text_layer, dense_meta_layer])
+
+        dense_concat = tf.keras.layers.Dense(10, activation='relu')(concat_layer)
+
+        output_layer = tf.keras.layers.Dense(10, activation='softmax')(dense_concat)
+
+        return tf.keras.models.Model(inputs=[input_text_layer, input_meta_layer], outputs=output_layer)
+
+    def create_text_submodel(self, embedding_matrix, maxlen=300):
+
+        text_input_layer = tf.keras.layers.Input(shape=(maxlen,))
+
+        embedding_layer = tf.keras.layers.Embedding(len(self.tokenizer.word_index) + 1,
+                                                    100, weights=[embedding_matrix], trainable=False)(text_input_layer)
+
+        return text_input_layer, tf.keras.layers.LSTM(128)(embedding_layer)
+
+    @staticmethod
+    def create_meta_submodel(meta_feature_size):
+
+        meta_input_layer = tf.keras.layers.Input(shape=(meta_feature_size,))
+
+        dense_layer_1 = tf.keras.layers.Dense(10, activation='relu')(meta_input_layer)
+        return meta_input_layer, tf.keras.layers.Dense(10, activation='relu')(dense_layer_1)
 
     def test_classifier(self, test_data):
 
@@ -106,7 +194,7 @@ class NLPSentimentCalculations:
         :rtype: str
         """
 
-        custom_tokens = NLPSentimentCalculations.sanitize_text(word_tokenize(text))
+        custom_tokens = NLPSentimentCalculations.sanitize_text_tokens(word_tokenize(text))
         return self.classifier.classify(dict([token, True] for token in custom_tokens))
 
     @staticmethod
@@ -143,7 +231,7 @@ class NLPSentimentCalculations:
 
         cleaned_tokens = []
         for tokens in all_tokens:
-            cleaned_tokens.append(NLPSentimentCalculations.sanitize_text(tokens, stop_words))
+            cleaned_tokens.append(NLPSentimentCalculations.sanitize_text_tokens(tokens, stop_words))
         return cleaned_tokens
 
     @staticmethod
@@ -194,9 +282,29 @@ class NLPSentimentCalculations:
         return [(class_dict, classifier_tag) for class_dict in token_tags]
 
     @staticmethod
-    def sanitize_text(tweet_tokens, stop_words=()):
+    def sanitize_text_string(sen, stop_words=()):
 
-        """Uses a simple tagging of features to tag and collect data, calls get_basic_data_tag
+        sentence = re.sub('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+#]|[!*\(\),]|' \
+                       '(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', sen)
+
+        sentence = re.sub('[^a-zA-Z]', ' ', sentence)
+
+        sentence = re.sub(r'\s+', ' ', sentence)
+
+        sentence = re.sub("(@[A-Za-z0-9_]+)", "", sentence)
+
+        wn = nltk.WordNetLemmatizer()
+        sentence = wn.lemmatize(sentence)
+
+        if len(sentence) > 0 and sentence not in string.punctuation and sentence.lower() not in stop_words:
+            return sentence.lower()
+        else:
+            return ''
+
+    @staticmethod
+    def sanitize_text_tokens(tweet_tokens, stop_words=()):
+
+        """Cleans text data by removing bad punctuation, emojies, and lematizes.
 
         :param tweet_tokens: A list of lists of tokens
         :type tweet_tokens: list(list(str))
@@ -385,6 +493,27 @@ class NLPSentimentCalculations:
               f'{math.ceil(dataset_count / word_median)}')
 
         # TODO maybe plot some things, like frequency distribution of ngrams
+
+    @staticmethod
+    def plot_model_history(history):
+
+        plt.plot(history.history['acc'])
+        plt.plot(history.history['val_acc'])
+
+        plt.title('model accuracy')
+        plt.ylabel('accuracy')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'test'], loc='upper left')
+        plt.show()
+
+        plt.plot(history.history['loss'])
+        plt.plot(history.history['val_loss'])
+
+        plt.title('model loss')
+        plt.ylabel('loss')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'test'], loc='upper left')
+        plt.show()
 
 
 def main():
