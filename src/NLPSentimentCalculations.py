@@ -128,7 +128,7 @@ class NLPSentimentCalculations:
 
         dense_concat = tf.keras.layers.Dense(10, activation='relu')(concat_layer)
 
-        output_layer = tf.keras.layers.Dense(10, activation='softmax')(dense_concat)
+        output_layer = tf.keras.layers.Dense(meta_feature_size, activation='softmax')(dense_concat)
 
         return tf.keras.models.Model(inputs=[input_text_layer, input_meta_layer], outputs=output_layer)
 

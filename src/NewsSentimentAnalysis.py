@@ -165,25 +165,26 @@ class TwitterManager:
         """Initializes, trains, and tests a Twitter spam detection model.
         """
 
-        features_to_train = ['full_text']
+        features_to_train = ['full_text', 'cap.english', 'cap.universal', 'raw_scores.english.astroturf']
+        json_features = ['full_text']
 
-        twitter_df = Utils.parse_json_botometer_data('../data/Learning Data/spam_learning.csv', features_to_train)
+        twitter_df = Utils.parse_json_botometer_data('../data/Learning Data/spam_learning.csv', json_features)
 
         x_train_text_embeddings, x_test_text_embeddings,\
             x_train_meta, x_test_meta,\
             glove_embedding_matrix, y_train, y_test = self.get_dataset_from_tweet_spam(twitter_df, features_to_train)
 
+        # TODO save outputs to json object file, look up caching aka pickle/feather
+
         spam_model = self.nsc.create_text_meta_model(glove_embedding_matrix,
                                                      len(x_train_meta.columns), len(x_train_text_embeddings[0]))
-
-        print('here')
 
         # Print model summary
         spam_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['acc'])
         print(spam_model.summary())
 
         history = spam_model.fit(x=[x_train_text_embeddings, x_train_meta], y=y_train, batch_size=128,
-                                 epochs=10, verbose=1, validation_split=0.2)
+                                 epochs=100, verbose=1, validation_split=0.2)
 
         score = spam_model.evaluate(x=[x_test_text_embeddings, x_test_meta], y=y_test, verbose=1)
 
@@ -458,9 +459,5 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
 if __name__ == '__main__':
 
     create_ml_models = True
-    if create_ml_models:
-        import tensorflow as tf
-    else:
-        tensorflow = None
 
-    main(use_ml=create_ml_models, search_past=False)
+    main(use_ml=create_ml_models)
