@@ -435,7 +435,8 @@ class Utils:
 
     def merge_dataframes(self, original, new, original_id_key, new_id_key, new_data_keys):
         """
-        Merges two dataframes with replacement of missing values in the new according to an id column in both dataframes.
+        Horizontally merges two dataframes with replacement of missing values in the new according to an id column in
+        both dataframes.
 
         :param original: original dataframe (must include in it all of the ids of the new dataframe)
         :type original: pandas.DataFrame
@@ -469,7 +470,7 @@ class Utils:
     @staticmethod
     def basic_merge(original, new):
         """
-        Merges two pandas dataframe of equal size
+        Horizontally merges two pandas dataframe of equal size
 
         :param original: original df
         :type original: pd.DataFrame
