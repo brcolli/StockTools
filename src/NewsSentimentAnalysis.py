@@ -7,6 +7,7 @@ import nltk
 from nltk.corpus import twitter_samples
 from nltk.corpus import stopwords
 import pickle
+import os
 
 Utils = importlib.import_module('utilities').Utils
 NSC = importlib.import_module('NLPSentimentCalculations').NLPSentimentCalculations
@@ -171,38 +172,42 @@ class TwitterManager:
         return x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
                glove_embedding_matrix, y_train, y_test
 
-    def initialize_twitter_spam_model(self, to_preprocess_binary=None, from_preprocess_binary=None):
+    def initialize_twitter_spam_model(self, to_preprocess_binary='', from_preprocess_binary=''):
 
         """Initializes, trains, and tests a Twitter spam detection model.
         """
 
-        if from_preprocess_binary is not None:
-            data = pickle.load(open(from_preprocess_binary, "rb"))
-
-        if True:
-            features_to_train = ['full_text']
-
-            twitter_df = Utils.parse_json_botometer_data('../data/Learning Data/spam_learning.csv', features_to_train)
-
+        if os.path.exists(from_preprocess_binary):
+            with open(from_preprocess_binary, "rb") as fpb
+                data = pickle.load(fpb)
+            
             x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
-            glove_embedding_matrix, y_train, y_test = self.get_dataset_from_tweet_spam(twitter_df, features_to_train)
+            glove_embedding_matrix, y_train, y_test = data
+        else:
+            
+            features_to_train = ['full_text', 'cap.english', 'cap.universal', 'raw_scores.english.astroturf']
+            json_features = ['full_text']
 
-            if to_preprocess_binary is not None:
+            twitter_df = Utils.parse_json_botometer_data('../data/Learning Data/spam_learning.csv', json_features)
+            
+            x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
+              glove_embedding_matrix, y_train, y_test = self.get_dataset_from_tweet_spam(twitter_df, features_to_train)
+            
+            if to_preprocess_binary:
                 data = (x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta,
                         glove_embedding_matrix, y_train, y_test)
-                pickle.dump(data, open(to_preprocess_binary, "wb"))
+                with open(to_preprocess_binary, "wb") as tpb:
+                    pickle.dump(data, tpb)
 
         spam_model = self.nsc.create_text_meta_model(glove_embedding_matrix,
                                                      len(x_train_meta.columns), len(x_train_text_embeddings[0]))
-
-        print('here')
 
         # Print model summary
         spam_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['acc'])
         print(spam_model.summary())
 
         history = spam_model.fit(x=[x_train_text_embeddings, x_train_meta], y=y_train, batch_size=128,
-                                 epochs=10, verbose=1, validation_split=0.2)
+                                 epochs=100, verbose=1, validation_split=0.2)
 
         score = spam_model.evaluate(x=[x_test_text_embeddings, x_test_meta], y=y_test, verbose=1)
 
@@ -475,9 +480,5 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
 if __name__ == '__main__':
 
     create_ml_models = True
-    if create_ml_models:
-        import tensorflow as tf
-    else:
-        tensorflow = None
 
-    main(use_ml=create_ml_models, search_past=False)
+    main(use_ml=create_ml_models)
