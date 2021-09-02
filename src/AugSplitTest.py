@@ -16,8 +16,8 @@ nsc.keras_preprocessing(a[["A", "B"]], a['Label'], augmented_states=a['augmented
 
 def test_bin_load():
     path = '../data/TestingData/save.pickle'
-    data, d2 = nsa.initialize_twitter_spam_model(from_preprocess_binary=path)
+    nsa.initialize_twitter_spam_model(from_preprocess_binary=path)
 
-def test_bin_save():
+def bin_save():
     path = '../data/TestingData/save.pickle'
     nsa.initialize_twitter_spam_model(to_preprocess_binary=path)
