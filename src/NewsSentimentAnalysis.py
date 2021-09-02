@@ -6,10 +6,10 @@ import pandas as pd
 import nltk
 from nltk.corpus import twitter_samples
 from nltk.corpus import stopwords
+import pickle
 
 Utils = importlib.import_module('utilities').Utils
 NSC = importlib.import_module('NLPSentimentCalculations').NLPSentimentCalculations
-
 
 """NewsSentimentAnalysis
 
@@ -24,7 +24,6 @@ Date: April 22, 2021
 
 
 class NewsManager:
-
     """Handles news headline and article classification.
     """
 
@@ -83,7 +82,6 @@ class NewsManager:
 
 
 class TwitterManager:
-
     """Handles sentiment analysis for Twitter data, i.e. tweets. Can tag input data or a live stream of tweets.
     """
 
@@ -112,7 +110,7 @@ class TwitterManager:
 
         self.nsc = NSC()
 
-    def get_dataset_from_tweet_spam(self, dataframe, features_to_train=None):
+    def get_dataset_from_tweet_spam(self, dataframe, features_to_train=None, augmented_df=None):
 
         """Converts the text feature to a dataset of labeled unigrams and bigrams.
 
@@ -128,7 +126,20 @@ class TwitterManager:
         if not features_to_train:
             features_to_train = ['full_text']
 
-        x_train, x_test, y_train, y_test = NSC.keras_preprocessing(dataframe[features_to_train], dataframe['Label'])
+        if 'augmented' not in dataframe.keys():
+            dataframe['augmented'] = 0
+
+        if augmented_df is not None:
+            if 'augmented' not in dataframe.keys():
+                augmented_df['augmented'] = 1
+            dataframe = pd.concat(dataframe, augmented_df)
+
+        x_train, x_test, y_train, y_test = NSC.keras_preprocessing(dataframe[features_to_train], dataframe['Label'],
+                                                                   augmented_states=dataframe['augmented'])
+
+        if x_train is False:
+            print("Train test failed due to over augmentation")
+            return False
 
         # Split into text and meta data
 
@@ -157,21 +168,29 @@ class TwitterManager:
         x_train_meta = x_train[features_to_train]
         x_test_meta = x_test[features_to_train]
 
-        return x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta,\
+        return x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
                glove_embedding_matrix, y_train, y_test
 
-    def initialize_twitter_spam_model(self):
+    def initialize_twitter_spam_model(self, to_preprocess_binary=None, from_preprocess_binary=None):
 
         """Initializes, trains, and tests a Twitter spam detection model.
         """
 
-        features_to_train = ['full_text']
+        if from_preprocess_binary is not None:
+            data = pickle.load(open(from_preprocess_binary, "rb"))
 
-        twitter_df = Utils.parse_json_botometer_data('../data/Learning Data/spam_learning.csv', features_to_train)
+        if True:
+            features_to_train = ['full_text']
 
-        x_train_text_embeddings, x_test_text_embeddings,\
-            x_train_meta, x_test_meta,\
+            twitter_df = Utils.parse_json_botometer_data('../data/Learning Data/spam_learning.csv', features_to_train)
+
+            x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
             glove_embedding_matrix, y_train, y_test = self.get_dataset_from_tweet_spam(twitter_df, features_to_train)
+
+            if to_preprocess_binary is not None:
+                data = (x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta,
+                        glove_embedding_matrix, y_train, y_test)
+                pickle.dump(data, open(to_preprocess_binary, "wb"))
 
         spam_model = self.nsc.create_text_meta_model(glove_embedding_matrix,
                                                      len(x_train_meta.columns), len(x_train_text_embeddings[0]))
@@ -377,7 +396,6 @@ class TwitterManager:
 
 
 class TwitterStreamListener(tweepy.StreamListener):
-
     """Handles the stream event-driven methods, inherits tweepy.StreamListener
     """
 
@@ -415,8 +433,8 @@ class TwitterStreamListener(tweepy.StreamListener):
             if self.default_sentiment != '':
                 self.default_sentiment += ','
 
-            data = str(status.created_at) + ',' + status.user.name + ',' + status.text.replace('\n', '') +\
-                ',' + self.default_sentiment + '\n'
+            data = str(status.created_at) + ',' + status.user.name + ',' + status.text.replace('\n', '') + \
+                   ',' + self.default_sentiment + '\n'
             print(data)
             f.write(data)
             print('Tweet saved...')
@@ -424,7 +442,6 @@ class TwitterStreamListener(tweepy.StreamListener):
 
 def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter_in=None, filter_out=None,
          history_count=1000):
-
     if not filter_in:
         filter_in = []
     if not filter_out:
@@ -434,7 +451,7 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
 
     if use_ml:
         tw.initialize_twitter_spam_model()
-        #tw.initialize_twitter_sentiment_model()
+        # tw.initialize_twitter_sentiment_model()
 
     # Search phrase
     if search_past:
@@ -443,7 +460,7 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
         # Writes the file to csv and creates appropriate directories (if non-existent).
         # If failed, writes data to current directory to avoid data loss
         if not Utils.write_dataframe_to_csv(tweets, '../data/News Sentiment Analysis/'
-                                            '' + phrase + '_tweet_history_search.csv'):
+                                                    '' + phrase + '_tweet_history_search.csv'):
             Utils.write_dataframe_to_csv(tweets, '' + phrase + '_tweet_history_search.csv')
 
     if search_stream:

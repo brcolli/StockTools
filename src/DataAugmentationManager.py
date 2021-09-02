@@ -92,7 +92,7 @@ class TweetEDA:
         :return: Text of the Tweet
         :rtype: str
         """
-        string_json = self.safe_str_to_dict(string_json)
+        string_json = Utils.safe_str_to_dict(string_json)
         try:
             txt = string_json['full_text']
         except KeyError:
@@ -115,7 +115,7 @@ class TweetEDA:
         :return: Tweet object json, as a dict
         :rtype: dict
         """
-        dictionary = self.safe_str_to_dict(string_json)
+        dictionary = Utils.safe_str_to_dict(string_json)
         keys = dictionary.keys()
         if 'full_text' in keys:
             dictionary['full_text'] = text

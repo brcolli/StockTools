@@ -1,6 +1,7 @@
 import importlib
 import matplotlib.pyplot as plt
 import nltk
+import pandas as pd
 from nltk import classify
 from nltk import NaiveBayesClassifier
 from nltk.tokenize import word_tokenize
@@ -14,10 +15,9 @@ import tensorflow as tf
 import string
 import re
 import math
-
+import operator
 
 Utils = importlib.import_module('utilities').Utils
-
 
 """NLPSentimentCalculations
 
@@ -32,7 +32,6 @@ Date: April 22, 2021
 
 
 class NLPSentimentCalculations:
-
     """Handles any function calls related to NLP classifications.
     """
 
@@ -52,8 +51,8 @@ class NLPSentimentCalculations:
         """Downloads specific NLTK data for NLP analysis.
         """
 
-        nltk.download('wordnet')                     # For determining base words
-        nltk.download('punkt')                       # Pretrained model to help with tokenizing
+        nltk.download('wordnet')  # For determining base words
+        nltk.download('punkt')  # Pretrained model to help with tokenizing
         nltk.download('averaged_perceptron_tagger')  # For determining word context
 
     def train_naivebayes_classifier(self, train_data):
@@ -67,7 +66,7 @@ class NLPSentimentCalculations:
         self.classifier = NaiveBayesClassifier.train(train_data)
 
     @staticmethod
-    def keras_preprocessing(x, y):
+    def keras_preprocessing(x, y, augmented_states=None):
 
         """Categorizes and preprocesses feature and label datasets
 
@@ -85,7 +84,8 @@ class NLPSentimentCalculations:
         # TODO change to TF-IDF?
         y = label_encoder.fit_transform(y)
 
-        x_train, x_test, y_train, y_test = NLPSentimentCalculations.split_data_to_train_test(x, y)
+        x_train, x_test, y_train, y_test = NLPSentimentCalculations.split_data_to_train_test(x, y,
+                                            augmented_states=augmented_states)
 
         y_train = tf.keras.utils.to_categorical(y_train)
         y_test = tf.keras.utils.to_categorical(y_test)
@@ -104,7 +104,6 @@ class NLPSentimentCalculations:
         with open(trained_vector_file, encoding='utf8') as gf:
 
             for line in gf:
-
                 records = line.split()
                 word = records[0]
                 vector_dimensions = np.asarray(records[1:], dtype='float32')
@@ -285,7 +284,7 @@ class NLPSentimentCalculations:
     def sanitize_text_string(sen, stop_words=()):
 
         sentence = re.sub('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+#]|[!*\(\),]|' \
-                       '(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', sen)
+                          '(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', sen)
 
         sentence = re.sub('[^a-zA-Z]', ' ', sentence)
 
@@ -390,7 +389,7 @@ class NLPSentimentCalculations:
         return [' '.join(grams) for grams in nltk.ngrams(tokens, n)]
 
     @staticmethod
-    def split_data_to_train_test(x, y, test_size=0.3, random_state=11):
+    def split_data_to_train_test(x, y, test_size=0.3, random_state=11, augmented_states=None):
 
         """Splits data into randomized train and test subsets.
 
@@ -406,8 +405,30 @@ class NLPSentimentCalculations:
         :return: A tuple of arrays of x and y train and test sets.
         :rtype: tuple(list(obj), list(obj), list(obj), list(obj))
         """
+        if augmented_states is not None:
+            max_test_size = list(augmented_states).count(0) / len(augmented_states)
+            if max_test_size < test_size:
+                print(f"Too much augmented data, impossible to maintain a test size of {test_size}")
+                print(f"Max test size: {round(max_test_size, 2)}")
+                return False, False, False, False
+            else:
+                non_aug = [i for i in range(len(augmented_states)) if augmented_states[i] == 0]
+                aug = list(set(non_aug) ^ set(list(range(len(augmented_states)))))
+                aug.sort()
+                x_a = x.iloc[aug]
+                x = x.iloc[non_aug]
+                y_a = [y[i] for i in aug]
+                y = [y[i] for i in non_aug]
 
-        return train_test_split(x, y, test_size=test_size, random_state=random_state)
+                true_ts = test_size * len(augmented_states) / len(non_aug)
+
+                x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=true_ts, random_state=random_state)
+                x_train = pd.concat([x_train, x_a])
+                y_train = y_train + y_a
+
+                return x_train, x_test, y_train, y_test
+        else:
+            return train_test_split(x, y, test_size=test_size, random_state=random_state)
 
     @staticmethod
     def compute_tf_idf(train_tokens, test_tokens):
@@ -441,12 +462,12 @@ class NLPSentimentCalculations:
         )
 
         x_train = vectorizer.fit_transform(train_tokens)
-        #feature_names = vectorizer.get_feature_names()
+        # feature_names = vectorizer.get_feature_names()
 
         x_test = vectorizer.transform(test_tokens)
 
-        #dense = x_train.todense()
-        #denselist = dense.tolist()
+        # dense = x_train.todense()
+        # denselist = dense.tolist()
 
         # Map TF-IDF results to dictionary
         '''
