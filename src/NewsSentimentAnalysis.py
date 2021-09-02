@@ -178,11 +178,11 @@ class TwitterManager:
         """
 
         if os.path.exists(from_preprocess_binary):
-            with open(from_preprocess_binary, "rb") as fpb
+            with open(from_preprocess_binary, "rb") as fpb:
                 data = pickle.load(fpb)
             
             x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
-            glove_embedding_matrix, y_train, y_test = data
+                glove_embedding_matrix, y_train, y_test = data
         else:
             
             features_to_train = ['full_text', 'cap.english', 'cap.universal', 'raw_scores.english.astroturf']
@@ -191,7 +191,7 @@ class TwitterManager:
             twitter_df = Utils.parse_json_botometer_data('../data/Learning Data/spam_learning.csv', json_features)
             
             x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
-              glove_embedding_matrix, y_train, y_test = self.get_dataset_from_tweet_spam(twitter_df, features_to_train)
+                glove_embedding_matrix, y_train, y_test = self.get_dataset_from_tweet_spam(twitter_df, features_to_train)
             
             if to_preprocess_binary:
                 data = (x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta,

@@ -15,7 +15,6 @@ import tensorflow as tf
 import string
 import re
 import math
-import operator
 
 Utils = importlib.import_module('utilities').Utils
 
