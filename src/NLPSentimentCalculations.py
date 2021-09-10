@@ -147,6 +147,20 @@ class NLPSentimentCalculations:
         dense_layer_1 = tf.keras.layers.Dense(10, activation='relu')(meta_input_layer)
         return meta_input_layer, tf.keras.layers.Dense(10, activation='relu')(dense_layer_1)
 
+    @staticmethod
+    def create_early_stopping_callback(monitor_stat, monitor_mode='auto', patience=0, min_delta=0):
+        return tf.keras.callbacks.EarlyStopping(monitor=monitor_stat, mode=monitor_mode, verbose=1,
+                                                patience=patience, min_delta=min_delta)
+
+    @staticmethod
+    def create_model_checkpoint_callback(filepath, monitor_stat, mode='auto'):
+        return tf.keras.callbacks.ModelCheckpoint(filepath, monitor=monitor_stat, mode=mode, verbose=1,
+                                                  save_best_only=True)
+
+    @staticmethod
+    def load_saved_model(filepath):
+        return tf.keras.models.load_model(filepath)
+
     def test_classifier(self, test_data):
 
         """Tests a classifier on test data.

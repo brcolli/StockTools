@@ -20,7 +20,7 @@ calls, like data sanitization. This works with data gathering, filtering, and I/
 tweets, and articles. Can support data streams and data input classification.
 
 Authors: Benjamin Collins
-Date: April 22, 2021 
+Date: April 22, 2021
 """
 
 
@@ -172,10 +172,16 @@ class TwitterManager:
         return x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
                glove_embedding_matrix, y_train, y_test
 
-    def initialize_twitter_spam_model(self, to_preprocess_binary='', from_preprocess_binary=''):
+    def initialize_twitter_spam_model(self, to_preprocess_binary='', from_preprocess_binary='',
+                                      early_stopping=False, load_model=False,
+                                      model_checkpoint_path='../data/analysis/Model Results/Saved Models/'
+                                                            'best_spam_model.h5'):
 
         """Initializes, trains, and tests a Twitter spam detection model.
         """
+
+        if load_model and os.path.exists(model_checkpoint_path):
+            return NSC.load_saved_model(model_checkpoint_path)
 
         if os.path.exists(from_preprocess_binary):
             with open(from_preprocess_binary, "rb") as fpb:
@@ -206,8 +212,18 @@ class TwitterManager:
         spam_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['acc'])
         print(spam_model.summary())
 
+        cbs = []
+        if early_stopping:
+            # Set up early stopping callback
+            cbs.append(NSC.create_early_stopping_callback('loss', patience=10))
+
+            cbs.append(NSC.create_model_checkpoint_callback(model_checkpoint_path, monitor_stat='loss'))
+
         history = spam_model.fit(x=[x_train_text_embeddings, x_train_meta], y=y_train, batch_size=128,
-                                 epochs=100, verbose=1, validation_split=0.2)
+                                 epochs=200, verbose=1, validation_split=0.2, callbacks=cbs)
+
+        if early_stopping and os.path.exists(model_checkpoint_path):
+            spam_model = NSC.load_saved_model(model_checkpoint_path)
 
         score = spam_model.evaluate(x=[x_test_text_embeddings, x_test_meta], y=y_test, verbose=1)
 
@@ -215,6 +231,8 @@ class TwitterManager:
         print("Test Accuracy:", score[1])
 
         NSC.plot_model_history(history)
+
+        return spam_model
 
     def initialize_twitter_sentiment_model(self):
 
@@ -455,7 +473,7 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
     tw = TwitterManager()
 
     if use_ml:
-        tw.initialize_twitter_spam_model()
+        tw.initialize_twitter_spam_model(early_stopping=True, load_model=True)
         # tw.initialize_twitter_sentiment_model()
 
     # Search phrase

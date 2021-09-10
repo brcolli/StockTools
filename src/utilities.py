@@ -708,7 +708,8 @@ class Utils:
                 if header == 'full_text' and 'full_text' not in json_data.keys():
                     json_dict[header].append(json_data['text'])
                 else:
-                    json_dict[header].append(json_data[header])
+                    if header in json_data.keys():
+                        json_dict[header].append(json_data[header])
 
         for header in json_headers:
             df[header] = json_dict[header]
