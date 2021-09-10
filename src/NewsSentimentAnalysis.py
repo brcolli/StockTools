@@ -180,9 +180,6 @@ class TwitterManager:
         """Initializes, trains, and tests a Twitter spam detection model.
         """
 
-        if load_model and os.path.exists(model_checkpoint_path):
-            return NSC.load_saved_model(model_checkpoint_path)
-
         if os.path.exists(from_preprocess_binary):
             with open(from_preprocess_binary, "rb") as fpb:
                 data = pickle.load(fpb)
@@ -205,6 +202,18 @@ class TwitterManager:
                 with open(to_preprocess_binary, "wb") as tpb:
                     pickle.dump(data, tpb)
 
+        # Load previously saved model and test
+        if load_model and os.path.exists(model_checkpoint_path):
+
+            spam_model = NSC.load_saved_model(model_checkpoint_path)
+
+            score = spam_model.evaluate(x=[x_test_text_embeddings, x_test_meta], y=y_test, verbose=1)
+
+            print("Test Score:", score[0])
+            print("Test Accuracy:", score[1])
+
+            return spam_model
+
         spam_model = self.nsc.create_text_meta_model(glove_embedding_matrix,
                                                      len(x_train_meta.columns), len(x_train_text_embeddings[0]))
 
@@ -214,6 +223,7 @@ class TwitterManager:
 
         cbs = []
         if early_stopping:
+
             # Set up early stopping callback
             cbs.append(NSC.create_early_stopping_callback('loss', patience=10))
 
