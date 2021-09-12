@@ -13,6 +13,8 @@ import pandas as pd
 import BotometerRequests
 import nltk
 import utilities
+import random
+import math
 
 Utils = utilities.Utils()
 nltk.download('wordnet')
@@ -60,17 +62,30 @@ class TweetEDA:
         return text_string
 
     @staticmethod
-    def augment_sentences(sentences: [str], alpha_sr=0.1, alpha_ri=0.1, alpha_rs=0.1, alpha_rd=0.1, num_aug=9) -> [str]:
+    def augment_sentences(sentences: [str], alpha_sr=0.1, alpha_ri=0.1, alpha_rs=0.1, alpha_rd=0.1,
+                          num_aug_per_sentence=9) -> [str]:
         """
         Augments sentences using eda.py
 
         :param sentences: Tweet texts to augment
         :type sentences: [str]
 
-        Read about alpha_sr, alpha_ri, alpha_rs, alpha_rd in the paper or GitHub page
+        :param alpha_sr: The percentage of words to replace with synonyms in a sentence. 0 to not use this method.
+        :type alpha_sr: float in (0, 1)
 
-        :param num_aug: Number of augmented strings to make for each original
-        :type num_aug: int
+        :param alpha_ri: The amount of random insertions to make as a percentage of the number of words in a sentence.
+                            0 to not use this method.
+        :type alpha_ri: float in (0, 1)
+
+        :param alpha_rs: The amount of random swaps to make as a percentage of the number of words in a sentence. 0 to
+                            not use this method.
+        :type alpha_rs: float in (0, 1)
+
+        :param alpha_rd: The chance any single word gets randomly deleted in a sentence. 0 to not use this method.
+        :type alpha_rd: float in (0, 1)
+
+        :param num_aug_per_sentence: Number of augmented strings to make for each original
+        :type num_aug_per_sentence: int
 
         :return: List of augmented strings segmented into lists by original string
                 Ex: sentences = ["abc", "def"] num_aug = 3
@@ -78,10 +93,11 @@ class TweetEDA:
         :rtype: [[str]]
         """
         augmented_sentences = [eda.eda(s, alpha_sr=alpha_sr, alpha_ri=alpha_ri, alpha_rs=alpha_rs, p_rd=alpha_rd,
-                                       num_aug=num_aug)[:-1] for s in sentences]
+                                       num_aug=num_aug_per_sentence)[:-1] for s in sentences]
         return augmented_sentences
 
-    def text_from_tweet(self, string_json: str or dict) -> str:
+    @staticmethod
+    def text_from_tweet(string_json: str or dict) -> str:
         """
         Extracts the Tweet text from a str or dictionary Tweet json objects. Necessary because some Tweets have the key
         'full_text', while others have 'text'.
@@ -103,7 +119,8 @@ class TweetEDA:
 
         return txt
 
-    def insert_text_into_json(self, string_json: str or dict, text: str) -> dict:
+    @staticmethod
+    def insert_text_into_json(string_json: str or dict, text: str) -> dict:
         """
         Replaces the existing text of a Tweet json object with a new text.
 
@@ -167,7 +184,8 @@ class TweetEDA:
         df = Utils.order_dataframe_columns(df, ['Tweet id', 'text', 'json', 'botscore'])
         return df
 
-    def wrapper(self, entry_data: pd.DataFrame, score_new_objects=False) -> pd.DataFrame:
+    def wrapper(self, entry_data: pd.DataFrame, score_new_objects=False, total_aug_to_make=100, general_alpha=0,
+                alpha_sr=0.1, alpha_ri=0.1, alpha_rs=0.1, alpha_rd=0.1, increment_alpha=0) -> pd.DataFrame:
         """
         A method to get EDA augmented TweetObjects and their botometer lite scores
 
@@ -177,27 +195,90 @@ class TweetEDA:
         :param score_new_objects: Whether or not to score the newly augmented Tweets with Botometer Lite
         :type score_new_objects: bool
 
+        :param total_aug_to_make: How many new augmented sentences to make in total: ie How many augmented data points
+                                    to create.
+        :type total_aug_to_make: int
+
+        :param general_alpha: A shortcut to passing individual alphas for each type of augmentation. Sets all alphas to
+                                this value.
+        :type general_alpha: float in (0, 1)
+
+        :param alpha_sr: The percentage of words to replace with synonyms in a sentence. 0 to not use this method.
+        :type alpha_sr: float in (0, 1)
+
+        :param alpha_ri: The amount of random insertions to make as a percentage of the number of words in a sentence.
+                            0 to not use this method.
+        :type alpha_ri: float in (0, 1)
+
+        :param alpha_rs: The amount of random swaps to make as a percentage of the number of words in a sentence. 0 to
+                            not use this method.
+        :type alpha_rs: float in (0, 1)
+
+        :param alpha_rd: The chance any single word gets randomly deleted in a sentence. 0 to not use this method.
+        :type alpha_rd: float in (0, 1)
+
+        :param increment_alpha: The amount by which to increase or decrease the alpha for every round of augmentation.
+                                If this value is not zero, no sentence will be augmented with the same alpha values
+                                twice. Notice that alpha should stay in range (0, 1) so #rounds x increment_alpha should
+                                not put alpha out of range.
+        :type increment_alpha: float in (-1, 1)
+
         :return: Dataframe with the keys: ['Tweet id', 'text', 'json', 'botscore'(optional)]. Tweet ids for augmented
                 tweets are generated as (Original_id * 100) + n. Text has the augmented text of the tweet. json has the
-                augmented text reinserted into the Tweet objects. Defaults for augmentation configured in
-                self.augment_sentences. Storing each augmented tweet reinserted into the original tweet object takes
-                significantly more space than storing only augmented text.
+                augmented text reinserted into the Tweet objects. Storing each augmented tweet reinserted into the
+                original tweet object takes significantly more space than storing only augmented text.
         :rtype: pd.DataFrame
         """
+
+        if general_alpha > 0:
+            alpha_sr, alpha_ri, alpha_rs, alpha_rd = [general_alpha] * 4
+
+        non_zero_techniques = [x for x in (alpha_sr, alpha_ri, alpha_rs, alpha_rd) if x != 0]
 
         ids = entry_data['Tweet id'].tolist()
         tweet_objects = [self.insert_text_into_json(s, self.remove_urls(s)) for s in entry_data['json']]
         sentences = [self.text_from_tweet(t) for t in tweet_objects]
-        aug_s = self.augment_sentences(sentences)
+        aug_per_sentence = math.ceil(total_aug_to_make / len(entry_data))
 
-        aps = len(aug_s[0])
+        if increment_alpha != 0:
+            if (((aug_per_sentence - 1) * increment_alpha) + max(non_zero_techniques) > 1) or \
+                    (((aug_per_sentence - 1) * increment_alpha) + min(non_zero_techniques) < 0):
+                raise Exception("Increment alpha puts alpha out of range (0, 1)")
 
-        new_ids = Utils.flatten([list(range((id*100)+1, (id*100)+aps+1)) for id in ids])
+            aug_s = []
+            original = [alpha_sr, alpha_ri, alpha_rs, alpha_rd]
+
+            for s in sentences:
+                s_augs = []
+                for _ in range(aug_per_sentence):
+                    s_augs.append(eda.eda(s, alpha_sr=alpha_sr, alpha_ri=alpha_ri, alpha_rs=alpha_rs, p_rd=alpha_rd,
+                                         num_aug=1)[0])
+
+                    alpha_sr, alpha_ri, alpha_rs, alpha_rd = [x + increment_alpha if x != 0 else 0 for x in (alpha_sr,
+                                                                                                             alpha_ri,
+                                                                                                             alpha_rs,
+                                                                                                             alpha_rd)]
+                alpha_sr, alpha_ri, alpha_rs, alpha_rd = original
+                aug_s.append(s_augs)
+        else:
+            aug_s = self.augment_sentences(sentences, alpha_sr=alpha_sr, alpha_ri=alpha_ri, alpha_rs=alpha_rs,
+                                           alpha_rd=alpha_rd, num_aug_per_sentence=aug_per_sentence)
+
+        new_ids = Utils.flatten([list(range((id*100)+1, (id*100)+aug_per_sentence+1)) for id in ids])
         new_objects = [self.insert_text_into_json(tweet_objects[i], aug_s[i][j]) for i in range(len(tweet_objects)) for
-                       j in range(aps)]
+                       j in range(aug_per_sentence)]
         new_sentences = Utils.flatten(aug_s)
 
+        remainder = len(new_sentences) - total_aug_to_make
+        if remainder != 0:
+            remove_indices = random.sample(range(len(new_sentences)), remainder)
+            keep_indices = list(set(remove_indices) ^ set(range(len(new_sentences))))
+            new_sentences = [new_sentences[i] for i in keep_indices]
+            new_ids = [new_ids[i] for i in keep_indices]
+            new_objects = [new_objects[i] for i in keep_indices]
+
         df = pd.DataFrame({'Tweet id': new_ids, 'text': new_sentences, 'json': new_objects})
+
         if score_new_objects:
             df = self.score_new_objects(df)
 
