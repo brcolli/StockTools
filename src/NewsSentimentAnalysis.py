@@ -185,7 +185,7 @@ class TwitterManager:
                 data = pickle.load(fpb)
             
             x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
-                glove_embedding_matrix, y_train, y_test = data
+                glove_embedding_matrix, y_train, y_test, self.nsc.tokenizer = data
         else:
             
             features_to_train = ['full_text', 'cap.english', 'cap.universal', 'raw_scores.english.astroturf']
@@ -198,7 +198,7 @@ class TwitterManager:
             
             if to_preprocess_binary:
                 data = (x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta,
-                        glove_embedding_matrix, y_train, y_test)
+                        glove_embedding_matrix, y_train, y_test, self.nsc.tokenizer)
                 with open(to_preprocess_binary, "wb") as tpb:
                     pickle.dump(data, tpb)
 
