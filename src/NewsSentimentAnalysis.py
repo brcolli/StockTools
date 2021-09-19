@@ -225,9 +225,9 @@ class TwitterManager:
         if early_stopping:
 
             # Set up early stopping callback
-            cbs.append(NSC.create_early_stopping_callback('loss', patience=10))
+            cbs.append(NSC.create_early_stopping_callback('accuracy', patience=10))
 
-            cbs.append(NSC.create_model_checkpoint_callback(model_checkpoint_path, monitor_stat='loss'))
+            cbs.append(NSC.create_model_checkpoint_callback(model_checkpoint_path, monitor_stat='accuracy'))
 
         history = spam_model.fit(x=[x_train_text_embeddings, x_train_meta], y=y_train, batch_size=128,
                                  epochs=200, verbose=1, validation_split=0.2, callbacks=cbs)
@@ -483,7 +483,7 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
     tw = TwitterManager()
 
     if use_ml:
-        tw.initialize_twitter_spam_model(early_stopping=True, load_model=True)
+        tw.initialize_twitter_spam_model()
         # tw.initialize_twitter_sentiment_model()
 
     # Search phrase
