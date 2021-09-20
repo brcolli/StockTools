@@ -24,7 +24,7 @@ class MyTestCase(unittest.TestCase):
 
         data_input = pd.DataFrame({'Tweet id': [1, 2, 3, 4, 5, 6, 7, 8], 'json': text_data})
         output = eda.wrapper(data_input, total_aug_to_make=16)
-        print(output[['Tweet id', 'text']])
+        print(output[['Tweet id', 'aug sentences']])
         self.assertEqual(len(output), 16)
 
     def test_wrapper_inc_alpha(self):

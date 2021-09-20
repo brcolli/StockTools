@@ -414,7 +414,7 @@ class NLPSentimentCalculations:
         return [' '.join(grams) for grams in nltk.ngrams(tokens, n)]
 
     @staticmethod
-    def split_data_to_train_test(x, y, test_size=0.3, random_state=11, augmented_states=None):
+    def split_data_to_train_test(x, y, test_size=0.1, random_state=11, augmented_states=None):
 
         """Splits data into randomized train and test subsets.
 
@@ -431,11 +431,11 @@ class NLPSentimentCalculations:
         :rtype: tuple(list(obj), list(obj), list(obj), list(obj))
         """
         if augmented_states is not None:
-            max_test_size = list(augmented_states).count(0) / len(augmented_states)
+            augmented_states = list(augmented_states)
+            max_test_size = augmented_states.count(0) / len(augmented_states)
             if max_test_size < test_size:
-                print(f"Too much augmented data, impossible to maintain a test size of {test_size}")
-                print(f"Max test size: {round(max_test_size, 2)}")
-                return False, False, False, False
+                raise Exception(f"Too much augmented data, impossible to maintain test size of {test_size} Your max:"
+                                f"{max_test_size}")
             else:
                 non_aug = [i for i in range(len(augmented_states)) if augmented_states[i] == 0]
                 aug = list(set(non_aug) ^ set(list(range(len(augmented_states)))))
