@@ -15,6 +15,7 @@ import nltk
 import utilities
 import random
 import math
+import copy
 
 Utils = utilities.Utils()
 nltk.download('wordnet')
@@ -120,7 +121,7 @@ class TweetEDA:
         return txt
 
     @staticmethod
-    def insert_text_into_json(string_json: str or dict, text: str) -> dict:
+    def replace_text_in_json(string_json: str or dict, text: str) -> dict:
         """
         Replaces the existing text of a Tweet json object with a new text.
 
@@ -150,7 +151,7 @@ class TweetEDA:
         :return: List of Tweet objects with urls removed from the Tweet texts
         :rtype: [dict]
         """
-        return [self.insert_text_into_json(o, self.remove_urls(o)) for o in objects]
+        return [self.replace_text_in_json(o, self.remove_urls(o)) for o in objects]
 
     def remove_urls_from_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -175,17 +176,17 @@ class TweetEDA:
         :param df: Dataframe with keys ['Tweet id', 'text', 'json'] obtained from self.wrapper
         :type df: pd.DataFrame
 
-        :return: Dataframe with keys ['Tweet id', 'text', 'json', 'botscore']
+        :return: Dataframe with scored botscore
         :rtype: pd.DataFrame
         """
         br = BotometerRequests.BotometerRequests()
         scored = br.wrapper(from_dataframe=df, lite_tweet_request=True)
         df['botscore'] = scored['botscore']
-        df = Utils.order_dataframe_columns(df, ['Tweet id', 'text', 'json', 'botscore'])
         return df
 
-    def wrapper(self, entry_data: pd.DataFrame, score_new_objects=False, total_aug_to_make=100, general_alpha=0,
-                alpha_sr=0.1, alpha_ri=0.1, alpha_rs=0.1, alpha_rd=0.1, increment_alpha=0) -> pd.DataFrame:
+    def wrapper(self, entry_data: pd.DataFrame, score_new_objects=False, keep_ua_data=True, total_aug_to_make=100,
+                general_alpha=0, alpha_sr=0.1, alpha_ri=0.1, alpha_rs=0.1, alpha_rd=0.1, increment_alpha=0,
+                to_file='', from_file='') -> pd.DataFrame:
         """
         A method to get EDA augmented TweetObjects and their botometer lite scores
 
@@ -230,13 +231,16 @@ class TweetEDA:
         :rtype: pd.DataFrame
         """
 
+        if from_file:
+            entry_data = pd.read_csv(from_file)
+
         if general_alpha > 0:
             alpha_sr, alpha_ri, alpha_rs, alpha_rd = [general_alpha] * 4
 
         non_zero_techniques = [x for x in (alpha_sr, alpha_ri, alpha_rs, alpha_rd) if x != 0]
 
         ids = entry_data['Tweet id'].tolist()
-        tweet_objects = [self.insert_text_into_json(s, self.remove_urls(s)) for s in entry_data['json']]
+        tweet_objects = [self.replace_text_in_json(o, self.remove_urls(o)) for o in entry_data['json']]
         sentences = [self.text_from_tweet(t) for t in tweet_objects]
         aug_per_sentence = math.ceil(total_aug_to_make / len(entry_data))
 
@@ -264,25 +268,41 @@ class TweetEDA:
             aug_s = self.augment_sentences(sentences, alpha_sr=alpha_sr, alpha_ri=alpha_ri, alpha_rs=alpha_rs,
                                            alpha_rd=alpha_rd, num_aug_per_sentence=aug_per_sentence)
 
-        new_ids = Utils.flatten([list(range((id*100)+1, (id*100)+aug_per_sentence+1)) for id in ids])
-        new_objects = [self.insert_text_into_json(tweet_objects[i], aug_s[i][j]) for i in range(len(tweet_objects)) for
-                       j in range(aug_per_sentence)]
+        original_index_references = [i for i in range(len(sentences)) for _ in range(aug_per_sentence)]
+        new_index_reference = [i for i in range(aug_per_sentence)] * len(aug_s)
+
+        new_ids = [(ids[a] * 100) + b + 1 for a, b in zip(original_index_references, new_index_reference)]
         new_sentences = Utils.flatten(aug_s)
 
-        remainder = len(new_sentences) - total_aug_to_make
-        if remainder != 0:
-            remove_indices = random.sample(range(len(new_sentences)), remainder)
-            keep_indices = list(set(remove_indices) ^ set(range(len(new_sentences))))
-            new_sentences = [new_sentences[i] for i in keep_indices]
-            new_ids = [new_ids[i] for i in keep_indices]
-            new_objects = [new_objects[i] for i in keep_indices]
+        new_objects = [copy.deepcopy(self.replace_text_in_json(tweet_objects[original_index_references[i]],
+                                                               new_sentences[i])) for i in range(len(new_sentences))]
 
-        df = pd.DataFrame({'Tweet id': new_ids, 'text': new_sentences, 'json': new_objects})
+        new_df = [entry_data.iloc[i] for i in original_index_references]
+        new_df = pd.DataFrame(new_df)
+        new_df['Tweet id'] = new_ids
+        new_df['json'] = new_objects
+        new_df['aug sentences'] = new_sentences
+        new_df['augmented'] = 1
+        remainder = len(new_sentences) - total_aug_to_make
+
+        if remainder != 0:
+            remove_indices = random.sample(range(len(new_df)), remainder)
+            keep_indices = list(set(remove_indices) ^ set(range(len(new_df))))
+            new_df = pd.DataFrame([new_df.iloc[i] for i in keep_indices])
+
+        if not keep_ua_data:
+            new_df = new_df[['Tweet id', 'Label', 'json', 'aug sentences', 'augmented']]
 
         if score_new_objects:
-            df = self.score_new_objects(df)
+            new_df = self.score_new_objects(new_df)
 
-        return df
+        if to_file:
+            try:
+                new_df.to_csv(to_file, index=False)
+            except:
+                print(f'File {to_file} not found, dataframe not written')
+
+        return new_df
 
 
 class SmoteDataAugmentationManager:
