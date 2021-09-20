@@ -20,7 +20,7 @@ calls, like data sanitization. This works with data gathering, filtering, and I/
 tweets, and articles. Can support data streams and data input classification.
 
 Authors: Benjamin Collins
-Date: April 22, 2021
+Date: April 22, 2021 
 """
 
 
@@ -111,7 +111,7 @@ class TwitterManager:
 
         self.nsc = NSC()
 
-    def get_dataset_from_tweet_spam(self, dataframe, features_to_train=None, augmented_df=None):
+    def get_dataset_from_tweet_spam(self, dataframe, features_to_train=None):
 
         """Converts the text feature to a dataset of labeled unigrams and bigrams.
 
@@ -127,13 +127,13 @@ class TwitterManager:
         if not features_to_train:
             features_to_train = ['full_text']
 
-        if 'augmented' not in dataframe.keys():
-            dataframe['augmented'] = 0
-
-        if augmented_df is not None:
-            if 'augmented' not in dataframe.keys():
-                augmented_df['augmented'] = 1
-            dataframe = pd.concat(dataframe, augmented_df)
+        # if 'augmented' not in dataframe.keys():
+        #     dataframe['augmented'] = 0
+        #
+        # if augmented_df is not None:
+        #     if 'augmented' not in augmented_df.keys():
+        #         augmented_df['augmented'] = 1
+        #     dataframe = pd.concat([dataframe, augmented_df])
 
         x_train, x_test, y_train, y_test = NSC.keras_preprocessing(dataframe[features_to_train], dataframe['Label'],
                                                                    augmented_states=dataframe['augmented'])
@@ -173,6 +173,8 @@ class TwitterManager:
                glove_embedding_matrix, y_train, y_test
 
     def initialize_twitter_spam_model(self, to_preprocess_binary='', from_preprocess_binary='',
+                                      learning_data='../data/Learning Data/spam_learning.csv', epochs=100,
+                                      aug_df_file='',
                                       early_stopping=False, load_model=False,
                                       model_checkpoint_path='../data/analysis/Model Results/Saved Models/'
                                                             'best_spam_model.h5'):
@@ -186,16 +188,26 @@ class TwitterManager:
             
             x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
                 glove_embedding_matrix, y_train, y_test, self.nsc.tokenizer = data
+
         else:
-            
-            features_to_train = ['full_text', 'cap.english', 'cap.universal', 'raw_scores.english.astroturf']
+            features_to_train = ['full_text']
             json_features = ['full_text']
 
-            twitter_df = Utils.parse_json_botometer_data('../data/Learning Data/spam_learning.csv', json_features)
-            
+            twitter_df = Utils.parse_json_botometer_data(learning_data, json_features)
+
+            if 'augmented' not in twitter_df.columns:
+                twitter_df['augmented'] = 0
+
+            if aug_df_file:
+                aug_df = Utils.parse_json_botometer_data(aug_df_file, json_features)
+                if 'augmented' not in aug_df.columns:
+                    aug_df['augmented'] = 1
+
+                twitter_df = pd.concat([twitter_df, aug_df])
+
             x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
-                glove_embedding_matrix, y_train, y_test = self.get_dataset_from_tweet_spam(twitter_df, features_to_train)
-            
+            glove_embedding_matrix, y_train, y_test = self.get_dataset_from_tweet_spam(twitter_df, features_to_train)
+
             if to_preprocess_binary:
                 data = (x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta,
                         glove_embedding_matrix, y_train, y_test, self.nsc.tokenizer)
