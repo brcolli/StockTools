@@ -136,7 +136,7 @@ class TwitterManager:
         #     dataframe = pd.concat([dataframe, augmented_df])
 
         x_train, x_test, y_train, y_test = NSC.keras_preprocessing(dataframe[features_to_train], dataframe['Label'],
-                                                                   augmented_states=list(dataframe['augmented']))
+                                                                   augmented_states=dataframe['augmented'])
 
         if x_train is False:
             print("Train test failed due to over augmentation")
@@ -172,8 +172,12 @@ class TwitterManager:
         return x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
                glove_embedding_matrix, y_train, y_test
 
-    def initialize_twitter_spam_model(self, learning_data='../data/Learning Data/spam_learning.csv',
-                                      to_preprocess_binary='', from_preprocess_binary='', aug_df_file='', epochs=100):
+    def initialize_twitter_spam_model(self, to_preprocess_binary='', from_preprocess_binary='',
+                                      learning_data='../data/Learning Data/spam_learning.csv', epochs=100,
+                                      aug_df_file='',
+                                      early_stopping=False, load_model=False,
+                                      model_checkpoint_path='../data/analysis/Model Results/Saved Models/'
+                                                            'best_spam_model.h5'):
 
         """Initializes, trains, and tests a Twitter spam detection model.
         """
@@ -210,6 +214,18 @@ class TwitterManager:
                 with open(to_preprocess_binary, "wb") as tpb:
                     pickle.dump(data, tpb)
 
+        # Load previously saved model and test
+        if load_model and os.path.exists(model_checkpoint_path):
+
+            spam_model = NSC.load_saved_model(model_checkpoint_path)
+
+            score = spam_model.evaluate(x=[x_test_text_embeddings, x_test_meta], y=y_test, verbose=1)
+
+            print("Test Score:", score[0])
+            print("Test Accuracy:", score[1])
+
+            return spam_model
+
         spam_model = self.nsc.create_text_meta_model(glove_embedding_matrix,
                                                      len(x_train_meta.columns), len(x_train_text_embeddings[0]))
 
@@ -217,8 +233,19 @@ class TwitterManager:
         spam_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['acc'])
         print(spam_model.summary())
 
+        cbs = []
+        if early_stopping:
+
+            # Set up early stopping callback
+            cbs.append(NSC.create_early_stopping_callback('accuracy', patience=10))
+
+            cbs.append(NSC.create_model_checkpoint_callback(model_checkpoint_path, monitor_stat='accuracy'))
+
         history = spam_model.fit(x=[x_train_text_embeddings, x_train_meta], y=y_train, batch_size=128,
-                                 epochs=epochs, verbose=1, validation_split=0.2)
+                                 epochs=200, verbose=1, validation_split=0.2, callbacks=cbs)
+
+        if early_stopping and os.path.exists(model_checkpoint_path):
+            spam_model = NSC.load_saved_model(model_checkpoint_path)
 
         score = spam_model.evaluate(x=[x_test_text_embeddings, x_test_meta], y=y_test, verbose=1)
 
@@ -226,6 +253,8 @@ class TwitterManager:
         print("Test Accuracy:", score[1])
 
         NSC.plot_model_history(history)
+
+        return spam_model
 
     def initialize_twitter_sentiment_model(self):
 
@@ -489,5 +518,7 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
 
 
 if __name__ == '__main__':
-    tw = TwitterManager()
-    #aug = pd.read_csv('../data/Learning Data/aug.csv')
+
+    create_ml_models = True
+
+    main(use_ml=create_ml_models)
