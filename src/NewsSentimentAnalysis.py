@@ -173,7 +173,7 @@ class TwitterManager:
                glove_embedding_matrix, y_train, y_test
 
     def initialize_twitter_spam_model(self, to_preprocess_binary='', from_preprocess_binary='',
-                                      early_stopping=False, load_model=False,
+                                      early_stopping=False, load_model=False, epochs=100,
                                       model_checkpoint_path='../data/analysis/Model Results/Saved Models/'
                                                             'best_spam_model.h5'):
 
@@ -188,7 +188,7 @@ class TwitterManager:
                 glove_embedding_matrix, y_train, y_test, self.nsc.tokenizer = data
         else:
             
-            features_to_train = ['full_text', 'cap.english', 'cap.universal', 'raw_scores.english.astroturf']
+            features_to_train = ['full_text']
             json_features = ['full_text']
 
             twitter_df = Utils.parse_json_botometer_data('../data/Learning Data/spam_learning.csv', json_features)
@@ -229,13 +229,20 @@ class TwitterManager:
 
             cbs.append(NSC.create_model_checkpoint_callback(model_checkpoint_path, monitor_stat='accuracy'))
 
-        history = spam_model.fit(x=[x_train_text_embeddings, x_train_meta], y=y_train, batch_size=128,
-                                 epochs=200, verbose=1, validation_split=0.2, callbacks=cbs)
+        if len(x_train_meta.columns) < 1:
+            train_input_layer = [x_train_text_embeddings]
+            test_input_layer = [x_test_text_embeddings]
+        else:
+            train_input_layer = [x_train_text_embeddings, x_train_meta]
+            test_input_layer = [x_test_text_embeddings, x_test_meta]
+
+        history = spam_model.fit(x=train_input_layer, y=y_train, batch_size=128,
+                                 epochs=epochs, verbose=1, callbacks=cbs)
 
         if early_stopping and os.path.exists(model_checkpoint_path):
             spam_model = NSC.load_saved_model(model_checkpoint_path)
 
-        score = spam_model.evaluate(x=[x_test_text_embeddings, x_test_meta], y=y_test, verbose=1)
+        score = spam_model.evaluate(x=test_input_layer, y=y_test, verbose=1)
 
         print("Test Score:", score[0])
         print("Test Accuracy:", score[1])

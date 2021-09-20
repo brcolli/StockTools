@@ -120,6 +120,15 @@ class NLPSentimentCalculations:
     def create_text_meta_model(self, embedding_matrix, meta_feature_size, maxlen=300):
 
         input_text_layer, lstm_text_layer = self.create_text_submodel(embedding_matrix, maxlen)
+
+        if meta_feature_size < 1:
+
+            # No meta data, don't create and concat
+            dense_layer = tf.keras.layers.Dense(10, activation='relu')(lstm_text_layer)
+            output_layer = tf.keras.layers.Dense(meta_feature_size, activation='softmax')(dense_layer)
+
+            return tf.keras.models.Model(inputs=input_text_layer, outputs=output_layer)
+
         input_meta_layer, dense_meta_layer = NLPSentimentCalculations.create_meta_submodel(meta_feature_size)
 
         concat_layer = tf.keras.layers.Concatenate()([lstm_text_layer, dense_meta_layer])
@@ -142,9 +151,12 @@ class NLPSentimentCalculations:
     @staticmethod
     def create_meta_submodel(meta_feature_size):
 
-        meta_input_layer = tf.keras.layers.Input(shape=(meta_feature_size,))
+        if meta_feature_size < 1:
+            return None, None
 
+        meta_input_layer = tf.keras.layers.Input(shape=(meta_feature_size,))
         dense_layer_1 = tf.keras.layers.Dense(10, activation='relu')(meta_input_layer)
+
         return meta_input_layer, tf.keras.layers.Dense(10, activation='relu')(dense_layer_1)
 
     @staticmethod
