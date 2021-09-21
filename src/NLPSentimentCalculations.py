@@ -125,7 +125,7 @@ class NLPSentimentCalculations:
 
             # No meta data, don't create and concat
             dense_layer = tf.keras.layers.Dense(10, activation='relu')(lstm_text_layer)
-            output_layer = tf.keras.layers.Dense(meta_feature_size, activation='softmax')(dense_layer)
+            output_layer = tf.keras.layers.Dense(3, activation='softmax')(dense_layer)
 
             return tf.keras.models.Model(inputs=input_text_layer, outputs=output_layer)
 
@@ -135,7 +135,7 @@ class NLPSentimentCalculations:
 
         dense_concat = tf.keras.layers.Dense(10, activation='relu')(concat_layer)
 
-        output_layer = tf.keras.layers.Dense(meta_feature_size, activation='softmax')(dense_concat)
+        output_layer = tf.keras.layers.Dense(3, activation='softmax')(dense_concat)
 
         return tf.keras.models.Model(inputs=[input_text_layer, input_meta_layer], outputs=output_layer)
 
@@ -544,7 +544,6 @@ class NLPSentimentCalculations:
     def plot_model_history(history):
 
         plt.plot(history.history['acc'])
-        plt.plot(history.history['val_acc'])
 
         plt.title('model accuracy')
         plt.ylabel('accuracy')
@@ -553,7 +552,6 @@ class NLPSentimentCalculations:
         plt.show()
 
         plt.plot(history.history['loss'])
-        plt.plot(history.history['val_loss'])
 
         plt.title('model loss')
         plt.ylabel('loss')

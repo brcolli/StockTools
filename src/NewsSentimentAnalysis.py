@@ -192,16 +192,16 @@ class TwitterManager:
 
         else:
 
-            features_to_train = ['full_text']
-            json_features = ['full_text']
+            #features_to_train = ['full_text']
+            features_to_train = ['full_text', 'cap.english', 'cap.universal', 'raw_scores.english.astroturf']
 
-            twitter_df = Utils.parse_json_botometer_data(learning_data, json_features)
+            twitter_df = Utils.parse_json_botometer_data(learning_data, features_to_train)
 
             if 'augmented' not in twitter_df.columns:
                 twitter_df['augmented'] = 0
 
             if aug_df_file:
-                aug_df = Utils.parse_json_botometer_data(aug_df_file, json_features)
+                aug_df = Utils.parse_json_botometer_data(aug_df_file, features_to_train)
                 if 'augmented' not in aug_df.columns:
                     aug_df['augmented'] = 1
 
@@ -244,8 +244,8 @@ class TwitterManager:
             cbs.append(NSC.create_model_checkpoint_callback(model_checkpoint_path, monitor_stat='accuracy'))
 
         if len(x_train_meta.columns) < 1:
-            train_input_layer = [x_train_text_embeddings]
-            test_input_layer = [x_test_text_embeddings]
+            train_input_layer = x_train_text_embeddings
+            test_input_layer = x_test_text_embeddings
         else:
             train_input_layer = [x_train_text_embeddings, x_train_meta]
             test_input_layer = [x_test_text_embeddings, x_test_meta]
@@ -256,7 +256,7 @@ class TwitterManager:
         if early_stopping and os.path.exists(model_checkpoint_path):
             spam_model = NSC.load_saved_model(model_checkpoint_path)
 
-        score = spam_model.evaluate(x=test_input_layer, y=y_test, verbose=1)
+        score = spam_model.evaluate(x=test_input_layer, y=y_test, verbose=1, callbacks=[])
 
         print("Test Score:", score[0])
         print("Test Accuracy:", score[1])
