@@ -1,7 +1,7 @@
 1. Run file in python console
 2. Instantiate Class with variables and provide a path to the Excel file you will be either creating or appending to (can change code to set defaults):
 - Ensure Excel file which will be modified is closed in Excel (and any other applications)
-- $ KM =   KellyCriterion(ExcelFilePath, variable=1234, variable2=456)
+- $ KM =   KellyModel(ExcelFilePath, variable=1234, variable2=456)
 3. Run simulations with: $ KM.multi_sim_to_excel(Number_of_simulations, ExcelSheetName)
 4. Change variables in case you want to run simulations with new variables: $ KM.variable=4321
 5. Quit code before opening Excel File

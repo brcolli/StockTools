@@ -16,6 +16,7 @@ from typing import List
 
 
 class KellyModel:
+
     """
     Used to simulate trading with the kelly model, either single simulation of n trades or multiple simulations of n
     trades.

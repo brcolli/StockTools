@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'StockTools.ui'
+# Form implementation generated from reading ui file 'styles\StockToolsUI.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.2
 #
@@ -320,7 +320,7 @@ class Ui_MainWindow(object):
         MainWindow.setStatusBar(self.statusbar)
 
         self.retranslateUi(MainWindow)
-        self.StockToolsTabs.setCurrentIndex(4)
+        self.StockToolsTabs.setCurrentIndex(3)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):

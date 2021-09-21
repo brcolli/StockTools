@@ -5,7 +5,6 @@ import robin_stocks as rs
 import json
 import time
 import re
-from oauthlib.oauth2.rfc6749.errors import InvalidGrantError
 import os
 import pandas as pd
 
@@ -36,6 +35,9 @@ class TdaClientManager:
         self.callback_url = 'https://localhost:8080'
         self.token_path = '../doc/token'
 
+        if not os.path.exists(self.token_path):
+            self.authenticate()
+
         # Setup client
         try:
             self.client = easy_client(api_key=self.key,
@@ -59,7 +61,7 @@ class TdaClientManager:
             self.client = easy_client(api_key=self.key,
                                       redirect_uri=self.callback_url,
                                       token_path=self.token_path,
-                                      webdriver_func=driver)
+                                      webdriver_func=lambda: driver)
 
     @staticmethod
     def get_option_historical_data():
@@ -334,9 +336,9 @@ class TdaClientManager:
                         break
                     except Exception as e:
 
-                        if e == InvalidGrantError():
+                        if e.error == 'invalid_grant':
                             if os.path.exists('../doc/token'):
-                                os.remove('../ doc/token')
+                                os.remove('../doc/token')
                             self.authenticate()
                         time.sleep(1)
                 try:
