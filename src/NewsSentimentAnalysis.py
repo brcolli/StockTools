@@ -193,7 +193,7 @@ class TwitterManager:
         else:
 
             #features_to_train = ['full_text']
-            features_to_train = ['full_text', 'cap.english', 'cap.universal', 'raw_scores.english.astroturf']
+            features_to_train = ['full_text']
 
             twitter_df = Utils.parse_json_botometer_data(learning_data, features_to_train)
 
@@ -239,9 +239,9 @@ class TwitterManager:
         if early_stopping:
 
             # Set up early stopping callback
-            cbs.append(NSC.create_early_stopping_callback('accuracy', patience=10))
+            cbs.append(NSC.create_early_stopping_callback('acc', patience=100))
 
-            cbs.append(NSC.create_model_checkpoint_callback(model_checkpoint_path, monitor_stat='accuracy'))
+            cbs.append(NSC.create_model_checkpoint_callback(model_checkpoint_path, monitor_stat='acc'))
 
         if len(x_train_meta.columns) < 1:
             train_input_layer = x_train_text_embeddings
@@ -528,6 +528,7 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
 
 if __name__ == '__main__':
 
-    create_ml_models = True
-
-    main(use_ml=create_ml_models)
+    tw = TwitterManager()
+    # create_ml_models = True
+    #
+    # main(use_ml=create_ml_models)
