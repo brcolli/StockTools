@@ -65,7 +65,7 @@ class NLPSentimentCalculations:
         self.classifier = NaiveBayesClassifier.train(train_data)
 
     @staticmethod
-    def keras_preprocessing(x, y, augmented_states=None):
+    def keras_preprocessing(x, y, augmented_states=None, test_size=0.3):
 
         """Categorizes and preprocesses feature and label datasets
 
@@ -84,7 +84,7 @@ class NLPSentimentCalculations:
         y = label_encoder.fit_transform(y)
 
         x_train, x_test, y_train, y_test = NLPSentimentCalculations.split_data_to_train_test(
-            x, y, augmented_states=augmented_states)
+            x, y, augmented_states=augmented_states, test_size=test_size)
 
         y_train = tf.keras.utils.to_categorical(y_train)
         y_test = tf.keras.utils.to_categorical(y_test)
