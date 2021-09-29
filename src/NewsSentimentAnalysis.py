@@ -8,6 +8,7 @@ from nltk.corpus import twitter_samples
 from nltk.corpus import stopwords
 import pickle
 import os
+import tensorflow as tf
 
 Utils = importlib.import_module('utilities').Utils
 NSC = importlib.import_module('NLPSentimentCalculations').NLPSentimentCalculations
@@ -136,6 +137,7 @@ class TwitterManager:
         #     dataframe = pd.concat([dataframe, augmented_df])
 
         x_train, x_test, y_train, y_test = NSC.keras_preprocessing(dataframe[features_to_train], dataframe['Label'],
+                                                                   test_size=0.185,
                                                                    augmented_states=dataframe['augmented'])
 
         if x_train is False:
@@ -232,7 +234,9 @@ class TwitterManager:
                                                      len(x_train_meta.columns), len(x_train_text_embeddings[0]))
 
         # Print model summary
-        spam_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['acc'])
+        spam_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['acc',
+                                                                                       tf.keras.metrics.Precision(),
+                                                                                       tf.keras.metrics.Recall()])
         print(spam_model.summary())
 
         cbs = []
@@ -504,7 +508,7 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
     tw = TwitterManager()
 
     if use_ml:
-        tw.initialize_twitter_spam_model()
+        tw.initialize_twitter_spam_model(aug_df_file='../data/Learning Data/augmented_spam_learning.csv')
         # tw.initialize_twitter_sentiment_model()
 
     # Search phrase
@@ -524,10 +528,3 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
             tw.start_stream(phrase)
         else:
             tw.start_stream(([phrase]))
-
-
-if __name__ == '__main__':
-
-    create_ml_models = True
-
-    main(use_ml=create_ml_models)
