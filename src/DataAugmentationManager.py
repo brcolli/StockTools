@@ -293,6 +293,8 @@ class TweetEDA:
         if not keep_ua_data:
             new_df = new_df[['Tweet id', 'Label', 'json', 'aug sentences', 'augmented']]
 
+        new_df = new_df.reset_index(drop=True)
+
         if score_new_objects:
             new_df = self.score_new_objects(new_df)
 
@@ -305,10 +307,12 @@ class TweetEDA:
         return new_df
 
 
-class SmoteDataAugmentationManager:
+class NumericalDataAugmentationManager:
 
-    def __init__(self):
-        return
+    @staticmethod
+    def shuffle_meta_scores(df, meta_headers):
+        df[meta_headers] = df[meta_headers].sample(frac=1).reset_index(drop=True)
+        return df
 
     @staticmethod
     def smote_for_classification(x, y):
@@ -359,10 +363,39 @@ class SmoteDataAugmentationManager:
         return Counter(y)
 
 
+class DataAugmentationManager:
+
+    def __init__(self):
+        self.sdam = NumericalDataAugmentationManager()
+        self.teda = TweetEDA()
+
+    def augment_data(self, entry_data=pd.DataFrame(), score_new_objects=False, keep_ua_data=True, total_aug_to_make=100,
+                     general_alpha=0, alpha_sr=0.2, alpha_ri=0, alpha_rs=0.2, alpha_rd=0.1, increment_alpha=0.05,
+                     to_file='', from_file=''):
+
+        df = self.teda.wrapper(entry_data, score_new_objects, keep_ua_data, total_aug_to_make, general_alpha, alpha_sr,
+                               alpha_ri, alpha_rs, alpha_rd, increment_alpha, '', from_file)
+
+        meta_headers = df.columns.tolist()
+        meta_headers = meta_headers[7:-2]
+
+        df = self.sdam.shuffle_meta_scores(df, meta_headers)
+        
+        if to_file:
+            try:
+                df.to_csv(to_file, index=False)
+            except Exception as e:
+                print(e)
+                print(f'File {to_file} not found, dataframe not written')
+
+        return df
+
+
 def main():
 
-    sdam = SmoteDataAugmentationManager
-    teda = TweetEDA()
+    dam = DataAugmentationManager()
+    dam.augment_data(total_aug_to_make=10000, to_file='../data/Learning Data/augmented_spam_learning.csv',
+                     from_file='../data/Learning Data/spam_learning.csv')
 
 
 if __name__ == '__main__':
