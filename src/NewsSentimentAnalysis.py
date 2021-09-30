@@ -127,14 +127,6 @@ class TwitterManager:
         if not features_to_train:
             features_to_train = ['full_text']
 
-        # if 'augmented' not in dataframe.keys():
-        #     dataframe['augmented'] = 0
-        #
-        # if augmented_df is not None:
-        #     if 'augmented' not in augmented_df.keys():
-        #         augmented_df['augmented'] = 1
-        #     dataframe = pd.concat([dataframe, augmented_df])
-
         x_train, x_test, y_train, y_test = NSC.keras_preprocessing(dataframe[features_to_train], dataframe['Label'],
                                                                    augmented_states=dataframe['augmented'])
 
@@ -143,7 +135,6 @@ class TwitterManager:
             return False
 
         # Split into text and meta data
-
         if 'full_text' in features_to_train:
             x_train_text_data = x_train['full_text']
             x_test_text_data = x_test['full_text']
@@ -192,7 +183,6 @@ class TwitterManager:
 
         else:
 
-            #features_to_train = ['full_text']
             features_to_train = ['full_text']
 
             twitter_df = Utils.parse_json_botometer_data(learning_data, features_to_train)
@@ -529,6 +519,3 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
 if __name__ == '__main__':
 
     tw = TwitterManager()
-    # create_ml_models = True
-    #
-    # main(use_ml=create_ml_models)
