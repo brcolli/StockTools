@@ -65,7 +65,7 @@ class NLPSentimentCalculations:
         self.classifier = NaiveBayesClassifier.train(train_data)
 
     @staticmethod
-    def keras_preprocessing(x, y, augmented_states=None, test_size=0.3):
+    def keras_preprocessing(x, y, test_size=0.1, augmented_states=None):
 
         """Categorizes and preprocesses feature and label datasets
 
@@ -84,7 +84,7 @@ class NLPSentimentCalculations:
         y = label_encoder.fit_transform(y)
 
         x_train, x_test, y_train, y_test = NLPSentimentCalculations.split_data_to_train_test(
-            x, y, augmented_states=augmented_states, test_size=test_size)
+            x, y, test_size=test_size, augmented_states=augmented_states)
 
         y_train = tf.keras.utils.to_categorical(y_train)
         y_test = tf.keras.utils.to_categorical(y_test)
@@ -544,11 +544,13 @@ class NLPSentimentCalculations:
     def plot_model_history(history):
 
         plt.plot(history.history['acc'])
+        plt.plot(history.history['precision'])
+        plt.plot(history.history['recall'])
 
-        plt.title('model accuracy')
-        plt.ylabel('accuracy')
+        plt.title('model scores')
+        plt.ylabel('scores')
         plt.xlabel('epoch')
-        plt.legend(['train', 'test'], loc='upper left')
+        plt.legend(['accuracy', 'precision', 'recall'], loc='upper left')
         plt.show()
 
         plt.plot(history.history['loss'])
