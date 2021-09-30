@@ -1,4 +1,3 @@
-import importlib
 import tweepy
 from bs4 import BeautifulSoup
 import requests
@@ -18,8 +17,10 @@ Utils = utilities.Utils
 NSC = NLPSentimentCalculations.NLPSentimentCalculations
 
 
-# Idea of this class is to be called to check on the version of the model and get info about the model's training
-class Version:
+class ModelParameters:
+    """Idea of this class is to be called to check on the version of the model and get info about the model's training.
+    """
+    
     def __init__(self,
                  comp_epochs=0,
                  saved_model_bin='',
@@ -53,10 +54,12 @@ class Version:
         self.f_score = 0
 
 
-# This single class should represent all the data being used in the model. Point is that functions to load and process
-# data are contained within the class. In case new data is passed, the class processes it. Otherwise, the class should
-# load itself from a pickle.
 class Data:
+    """This single class should represent all the data being used in the model. Point is that functions to load and process
+    data are contained within the class. In case new data is passed, the class processes it. Otherwise, the class should
+    load itself from a pickle.
+    """
+    
     def __init__(self, nsc, base_data_csv, test_size, features_to_train, aug_data_csv=None, from_preload_bin=''):
 
         self.nsc = nsc
@@ -94,14 +97,6 @@ class Data:
 
         if not features_to_train:
             features_to_train = ['full_text']
-
-        # if 'augmented' not in dataframe.keys():
-        #     dataframe['augmented'] = 0
-        #
-        # if augmented_df is not None:
-        #     if 'augmented' not in augmented_df.keys():
-        #         augmented_df['augmented'] = 1
-        #     dataframe = pd.concat([dataframe, augmented_df])
 
         x_train, x_test, y_train, y_test = NSC.keras_preprocessing(dataframe[features_to_train], dataframe['Label'],
                                                                    augmented_states=dataframe['augmented'],
@@ -173,10 +168,13 @@ class Data:
         pass
 
 
-# This is the main Model class. It will create objects from Data() and Version() classes. Added functionality will be
-# to load the entire model in from a file, get version info on previous models, reuse data classes in case the same data
-# is to be used with different hyperparamaters, and to add model testing / operation functionality.
+# 
 class Model:
+    """This is the main Model class. It will create objects from Data() and Version() classes. Added functionality will be
+    to load the entire model in from a file, get version info on previous models, reuse data classes in case the same data
+    is to be used with different hyperparamaters, and to add model testing / operation functionality.
+    """
+    
     def __init__(self):
         self.model = tf.keras.models.Model
         self.version = Version
