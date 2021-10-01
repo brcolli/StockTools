@@ -1,5 +1,4 @@
 import datetime
-import json
 import pandas as pd
 from pandas.tseries.holiday import USFederalHolidayCalendar
 from pandas.tseries.holiday import GoodFriday
@@ -17,6 +16,15 @@ import re
 import itertools
 import ast
 
+
+"""utilities
+
+Description:
+Module for functions that can be reused and shared between various other modules, contains a vast array of tools.
+
+Authors: Benjamin Collins
+Date: April 22, 2021 
+"""
 
 class Utils:
 
@@ -693,7 +701,7 @@ class Utils:
         return string
 
     @staticmethod
-    def parse_json_botometer_data(filename, json_headers):
+    def parse_json_tweet_data(filename, json_headers):
 
         df = pd.read_csv(filename)
         json_dict = {}
