@@ -175,7 +175,7 @@ class TwitterManager:
                glove_embedding_matrix, y_train, y_test
 
     def initialize_twitter_spam_model(self, to_preprocess_binary='', from_preprocess_binary='',
-                                      learning_data='../data/Learning Data/spam_learning.csv', epochs=100,
+                                      learning_data='../data/Learning Data/spam_learning.csv', epochs=200,
                                       aug_df_file='',
                                       early_stopping=False, load_model=False,
                                       model_checkpoint_path='../data/analysis/Model Results/Saved Models/'
@@ -528,3 +528,7 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
             tw.start_stream(phrase)
         else:
             tw.start_stream(([phrase]))
+
+if __name__ == '__main__':
+
+    main(use_ml=True, )

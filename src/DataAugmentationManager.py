@@ -311,8 +311,15 @@ class NumericalDataAugmentationManager:
 
     @staticmethod
     def shuffle_meta_scores(df, meta_headers):
-        df[meta_headers] = df[meta_headers].sample(frac=1).reset_index(drop=True)
-        return df
+
+        spam_df = df[df['Label'] == 1].reset_index(drop=True)
+        y = spam_df[meta_headers].sample(frac=1)
+        spam_df[meta_headers] = y.reset_index(drop=True)
+
+        ham_df = df[df['Label'] == 0].reset_index(drop=True)
+        ham_df[meta_headers] = ham_df[meta_headers].sample(frac=1).reset_index(drop=True)
+
+        return pd.concat([spam_df, ham_df], axis=0).reset_index(drop=True)
 
     @staticmethod
     def smote_for_classification(x, y):
