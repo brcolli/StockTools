@@ -1,4 +1,3 @@
-import importlib
 import matplotlib.pyplot as plt
 import nltk
 import pandas as pd
@@ -15,8 +14,10 @@ import tensorflow as tf
 import string
 import re
 import math
+import utilities
 
-Utils = importlib.import_module('utilities').Utils
+Utils = utilities.Utils
+
 
 """NLPSentimentCalculations
 

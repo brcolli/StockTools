@@ -1,4 +1,3 @@
-import importlib
 import tweepy
 from bs4 import BeautifulSoup
 import requests
@@ -6,12 +5,16 @@ import pandas as pd
 import nltk
 from nltk.corpus import twitter_samples
 from nltk.corpus import stopwords
-import pickle
-import os
-import tensorflow as tf
+import utilities
+import NLPSentimentCalculations
+import TwitterSpamModel
 
-Utils = importlib.import_module('utilities').Utils
-NSC = importlib.import_module('NLPSentimentCalculations').NLPSentimentCalculations
+Utils = utilities.Utils
+NSC = NLPSentimentCalculations.NLPSentimentCalculations
+SpamModelParameters = TwitterSpamModel.SpamModelParameters
+SpamModelData = TwitterSpamModel.SpamModelData
+SpamModelLearning = TwitterSpamModel.SpamModelLearning
+
 
 """NewsSentimentAnalysis
 
@@ -165,7 +168,7 @@ class TwitterManager:
         return x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
                glove_embedding_matrix, y_train, y_test
 
-    def initialize_twitter_spam_model(self, to_preprocess_binary='', from_preprocess_binary='',
+    def initialize_twitter_spam_model(self, spam_model_learning: SpamModelLearning, to_preprocess_binary='', from_preprocess_binary='',
                                       learning_data='../data/Learning Data/spam_learning.csv', epochs=200,
                                       aug_df_file='',
                                       early_stopping=False, load_model=False,
@@ -174,90 +177,6 @@ class TwitterManager:
 
         """Initializes, trains, and tests a Twitter spam detection model.
         """
-
-        if os.path.exists(from_preprocess_binary):
-
-            with open(from_preprocess_binary, "rb") as fpb:
-                data = pickle.load(fpb)
-            
-            x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
-                glove_embedding_matrix, y_train, y_test, self.nsc.tokenizer = data
-
-        else:
-
-            features_to_train = ['full_text']
-
-            twitter_df = Utils.parse_json_botometer_data(learning_data, features_to_train)
-
-            if 'augmented' not in twitter_df.columns:
-                twitter_df['augmented'] = 0
-
-            if aug_df_file:
-                aug_df = Utils.parse_json_botometer_data(aug_df_file, features_to_train)
-                if 'augmented' not in aug_df.columns:
-                    aug_df['augmented'] = 1
-
-                twitter_df = pd.concat([twitter_df, aug_df])
-
-            x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
-            glove_embedding_matrix, y_train, y_test = self.get_dataset_from_tweet_spam(twitter_df, features_to_train)
-
-            if to_preprocess_binary:
-                data = (x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta,
-                        glove_embedding_matrix, y_train, y_test, self.nsc.tokenizer)
-                with open(to_preprocess_binary, "wb") as tpb:
-                    pickle.dump(data, tpb)
-
-        # Load previously saved model and test
-        if load_model and os.path.exists(model_checkpoint_path):
-
-            spam_model = NSC.load_saved_model(model_checkpoint_path)
-
-            score = spam_model.evaluate(x=[x_test_text_embeddings, x_test_meta], y=y_test, verbose=1)
-
-            print("Test Score:", score[0])
-            print("Test Accuracy:", score[1])
-
-            return spam_model
-
-        spam_model = self.nsc.create_text_meta_model(glove_embedding_matrix,
-                                                     len(x_train_meta.columns), len(x_train_text_embeddings[0]))
-
-        # Print model summary
-        spam_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['acc',
-                                                                                       tf.keras.metrics.Precision(),
-                                                                                       tf.keras.metrics.Recall()])
-        print(spam_model.summary())
-
-        cbs = []
-        if early_stopping:
-
-            # Set up early stopping callback
-            cbs.append(NSC.create_early_stopping_callback('acc', patience=100))
-
-            cbs.append(NSC.create_model_checkpoint_callback(model_checkpoint_path, monitor_stat='acc'))
-
-        if len(x_train_meta.columns) < 1:
-            train_input_layer = x_train_text_embeddings
-            test_input_layer = x_test_text_embeddings
-        else:
-            train_input_layer = [x_train_text_embeddings, x_train_meta]
-            test_input_layer = [x_test_text_embeddings, x_test_meta]
-
-        history = spam_model.fit(x=train_input_layer, y=y_train, batch_size=128,
-                                 epochs=epochs, verbose=1, callbacks=cbs)
-
-        if early_stopping and os.path.exists(model_checkpoint_path):
-            spam_model = NSC.load_saved_model(model_checkpoint_path)
-
-        score = spam_model.evaluate(x=test_input_layer, y=y_test, verbose=1, callbacks=[])
-
-        print("Test Score:", score[0])
-        print("Test Accuracy:", score[1])
-
-        NSC.plot_model_history(history)
-
-        return spam_model
 
     def initialize_twitter_sentiment_model(self):
 
@@ -481,7 +400,7 @@ class TwitterStreamListener(tweepy.StreamListener):
             if self.default_sentiment != '':
                 self.default_sentiment += ','
 
-            data = str(status.created_at) + ',' + status.user.name + ',' + status.text.replace('\n', '') + \
+            data = str(status.created_at) + ',' + status.user.name + ',' + status.text.replace('\n', '') +\
                    ',' + self.default_sentiment + '\n'
             print(data)
             f.write(data)
@@ -498,13 +417,28 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
     tw = TwitterManager()
 
     if use_ml:
-        tw.initialize_twitter_spam_model(aug_df_file='../data/Learning Data/augmented_spam_learning.csv')
+
+        spam_model_params = SpamModelParameters(epochs=200,
+                                                saved_model_bin='../data/analysis/Model Results/Saved Models/'
+                                                                'best_spam_model.h5')
+
+        spam_model_data = SpamModelData(nsc=NSC(), base_data_csv='../data/Learning Data/spam_learning.csv',
+                                        test_size=0.1,
+                                        features_to_train=['full_text', 'cap.english', 'cap.universal',
+                                                           'raw_scores.english.astroturf'],
+                                        aug_data_csv='../data/Learning Data/augmented_spam_learning.csv')
+
+        spam_model_learning = SpamModelLearning(spam_model_params, spam_model_data)
+        spam_model_learning.build_model()
+
         # tw.initialize_twitter_sentiment_model()
 
     # Search phrase
     if search_past:
+
         query = tw.construct_twitter_query(phrase, filter_in=filter_in, filter_out=filter_out)
         tweets = tw.phrase_search_history(query, history_count)
+
         # Writes the file to csv and creates appropriate directories (if non-existent).
         # If failed, writes data to current directory to avoid data loss
         if not Utils.write_dataframe_to_csv(tweets, '../data/News Sentiment Analysis/'
@@ -518,8 +452,3 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
             tw.start_stream(phrase)
         else:
             tw.start_stream(([phrase]))
-
-            
-if __name__ == '__main__':
-
-    tw = TwitterManager()
