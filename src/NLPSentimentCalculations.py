@@ -434,7 +434,7 @@ class NLPSentimentCalculations:
             augmented_states = list(augmented_states)
             max_test_size = augmented_states.count(0) / len(augmented_states)
             if max_test_size < test_size:
-                raise Exception(f"Too much augmented data, impossible to maintain test size of {test_size} Your max:"
+                raise Exception(f"Too much augmented data, impossible to maintain test size of {test_size} Your max: "
                                 f"{max_test_size}")
             else:
                 non_aug = [i for i in range(len(augmented_states)) if augmented_states[i] == 0]

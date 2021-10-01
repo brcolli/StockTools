@@ -128,14 +128,6 @@ class TwitterManager:
         if not features_to_train:
             features_to_train = ['full_text']
 
-        # if 'augmented' not in dataframe.keys():
-        #     dataframe['augmented'] = 0
-        #
-        # if augmented_df is not None:
-        #     if 'augmented' not in augmented_df.keys():
-        #         augmented_df['augmented'] = 1
-        #     dataframe = pd.concat([dataframe, augmented_df])
-
         x_train, x_test, y_train, y_test = NSC.keras_preprocessing(dataframe[features_to_train], dataframe['Label'],
                                                                    test_size=0.185,
                                                                    augmented_states=dataframe['augmented'])
@@ -145,7 +137,6 @@ class TwitterManager:
             return False
 
         # Split into text and meta data
-
         if 'full_text' in features_to_train:
             x_train_text_data = x_train['full_text']
             x_test_text_data = x_test['full_text']
@@ -194,8 +185,7 @@ class TwitterManager:
 
         else:
 
-            #features_to_train = ['full_text']
-            features_to_train = ['full_text', 'cap.english', 'cap.universal', 'raw_scores.english.astroturf']
+            features_to_train = ['full_text']
 
             twitter_df = Utils.parse_json_botometer_data(learning_data, features_to_train)
 
@@ -243,9 +233,9 @@ class TwitterManager:
         if early_stopping:
 
             # Set up early stopping callback
-            cbs.append(NSC.create_early_stopping_callback('accuracy', patience=10))
+            cbs.append(NSC.create_early_stopping_callback('acc', patience=100))
 
-            cbs.append(NSC.create_model_checkpoint_callback(model_checkpoint_path, monitor_stat='accuracy'))
+            cbs.append(NSC.create_model_checkpoint_callback(model_checkpoint_path, monitor_stat='acc'))
 
         if len(x_train_meta.columns) < 1:
             train_input_layer = x_train_text_embeddings
@@ -529,6 +519,7 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
         else:
             tw.start_stream(([phrase]))
 
+            
 if __name__ == '__main__':
 
-    main(use_ml=True, )
+    tw = TwitterManager()
