@@ -1,7 +1,3 @@
-import json
-import pickle
-import dill
-import operator
 import pandas as pd
 import tensorflow as tf
 import os
@@ -189,43 +185,3 @@ class SpamModelLearning(ModelLearning):
         self.model = spam_model
 
         return self.evaluate_model(test_input_layer, self.data.y_test, [])
-
-
-def load_model_from_bin(path):
-    with open(path, 'rb') as mb:
-        model = dill.load(mb)
-
-    return model
-
-
-def save_model_to_bin(path, model):
-    with open(path, 'wb') as mb:
-        dill.dump(model, mb)
-
-
-def load_model_from_origin(base_data_csv, test_size=0.3, features_to_train=None, aug_data_csv=None,
-                           save_preload_data_to_bin='', from_preload_data_bin='', epochs=100, saved_model_bin='',
-                           early_stopping=False, load_model=False, early_stopping_patience=0, batch_size=128,
-                           settings_file=''):
-
-    if os.path.exists(settings_file):
-        with open(settings_file, 'r') as f:
-            data = json.load(f)
-
-    base_data_csv, test_size, features_to_train, aug_data_csv, save_preload_data_to_bin, from_preload_data_bin, epochs,\
-    saved_model_bin, early_stopping, load_model, early_stopping_patience, batch_size =\
-        operator.itemgetter('base_data_csv', 'test_size','features_to_train', 'aug_data_csv',
-                            'save_preload_data_to_bin', 'from_preload_data_bin', 'epochs', 'saved_model_bin',
-                            'early_stopping', 'load_model', 'early_stopping_patience','batch_size')(data)
-
-
-    if features_to_train is None:
-        features_to_train = ['full_text']
-
-    nsc = NSC()
-    parameters = SpamModelParameters(epochs, saved_model_bin, early_stopping, load_model, early_stopping_patience,
-                                     batch_size)
-    data = SpamModelData(nsc, base_data_csv, test_size, features_to_train, aug_data_csv=aug_data_csv,
-                         save_preload_binary=save_preload_data_to_bin, from_preload_binary=from_preload_data_bin)
-    model = SpamModelLearning(parameters, data)
-    return model
