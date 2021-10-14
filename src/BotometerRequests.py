@@ -630,7 +630,7 @@ class BotometerRequests:
         recall = tp/(tp+fn)
         f1 = 2 * (recall * precision) / (recall + precision)
 
-        return accuracy, precision, recall, f1
+        return accuracy, precision, recall, f1, (tp, fp, tn, fn)
 
     @staticmethod
     def calc_averages(results, labels):

@@ -1,10 +1,8 @@
 import dill
 import json
-import os
 import operator
 
-import pandas as pd
-
+# Used for convenience as this module is pretty much a wrapper for TwitterSpamModel.py
 from TwitterSpamModel import *
 
 """TwitterSpamModelFunctions
@@ -12,7 +10,7 @@ from TwitterSpamModel import *
 Description:
 Module to work with the TwitterSpamModel.py class with functions to load the model from origin, load the model from bin,
 or save the model to bin. This module needs to be separate from TwitterSpamModel.py so that the dill library
-(saving library works properly). 
+(saving library) works properly. 
 
 Authors: Fedya Semenov
 Date: October 13, 2021
@@ -30,8 +28,18 @@ def load_model_from_bin(path):
     :rtype: SpamModelLearning
     """
     with open(path, 'rb') as mb:
-        model = dill.load(mb)
+        data = dill.load(mb)
 
+        # If model has been trained, we must load the model.model using tensorflow method
+        if data[0]:
+            _, model_path, model_data, params = data
+            model = SpamModelLearning(params, model_data)  # Params and model_data stored normally in pickle
+            model.model = tf.keras.models.load_model(model_path)  # Model stored through tensorflow
+            model.parameters.trained = True
+
+        # If model not trained yet, load normally from pickle
+        else:
+            _, model = data
     return model
 
 
@@ -44,8 +52,22 @@ def save_model_to_bin(path, model):
     :param model: Twitter spam model instance to be saved
     :type model: SpamModelLearning
     """
-    with open(path, 'wb') as mb:
-        dill.dump(model, mb)
+    bin_path = path + '.bin'
+
+    # If model has been trained, save using tensorflow method and pickle
+    if model.parameters.trained:
+        data = model.data
+        params = model.parameters
+        model_path = path + '.tf'
+        model.model.save(model_path)
+        bin_data = (True, model_path, data, params)
+
+    # If model not trained yet, save normally to pickle
+    else:
+        bin_data = (False, model)
+
+    with open(bin_path, 'wb') as mb:
+        dill.dump(bin_data, mb)
 
 
 def load_model_from_origin(base_data_csv='', test_size=0.3, features_to_train=None, aug_data_csv=None,
@@ -93,18 +115,18 @@ def load_model_from_origin(base_data_csv='', test_size=0.3, features_to_train=No
         with open(settings_file, 'r') as f:
             data = json.load(f)
 
-    base_data_csv, test_size, features_to_train, aug_data_csv, save_preload_data_to_bin, from_preload_data_bin, epochs,\
-    saved_model_bin, early_stopping, load_model, early_stopping_patience, batch_size =\
-        operator.itemgetter('base_data_csv', 'test_size','features_to_train', 'aug_data_csv',
-                            'save_preload_data_to_bin', 'from_preload_data_bin', 'epochs', 'saved_model_bin',
-                            'early_stopping', 'load_model', 'early_stopping_patience', 'batch_size')(data)
+        base_data_csv, test_size, features_to_train, aug_data_csv, save_preload_data_to_bin, from_preload_data_bin, \
+        epochs, saved_model_bin, early_stopping, load_model, early_stopping_patience, batch_size = \
+            operator.itemgetter('base_data_csv', 'test_size', 'features_to_train', 'aug_data_csv',
+                                'save_preload_data_to_bin', 'from_preload_data_bin', 'epochs', 'saved_model_bin',
+                                'early_stopping', 'load_model', 'early_stopping_patience', 'batch_size')(data)
 
     if features_to_train is None:
         features_to_train = ['full_text']
 
     nsc = NSC()
     parameters = SpamModelParameters(epochs, saved_model_bin, early_stopping, load_model, early_stopping_patience,
-                                     batch_size)
+                                     batch_size, False)
     data = SpamModelData(nsc, base_data_csv, test_size, features_to_train, aug_data_csv=aug_data_csv,
                          save_preload_binary=save_preload_data_to_bin, from_preload_binary=from_preload_data_bin)
     model = SpamModelLearning(parameters, data)

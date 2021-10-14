@@ -724,3 +724,51 @@ class Utils:
                 df[header] = json_dict[header]
 
         return df
+
+    @staticmethod
+    def calculate_ml_measures(results, labels):
+        """
+        Calculates the accuracy, precision, recall, f1 score as well as tp,fp,tn,fn from a list of result labels and
+        actual labels. Skips -1 results and labels.
+
+        :param results: list of result labels
+        :type results: list(int)
+
+        :param labels: list of actual labels
+        :type labels: list(int)
+
+        :return: accuracy, precision, recall, f1 score, (total, true positives, false positives, true negatives,
+                                                        false negatives)
+        :rtype: float, float, float, float, (int, int, int, int, int)
+        """
+
+        tp = 0
+        fp = 0
+        tn = 0
+        fn = 0
+        sk = 0
+        for i in range(len(results)):
+            r = results[i]
+            e = labels[i]
+            if r == -1 or e == -1:
+                sk += 1
+
+            elif e == 0:
+                if r == 0:
+                    tn += 1
+                elif r == 1:
+                    fp += 1
+
+            elif e == 1:
+                if r == 0:
+                    fn += 1
+                elif r == 1:
+                    tp += 1
+
+        accuracy = (tp + tn) / max((tp + fp + fn + tn), 1)
+        precision = tp / max((tp + fp), 1)
+        recall = tp / max((tp + fn), 1)
+        f1 = 2 * (recall * precision) / max((recall + precision), 1)
+
+        return accuracy, precision, recall, f1, (tp+fp+tn+fn, tp, fp, tn, fn)
+
