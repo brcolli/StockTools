@@ -16,7 +16,8 @@ class ModelParameters:
                  early_stopping=False,
                  load_model=False,
                  early_stopping_patience=0,
-                 batch_size=128):
+                 batch_size=128,
+                 trained=False):
 
         self.epochs = epochs
         self.saved_model_bin = saved_model_bin
@@ -24,6 +25,7 @@ class ModelParameters:
         self.load_model = load_model
         self.early_stopping_patience = early_stopping_patience
         self.batch_size = batch_size
+        self.trained = trained
         self.accuracy = 0
         self.test_score = 0
         self.precision = 0
@@ -58,6 +60,11 @@ class ModelData:
         self.y_test = None
 
     def load_data_from_binary(self, from_preload_binary):
+        """
+        Loads model data from a binary file
+        :param from_preload_binary: Path to preload binary
+        :type from_preload_binary: str
+        """
 
         if os.path.exists(from_preload_binary):
             with open(from_preload_binary, "rb") as fpb:
@@ -67,7 +74,11 @@ class ModelData:
             self.glove_embedding_matrix, self.y_train, self.y_test, self.nsc.tokenizer = data
 
     def save_data_to_binary(self, save_preload_binary):
-
+        """
+        Saves data to a preload binary (so it can then be loaded using load_data_from_binary)
+        :param save_preload_binary: Path to preload binary
+        :type save_preload_binary: str
+        """
         with open(save_preload_binary, 'w') as f:
             data = (self.x_train_text_embeddings, self.x_test_text_embeddings, self.x_train_meta, self.x_test_meta,
                     self.glove_embedding_matrix, self.y_train, self.y_test, self.nsc.tokenizer)
