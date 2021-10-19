@@ -5,7 +5,7 @@ import operator
 # Used for convenience as this module is pretty much a wrapper for TwitterSpamModel.py
 from TwitterSpamModel import *
 
-"""TwitterSpamModelFunctions
+"""TwitterSpamModelInterface
 
 Description:
 Module to work with the TwitterSpamModel.py class with functions to load the model from origin, load the model from bin,
@@ -130,4 +130,5 @@ def load_model_from_origin(base_data_csv='', test_size=0.3, features_to_train=No
     data = SpamModelData(nsc, base_data_csv, test_size, features_to_train, aug_data_csv=aug_data_csv,
                          save_preload_binary=save_preload_data_to_bin, from_preload_binary=from_preload_data_bin)
     model = SpamModelLearning(parameters, data)
+
     return model
