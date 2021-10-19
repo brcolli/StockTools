@@ -11,6 +11,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 import tensorflow as tf
+from tensorflow.keras import backend as kb
 import string
 import re
 import math
@@ -66,7 +67,7 @@ class NLPSentimentCalculations:
         self.classifier = NaiveBayesClassifier.train(train_data)
 
     @staticmethod
-    def keras_preprocessing(x, y, test_size=0.1, augmented_states=None):
+    def keras_preprocessing(x, y, test_size=0.1, augmented_states=None, remove_bad_labels=True):
 
         """Categorizes and preprocesses feature and label datasets
 
@@ -74,6 +75,12 @@ class NLPSentimentCalculations:
         :type x: list(obj)
         :param y: The output data.
         :type y: list(obj)
+        :param test_size: The ratio of test size to the rest of the dataset.
+        :type test_size: double
+        :param augmented_states: Series containing the augmented flags
+        :type augmented_states: pandas.series
+        :param remove_bad_labels: Flag to remove labels that aren't normal (i.e. not 0 or 1)
+        :type remove_bad_labels: bool
 
         :return: A tuple of arrays of x and y train and test sets.
         :rtype: tuple(dataframe(obj), dataframe(obj), dataframe(obj), dataframe(obj))
@@ -82,6 +89,16 @@ class NLPSentimentCalculations:
         label_encoder = preprocessing.LabelEncoder()
 
         # TODO change to TF-IDF?
+        if remove_bad_labels:
+
+            bad_rows = y == -1
+
+            y = y[bad_rows == 0]
+            x = x[bad_rows == 0]
+
+            if augmented_states is not None:
+                augmented_states = augmented_states[bad_rows == 0]
+
         y = label_encoder.fit_transform(y)
 
         x_train, x_test, y_train, y_test = NLPSentimentCalculations.split_data_to_train_test(
@@ -118,7 +135,7 @@ class NLPSentimentCalculations:
 
         return embedding_matrix
 
-    def create_text_meta_model(self, embedding_matrix, meta_feature_size, maxlen=300):
+    def create_text_meta_model(self, embedding_matrix, meta_feature_size, output_shape, maxlen=300):
 
         input_text_layer, lstm_text_layer = self.create_text_submodel(embedding_matrix, maxlen)
 
@@ -126,7 +143,7 @@ class NLPSentimentCalculations:
 
             # No meta data, don't create and concat
             dense_layer = tf.keras.layers.Dense(10, activation='relu')(lstm_text_layer)
-            output_layer = tf.keras.layers.Dense(3, activation='softmax')(dense_layer)
+            output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax')(dense_layer)
 
             return tf.keras.models.Model(inputs=input_text_layer, outputs=output_layer)
 
@@ -136,7 +153,7 @@ class NLPSentimentCalculations:
 
         dense_concat = tf.keras.layers.Dense(10, activation='relu')(concat_layer)
 
-        output_layer = tf.keras.layers.Dense(3, activation='softmax')(dense_concat)
+        output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax')(dense_concat)
 
         return tf.keras.models.Model(inputs=[input_text_layer, input_meta_layer], outputs=output_layer)
 
@@ -427,6 +444,8 @@ class NLPSentimentCalculations:
         :type test_size: float
         :param random_state: Randomization seed
         :type random_state: int
+        :param augmented_states: Series containing the augmented flags
+        :type augmented_states: pandas.series
 
         :return: A tuple of arrays of x and y train and test sets.
         :rtype: tuple(list(obj), list(obj), list(obj), list(obj))
@@ -510,6 +529,58 @@ class NLPSentimentCalculations:
         return x_train, x_test
 
     @staticmethod
+    def check_units(y_true, y_pred):
+        if y_pred.shape[1] != 1:
+            y_pred = y_pred[:, 1:2]
+            y_true = y_true[:, 1:2]
+        return y_true, y_pred
+
+    @staticmethod
+    def precision(y_true, y_pred):
+
+        y_true, y_pred = NLPSentimentCalculations.check_units(y_true, y_pred)
+
+        true_positives = kb.sum(kb.round(kb.clip(y_true * y_pred, 0, 1)))
+        predicted_positives = kb.sum(kb.round(kb.clip(y_pred, 0, 1)))
+        precision = true_positives / (predicted_positives + kb.epsilon())
+
+        return precision
+
+    @staticmethod
+    def recall(y_true, y_pred):
+
+        y_true, y_pred = NLPSentimentCalculations.check_units(y_true, y_pred)
+
+        true_positives = kb.sum(kb.round(kb.clip(y_true * y_pred, 0, 1)))
+        possible_positives = kb.sum(kb.round(kb.clip(y_true, 0, 1)))
+        recall = true_positives / (possible_positives + kb.epsilon())
+
+        return recall
+
+    @staticmethod
+    def mcor(y_true, y_pred):
+
+        y_true, y_pred = NLPSentimentCalculations.check_units(y_true, y_pred)
+
+        # matthews_correlation
+        y_pred_pos = kb.round(kb.clip(y_pred, 0, 1))
+        y_pred_neg = 1 - y_pred_pos
+
+        y_pos = kb.round(kb.clip(y_true, 0, 1))
+        y_neg = 1 - y_pos
+
+        tp = kb.sum(y_pos * y_pred_pos)
+        tn = kb.sum(y_neg * y_pred_neg)
+
+        fp = kb.sum(y_neg * y_pred_pos)
+        fn = kb.sum(y_pos * y_pred_neg)
+
+        numerator = (tp * tn - fp * fn)
+        denominator = kb.sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
+
+        return numerator / (denominator + kb.epsilon())
+
+    @staticmethod
     def show_data_statistics(tokens_class_a, tokens_class_b):
 
         """Displays various statistics about the given datasets, can be used to analyze and think about the approach.
@@ -544,15 +615,17 @@ class NLPSentimentCalculations:
     @staticmethod
     def plot_model_history(history):
 
-        plt.plot(history.history['acc'])
-        plt.plot(history.history['precision'])
-        plt.plot(history.history['recall'])
+        history_params = []
+        for key in history.history.keys():
+            if key != 'loss':
+                history_params.append(key)
+                plt.plot(history.history[key])
 
         plt.title('model scores')
         plt.ylabel('scores')
         plt.xlabel('epoch')
-        plt.legend(['accuracy', 'precision', 'recall'], loc='upper left')
-        plt.show()
+        plt.legend(history_params, loc='upper left')
+        plt.show(block=True)
 
         plt.plot(history.history['loss'])
 
@@ -560,7 +633,7 @@ class NLPSentimentCalculations:
         plt.ylabel('loss')
         plt.xlabel('epoch')
         plt.legend(['train', 'test'], loc='upper left')
-        plt.show()
+        plt.show(block=True)
 
 
 def main():

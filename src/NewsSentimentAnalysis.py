@@ -418,7 +418,7 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
 
     if use_ml:
 
-        spam_model_params = SpamModelParameters(epochs=200,
+        spam_model_params = SpamModelParameters(epochs=100,
                                                 saved_model_bin='../data/analysis/Model Results/Saved Models/'
                                                                 'best_spam_model.h5')
 
@@ -452,3 +452,5 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
             tw.start_stream(phrase)
         else:
             tw.start_stream(([phrase]))
+
+main(use_ml=True)

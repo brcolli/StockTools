@@ -1,5 +1,6 @@
 import pandas as pd
 import tensorflow as tf
+import tensorflow_addons as tfa
 import os
 import NLPSentimentCalculations
 import utilities
@@ -22,6 +23,7 @@ class SpamModelParameters(ModelParameters):
                  early_stopping_patience=0,
                  batch_size=128,
                  trained=False):
+
         super().__init__(epochs,
                          saved_model_bin,
                          early_stopping,
@@ -278,12 +280,17 @@ class SpamModelLearning(ModelLearning):
 
         spam_model = self.data.nsc.create_text_meta_model(self.data.glove_embedding_matrix,
                                                           len(self.data.x_train_meta.columns),
+                                                          self.data.y_train.shape,
                                                           len(self.data.x_train_text_embeddings[0]))
 
         # Print model summary
-        spam_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['acc',
-                                                                                       tf.keras.metrics.Precision(),
-                                                                                       tf.keras.metrics.Recall()])
+        spam_model.compile(loss='binary_crossentropy',
+                           optimizer='adam',
+                           metrics=['acc',
+                                    NSC.precision,
+                                    NSC.recall,
+                                    NSC.mcor,
+                                    tfa.metrics.FBetaScore(num_classes=2, average='weighted', beta=1.0, name='fbeta')])
         print(spam_model.summary())
 
         cbs = []
