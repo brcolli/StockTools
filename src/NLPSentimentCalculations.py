@@ -173,7 +173,7 @@ class NLPSentimentCalculations:
             return None, None
 
         meta_input_layer = tf.keras.layers.Input(shape=(meta_feature_size,))
-        dense_layer_1 = tf.keras.layers.Dense(10, activation='relu')(meta_input_layer)
+        dense_layer_1 = tf.keras.layers.Dense(100, activation='relu')(meta_input_layer)
 
         return meta_input_layer, tf.keras.layers.Dense(10, activation='relu')(dense_layer_1)
 
@@ -189,7 +189,7 @@ class NLPSentimentCalculations:
 
     @staticmethod
     def load_saved_model(filepath):
-        return tf.keras.models.load_model(filepath)
+        return tf.keras.models.load_model(filepath, compile=False)
 
     def test_classifier(self, test_data):
 
@@ -450,6 +450,7 @@ class NLPSentimentCalculations:
         :return: A tuple of arrays of x and y train and test sets.
         :rtype: tuple(list(obj), list(obj), list(obj), list(obj))
         """
+
         if augmented_states is not None:
             augmented_states = list(augmented_states)
             max_test_size = augmented_states.count(0) / len(augmented_states)
@@ -530,13 +531,38 @@ class NLPSentimentCalculations:
 
     @staticmethod
     def check_units(y_true, y_pred):
+
+        """Checks the shape of the classification labels and reshapes to 1D as needed
+
+        :param y_true: The actual classification labels.
+        :type y_true: np.array()
+        :param y_pred: The predicted classification labels.
+        :type y_pred: np.array()
+
+        :return: Properly shaped classification labels
+        :rtype: tuple(np.array(), np.array())
+        """
+
         if y_pred.shape[1] != 1:
             y_pred = y_pred[:, 1:2]
             y_true = y_true[:, 1:2]
+
         return y_true, y_pred
 
     @staticmethod
     def precision(y_true, y_pred):
+
+        """Computes the precision, a metric for multi-label classification of
+        how many selected items are relevant.
+
+        :param y_true: The actual classification labels.
+        :type y_true: np.array()
+        :param y_pred: The predicted classification labels.
+        :type y_pred: np.array()
+
+        :return: Global precision score
+        :rtype: double
+        """
 
         y_true, y_pred = NLPSentimentCalculations.check_units(y_true, y_pred)
 
@@ -549,6 +575,18 @@ class NLPSentimentCalculations:
     @staticmethod
     def recall(y_true, y_pred):
 
+        """Computes the precision, a metric for multi-label classification of
+        how many relevant items are selected.
+
+        :param y_true: The actual classification labels.
+        :type y_true: np.array()
+        :param y_pred: The predicted classification labels.
+        :type y_pred: np.array()
+
+        :return: Global recall score
+        :rtype: double
+        """
+
         y_true, y_pred = NLPSentimentCalculations.check_units(y_true, y_pred)
 
         true_positives = kb.sum(kb.round(kb.clip(y_true * y_pred, 0, 1)))
@@ -559,6 +597,21 @@ class NLPSentimentCalculations:
 
     @staticmethod
     def mcor(y_true, y_pred):
+
+        """Computes the Matthew Correlation Coefficient, the measure of quality of binary classifications.
+        Correlation between the observed and predicted binary labels, double between -1 and 1.
+        -1 means total disagreement between true and predicted.
+        0 means equal to random prediction.
+        1 means a perfect relation between true and predicted.
+
+        :param y_true: The actual classification labels.
+        :type y_true: np.array()
+        :param y_pred: The predicted classification labels.
+        :type y_pred: np.array()
+
+        :return: Correlation coefficient
+        :rtype: double
+        """
 
         y_true, y_pred = NLPSentimentCalculations.check_units(y_true, y_pred)
 

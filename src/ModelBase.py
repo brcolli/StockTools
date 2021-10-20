@@ -14,6 +14,7 @@ class ModelParameters:
                  epochs=100,
                  saved_model_bin='',
                  early_stopping=False,
+                 checkpoint_model=False,
                  load_model=False,
                  early_stopping_patience=0,
                  batch_size=128,
@@ -22,15 +23,11 @@ class ModelParameters:
         self.epochs = epochs
         self.saved_model_bin = saved_model_bin
         self.early_stopping = early_stopping
+        self.checkpoint_model = checkpoint_model
         self.load_model = load_model
         self.early_stopping_patience = early_stopping_patience
         self.batch_size = batch_size
         self.trained = trained
-        self.accuracy = 0
-        self.test_score = 0
-        self.precision = 0
-        self.recall = 0
-        self.f_score = 0
 
 
 class ModelData:

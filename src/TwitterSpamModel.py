@@ -19,6 +19,7 @@ class SpamModelParameters(ModelParameters):
                  epochs=100,
                  saved_model_bin='',
                  early_stopping=False,
+                 checkpoint_model=False,
                  load_model=False,
                  early_stopping_patience=0,
                  batch_size=128,
@@ -27,6 +28,7 @@ class SpamModelParameters(ModelParameters):
         super().__init__(epochs,
                          saved_model_bin,
                          early_stopping,
+                         checkpoint_model,
                          load_model,
                          early_stopping_patience,
                          batch_size,
@@ -174,6 +176,18 @@ class SpamModelLearning(ModelLearning):
         self.parameters = model_params
         self.data = model_data
 
+    def compile_model(self):
+
+        # Print model summary
+        self.model.compile(loss='binary_crossentropy',
+                           optimizer='adam',
+                           metrics=['acc',
+                                    NSC.precision,
+                                    NSC.recall,
+                                    NSC.mcor,
+                                    tfa.metrics.FBetaScore(num_classes=2, average='weighted', beta=1.0, name='fbeta')])
+        print(self.model.summary())
+
     # TODO: Add function to test the model on provided csv of Tweets. Would be useful for validation later.
     # TODO: Add functions to calculate, store, and return aspects apart from accuracy like fscore, precision, and recall
 
@@ -250,6 +264,8 @@ class SpamModelLearning(ModelLearning):
         :type test_input_layer: list
         :param test_labels: Tweet labels
         :type test_labels: list(int)
+        :param cbs: List of callbacks
+        :type cbs: list(func)
 
         :return: Model and score
         :rtype: tf.keras.Models.model, (float, float)
@@ -274,31 +290,28 @@ class SpamModelLearning(ModelLearning):
 
         # Load previously saved model and test
         if self.parameters.load_model and os.path.exists(self.parameters.saved_model_bin):
+
             self.model = NSC.load_saved_model(self.parameters.saved_model_bin)
+            self.compile_model()
 
             return self.evaluate_model([self.data.x_test_text_embeddings, self.data.x_test_meta], self.data.y_test, [])
 
-        spam_model = self.data.nsc.create_text_meta_model(self.data.glove_embedding_matrix,
+        self.model = self.data.nsc.create_text_meta_model(self.data.glove_embedding_matrix,
                                                           len(self.data.x_train_meta.columns),
                                                           self.data.y_train.shape,
                                                           len(self.data.x_train_text_embeddings[0]))
 
-        # Print model summary
-        spam_model.compile(loss='binary_crossentropy',
-                           optimizer='adam',
-                           metrics=['acc',
-                                    NSC.precision,
-                                    NSC.recall,
-                                    NSC.mcor,
-                                    tfa.metrics.FBetaScore(num_classes=2, average='weighted', beta=1.0, name='fbeta')])
-        print(spam_model.summary())
+        self.compile_model()
 
         cbs = []
         if self.parameters.early_stopping:
             # Set up early stopping callback
-            cbs.append(NSC.create_early_stopping_callback('acc', patience=self.parameters.early_stopping_patience))
+            cbs.append(NSC.create_early_stopping_callback('mcor', patience=self.parameters.early_stopping_patience))
 
-            cbs.append(NSC.create_model_checkpoint_callback(self.parameters.saved_model_bin, monitor_stat='acc'))
+        if self.parameters.checkpoint_model:
+            # Set up checkpointing model
+            cbs.append(NSC.create_model_checkpoint_callback(self.parameters.saved_model_bin, monitor_stat='mcor',
+                                                            mode='max'))
 
         # Change input layer based on what style of features we are using
         if len(self.data.x_train_meta.columns) < 1:
@@ -312,11 +325,9 @@ class SpamModelLearning(ModelLearning):
             train_input_layer = [self.data.x_train_text_embeddings, self.data.x_train_meta]
             test_input_layer = [self.data.x_test_text_embeddings, self.data.x_test_meta]
 
-        history = spam_model.fit(x=train_input_layer, y=self.data.y_train, batch_size=self.parameters.batch_size,
+        history = self.model.fit(x=train_input_layer, y=self.data.y_train, batch_size=self.parameters.batch_size,
                                  epochs=self.parameters.epochs, verbose=1, callbacks=cbs)
 
         NSC.plot_model_history(history)
-
-        self.model = spam_model
 
         return self.evaluate_model(test_input_layer, self.data.y_test, [])
