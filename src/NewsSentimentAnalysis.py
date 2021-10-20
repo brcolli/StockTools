@@ -402,6 +402,7 @@ class TwitterStreamListener(tweepy.StreamListener):
 
             data = str(status.created_at) + ',' + status.user.name + ',' + status.text.replace('\n', '') +\
                    ',' + self.default_sentiment + '\n'
+
             print(data)
             f.write(data)
             print('Tweet saved...')
@@ -418,14 +419,29 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
 
     if use_ml:
 
-        spam_model_params = SpamModelParameters(epochs=100,
+        spam_model_params = SpamModelParameters(epochs=1000,
+                                                batch_size=256,
+                                                load_model=True,
                                                 saved_model_bin='../data/analysis/Model Results/Saved Models/'
                                                                 'best_spam_model.h5')
 
         spam_model_data = SpamModelData(nsc=NSC(), base_data_csv='../data/Learning Data/spam_learning.csv',
                                         test_size=0.1,
                                         features_to_train=['full_text', 'cap.english', 'cap.universal',
-                                                           'raw_scores.english.astroturf'],
+                                                           'raw_scores.english.overall', 'raw_scores.universal.overall',
+                                                           'raw_scores.english.astroturf',
+                                                           'raw_scores.english.fake_follower',
+                                                           'raw_scores.english.financial',
+                                                           'raw_scores.english.other',
+                                                           'raw_scores.english.self_declared',
+                                                           'raw_scores.english.spammer',
+                                                           'raw_scores.universal.astroturf',
+                                                           'raw_scores.universal.fake_follower',
+                                                           'raw_scores.universal.financial',
+                                                           'raw_scores.universal.other',
+                                                           'raw_scores.universal.self_declared',
+                                                           'raw_scores.universal.spammer',
+                                                           'botscore', 'favorite_count', 'retweet_count'],
                                         aug_data_csv='../data/Learning Data/augmented_spam_learning.csv')
 
         spam_model_learning = SpamModelLearning(spam_model_params, spam_model_data)
