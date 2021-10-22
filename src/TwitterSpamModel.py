@@ -16,6 +16,7 @@ ModelLearning = ModelBase.ModelLearning
 class SpamModelParameters(ModelParameters):
 
     def __init__(self,
+                 learning_rate=1e-3,
                  epochs=100,
                  saved_model_bin='',
                  early_stopping=False,
@@ -23,16 +24,19 @@ class SpamModelParameters(ModelParameters):
                  load_model=False,
                  early_stopping_patience=0,
                  batch_size=128,
-                 trained=False):
+                 trained=False,
+                 debug=False):
 
-        super().__init__(epochs,
+        super().__init__(learning_rate,
+                         epochs,
                          saved_model_bin,
                          early_stopping,
                          checkpoint_model,
                          load_model,
                          early_stopping_patience,
                          batch_size,
-                         trained)
+                         trained,
+                         debug)
 
 
 class SpamModelData(ModelData):
@@ -88,7 +92,7 @@ class SpamModelData(ModelData):
         x_val_text_clean = [NSC.sanitize_text_string(s) for s in list(x_val_text_data)]
 
         # Vectorizes textual data
-        x_val_text_embeddings = self.nsc.keras_word_embeddings(x_val_text_clean)
+        _, x_val_text_embeddings = self.nsc.keras_word_embeddings(x_val_text_clean, self.text_input_length)
 
         if len(self.textless_features_to_train) > 0:
             x_val_meta = x_val[self.textless_features_to_train]
@@ -133,8 +137,8 @@ class SpamModelData(ModelData):
         self.nsc.tokenizer.fit_on_texts(x_train_text_clean)
 
         # Create word vectors from tokens
-        x_train_text_embeddings = self.nsc.keras_word_embeddings(x_train_text_clean)
-        x_test_text_embeddings = self.nsc.keras_word_embeddings(x_test_text_clean)
+        self.text_input_length, x_train_text_embeddings = self.nsc.keras_word_embeddings(x_train_text_clean)
+        _, x_test_text_embeddings = self.nsc.keras_word_embeddings(x_test_text_clean, self.text_input_length)
 
         glove_embedding_matrix = self.nsc.create_glove_word_vectors()
 
@@ -178,15 +182,15 @@ class SpamModelLearning(ModelLearning):
 
     def compile_model(self):
 
-        # Print model summary
+        optimizer = tf.keras.optimizers.Adam(learning_rate=self.parameters.learning_rate)
         self.model.compile(loss='binary_crossentropy',
-                           optimizer='adam',
+                           optimizer=optimizer,
                            metrics=['acc',
                                     NSC.precision,
                                     NSC.recall,
                                     NSC.mcor,
                                     tfa.metrics.FBetaScore(num_classes=2, average='weighted', beta=1.0, name='fbeta')])
-        print(self.model.summary())
+        print(self.model.summary())  # Print model summary
 
     # TODO: Add function to test the model on provided csv of Tweets. Would be useful for validation later.
     # TODO: Add functions to calculate, store, and return aspects apart from accuracy like fscore, precision, and recall
@@ -287,6 +291,9 @@ class SpamModelLearning(ModelLearning):
         :return: Model and score
         :rtype: tf.keras.Models.model, (float, float)
         """
+
+        if self.parameters.debug:
+            tf.config.run_functions_eagerly(True)
 
         # Load previously saved model and test
         if self.parameters.load_model and os.path.exists(self.parameters.saved_model_bin):

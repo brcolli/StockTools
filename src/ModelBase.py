@@ -11,6 +11,7 @@ class ModelParameters:
     """
 
     def __init__(self,
+                 learning_rate=1e-3,
                  epochs=100,
                  saved_model_bin='',
                  early_stopping=False,
@@ -18,8 +19,10 @@ class ModelParameters:
                  load_model=False,
                  early_stopping_patience=0,
                  batch_size=128,
-                 trained=False):
+                 trained=False,
+                 debug=False):
 
+        self.learning_rate = learning_rate
         self.epochs = epochs
         self.saved_model_bin = saved_model_bin
         self.early_stopping = early_stopping
@@ -28,6 +31,11 @@ class ModelParameters:
         self.early_stopping_patience = early_stopping_patience
         self.batch_size = batch_size
         self.trained = trained
+        self.debug = debug
+        self.accuracy = 0
+        self.precision = 0
+        self.recall = 0
+        self.f_score = 0
 
 
 class ModelData:
@@ -41,6 +49,7 @@ class ModelData:
         self.nsc = nsc
         self.base_data_csv = base_data_csv
         self.test_size = test_size
+        self.text_input_length = 0
 
         self.features_to_train = features_to_train
         if features_to_train is None:

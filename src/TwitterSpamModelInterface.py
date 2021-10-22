@@ -116,10 +116,11 @@ def load_model_from_origin(base_data_csv='', test_size=0.3, features_to_train=No
             data = json.load(f)
 
         base_data_csv, test_size, features_to_train, aug_data_csv, save_preload_data_to_bin, from_preload_data_bin, \
-        epochs, saved_model_bin, early_stopping, load_model, early_stopping_patience, batch_size = \
+        epochs, learning_rate, saved_model_bin, early_stopping, load_model, early_stopping_patience, batch_size = \
             operator.itemgetter('base_data_csv', 'test_size', 'features_to_train', 'aug_data_csv',
-                                'save_preload_data_to_bin', 'from_preload_data_bin', 'epochs', 'saved_model_bin',
-                                'early_stopping', 'load_model', 'early_stopping_patience', 'batch_size')(data)
+                                'save_preload_data_to_bin', 'from_preload_data_bin', 'epochs', 'learning_rate',
+                                'saved_model_bin', 'early_stopping', 'load_model', 'early_stopping_patience',
+                                'batch_size')(data)
 
     if features_to_train is None:
         features_to_train = ['full_text']

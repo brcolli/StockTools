@@ -4,7 +4,6 @@ import requests
 import pandas as pd
 import nltk
 from nltk.corpus import twitter_samples
-from nltk.corpus import stopwords
 import utilities
 import NLPSentimentCalculations
 import TwitterSpamModel
@@ -224,7 +223,7 @@ class TwitterManager:
         :rtype: list(dict(str-> bool), str)
         """
 
-        tweets_clean = NSC.get_clean_tokens(tweet_tokens, stopwords.words('english'))
+        tweets_clean = NSC.get_clean_tokens(tweet_tokens)
         return NSC.get_basic_dataset(tweets_clean, classifier_tag)
 
     def get_tweet_sentiment(self, text):
@@ -421,14 +420,16 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
 
         spam_model_params = SpamModelParameters(epochs=1000,
                                                 batch_size=256,
-                                                load_model=True,
+                                                load_model=False,
+                                                checkpoint_model=False,
                                                 saved_model_bin='../data/analysis/Model Results/Saved Models/'
                                                                 'best_spam_model.h5')
 
         spam_model_data = SpamModelData(nsc=NSC(), base_data_csv='../data/Learning Data/spam_learning.csv',
                                         test_size=0.1,
                                         features_to_train=['full_text', 'cap.english', 'cap.universal',
-                                                           'raw_scores.english.overall', 'raw_scores.universal.overall',
+                                                           'raw_scores.english.overall',
+                                                           'raw_scores.universal.overall',
                                                            'raw_scores.english.astroturf',
                                                            'raw_scores.english.fake_follower',
                                                            'raw_scores.english.financial',
@@ -468,5 +469,3 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
             tw.start_stream(phrase)
         else:
             tw.start_stream(([phrase]))
-
-main(use_ml=True)
