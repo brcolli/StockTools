@@ -3,10 +3,12 @@ import nltk
 import pandas as pd
 from nltk import classify
 from nltk import NaiveBayesClassifier
-from nltk.tokenize import word_tokenize
+from nltk.tokenize import ToktokTokenizer
 import numpy as np
 from nltk.tag import pos_tag
 from nltk import FreqDist
+from nltk.corpus import stopwords
+from nltk.corpus import wordnet
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
@@ -109,12 +111,40 @@ class NLPSentimentCalculations:
 
         return x_train, x_test, y_train, y_test
 
-    def keras_word_embeddings(self, x, maxlen=300):
+    def keras_word_embeddings(self, x, word_count=-1):
+
+        """Takes an array of word tokens and converts them into sequence representations. Uses maximum word count to
+        select array length. Arrays shorter than word_count will be padded at the end with 0s. Arrays longer than
+        word_count will be truncated, keeping most prominent features.
+
+        :param x: The input data.
+        :type x: np.array(np.array(str))
+        :param word_count: The maximum number of sequences (words) to have in input data. Default -1, will calculate
+        the maximum sequence count for you.
+        :type word_count: int
+
+        :return: A tuple of maximum sequence count and an array of an array of sequence representations of word tokens.
+        :rtype: tuple(int, np.array(np.array(double)))
+        """
 
         x_sequence = self.tokenizer.texts_to_sequences(x)
-        return tf.keras.preprocessing.sequence.pad_sequences(x_sequence, padding='post', maxlen=maxlen)
+
+        if word_count == -1:
+            word_count = max([len(s) for s in x_sequence])
+
+        return word_count, tf.keras.preprocessing.sequence.pad_sequences(x_sequence, padding='post', maxlen=word_count)
 
     def create_glove_word_vectors(self, trained_vector_file='../data/Learning Data/GloVe/glove.6B/glove.6B.100d.txt'):
+
+        """Reads a pre-trained GloVe embedding file and puts them into an embedding matrix, using token word_indices
+        to select word weights.
+
+        :param trained_vector_file: Filepath for the GloVe pre-trained embeddings file.
+        :type trained_vector_file: str
+
+        :return: A 2D array of pre-trained embedding weights.
+        :rtype: np.array(np.array(double))
+        """
 
         embeddings_dict = dict()
 
@@ -126,7 +156,7 @@ class NLPSentimentCalculations:
                 vector_dimensions = np.asarray(records[1:], dtype='float32')
                 embeddings_dict[word] = vector_dimensions
 
-        embedding_matrix = np.zeros((len(self.tokenizer.word_index) + 1, 100))
+        embedding_matrix = np.zeros((len(self.tokenizer.word_index) + 1, len(embeddings_dict[word])))
         for word, index in self.tokenizer.word_index.items():
 
             embedding_vector = embeddings_dict.get(word)
@@ -135,9 +165,41 @@ class NLPSentimentCalculations:
 
         return embedding_matrix
 
-    def create_text_meta_model(self, embedding_matrix, meta_feature_size, output_shape, maxlen=300):
+    def create_text_meta_model(self, embedding_matrix, meta_feature_size, output_shape, maxlen):
 
-        input_text_layer, lstm_text_layer = self.create_text_submodel(embedding_matrix, maxlen)
+        """Creates a Tensorflow model that combines a text training model and a meta data training model. If the size
+        of the meta features count is 0, will skip the meta model and just return a model for text training.
+
+        The text model can either be a multi-layer perceptron (MLP) or a Separated Convolutional Neural Network
+        (SepCNN).
+
+        If the meta model is to be included, uses a simple MLP design.
+
+        The two models are then combined in a concatenation layer and end with a softmax output layer. Since the model
+        trains on binary classification, many suggest sigmoid output layer. We went with softmax to ensure output
+        probabilities round to 1, and because our label array has 2 columns. May consider going back to sigmoid later.
+
+        :param embedding_matrix: GloVe pre-trained embedding matrix
+        :type embedding_matrix: np.array(np.array(double))
+        :param meta_feature_size: Number of meta features to train. If 0, will skip meta model.
+        :type meta_feature_size: int
+        :param output_shape: Shape of the output layer results.
+        :type output_shape: tuple(int, int)
+        :param maxlen: Maximum number of sequences in the input layer for text training.
+        :type maxlen: int
+
+        :return: A Tensorflow model
+        :rtype: Tensorflow.model
+        """
+
+        input_text_layer, lstm_text_layer = self.create_text_submodel(blocks=5,
+                                                                      dropout_rate=0.2,
+                                                                      filters=64,
+                                                                      kernel_size=3,
+                                                                      pool_size=2,
+                                                                      embedding_matrix=embedding_matrix,
+                                                                      maxlen=maxlen,
+                                                                      use_cnn=True)
 
         if meta_feature_size < 1:
 
@@ -157,17 +219,113 @@ class NLPSentimentCalculations:
 
         return tf.keras.models.Model(inputs=[input_text_layer, input_meta_layer], outputs=output_layer)
 
-    def create_text_submodel(self, embedding_matrix, maxlen=300):
+    def create_text_submodel(self, blocks, dropout_rate, filters, kernel_size, pool_size, embedding_matrix, maxlen,
+                             use_cnn=False):
+
+        """Creates a text-based model for learning. Can take 2 forms. Always begins by creating an Input layer.
+
+        If use_cnn is false, will create an MLP-type model. Creates an embedding layer set to not train, that uses
+        the GloVe pre-trained weights. Ends with a Long Short-Term Memory layer.
+
+        If use_cnn is true, will create an embedding layer and chain to a sequence of block layers, count defined by
+        input variable blocks. Blocks consist of 2 separable 1D convolutional layers and a MaxPooling layer. Conv blocks
+        go into a global average pooling layer.
+
+        Dropout layers are placed throughout model for regularization to reduce overfitting.
+
+        :param blocks: Number of pairs of SepCNN and pooling blocks in the model.
+        :type blocks: int
+        :param dropout_rate: Percentage of input to drop at Dropout layers.
+        :type dropout_rate: double
+        :param filters: Output dimension of SepCNN layers in the model.
+        :type filters: int
+        :param kernel_size: Length of the convolutional window
+        :type kernel_size: int
+        :param pool_size: Factor by which to downscale input at MaxPooling layer.
+        :type pool_size: int
+        :param embedding_matrix: GloVe pre-trained embedding matrix
+        :type embedding_matrix: np.array(np.array(double))
+        :param maxlen: Maximum number of sequences in the input layer for text training.
+        :type maxlen: int
+        :param use_cnn: Flag to use Separated CNN. If false, will use MLP.
+        :type use_cnn: bool
+
+        :return: A tuple of an input layer and an output layer.
+        :rtype: tuple(Tensorflow.layer, Tensorflow.layer)
+        """
 
         text_input_layer = tf.keras.layers.Input(shape=(maxlen,))
 
-        embedding_layer = tf.keras.layers.Embedding(len(self.tokenizer.word_index) + 1,
-                                                    100, weights=[embedding_matrix], trainable=False)(text_input_layer)
+        if not use_cnn:
 
-        return text_input_layer, tf.keras.layers.LSTM(128)(embedding_layer)
+            embedding_layer = tf.keras.layers.Embedding(input_dim=len(self.tokenizer.word_index) + 1,
+                                                        input_length=maxlen,
+                                                        output_dim=embedding_matrix.shape[1],
+                                                        weights=[embedding_matrix],
+                                                        trainable=False)(text_input_layer)
+
+            return text_input_layer, tf.keras.layers.LSTM(128)(embedding_layer)
+
+        else:
+
+            block_connection = tf.keras.layers.Embedding(input_dim=len(self.tokenizer.word_index) + 1,
+                                                         input_length=maxlen,
+                                                         output_dim=embedding_matrix.shape[1],
+                                                         weights=[embedding_matrix],
+                                                         trainable=False)(text_input_layer)
+
+            for _ in range(blocks-1):
+
+                sep_drop = tf.keras.layers.Dropout(rate=dropout_rate)(block_connection)
+
+                sep_conv1 = tf.keras.layers.SeparableConv1D(filters=filters,
+                                                            kernel_size=kernel_size,
+                                                            activation='relu',
+                                                            bias_initializer='random_uniform',
+                                                            depthwise_initializer='random_uniform',
+                                                            padding='same')(sep_drop)
+
+                sep_conv2 = tf.keras.layers.SeparableConv1D(filters=filters,
+                                                            kernel_size=kernel_size,
+                                                            activation='relu',
+                                                            bias_initializer='random_uniform',
+                                                            depthwise_initializer='random_uniform',
+                                                            padding='same')(sep_conv1)
+
+                block_connection = tf.keras.layers.MaxPooling1D(pool_size=pool_size)(sep_conv2)
+
+            sep_conv1 = tf.keras.layers.SeparableConv1D(filters=filters * 2,
+                                                        kernel_size=kernel_size,
+                                                        activation='relu',
+                                                        bias_initializer='random_uniform',
+                                                        depthwise_initializer='random_uniform',
+                                                        padding='same')(block_connection)
+
+            sep_conv2 = tf.keras.layers.SeparableConv1D(filters=filters * 2,
+                                                        kernel_size=kernel_size,
+                                                        activation='relu',
+                                                        bias_initializer='random_uniform',
+                                                        depthwise_initializer='random_uniform',
+                                                        padding='same')(sep_conv1)
+
+            ga_pooling = tf.keras.layers.GlobalAveragePooling1D()(sep_conv2)
+
+            return text_input_layer, tf.keras.layers.Dropout(rate=dropout_rate)(ga_pooling)
 
     @staticmethod
     def create_meta_submodel(meta_feature_size):
+
+        """Creates a model based on training with meta features, non-textual features. If meta_feature_size is 0,
+        returns None for both input and output layers.
+
+        Creates a simple MLP consisting of dense ReLU layers.
+
+        :param meta_feature_size: Number of meta features to train. If 0, will skip meta model.
+        :type meta_feature_size: int
+
+        :return: A tuple of an input layer and an output layer.
+        :rtype: tuple(Tensorflow.layer, Tensorflow.layer)
+        """
 
         if meta_feature_size < 1:
             return None, None
@@ -179,16 +337,67 @@ class NLPSentimentCalculations:
 
     @staticmethod
     def create_early_stopping_callback(monitor_stat, monitor_mode='auto', patience=0, min_delta=0):
+
+        """Creates a callback for a Tensorflow object, that will trigger early stopping of a model based on conditions.
+        Can set the metric to monitor, the amount of patience, and the minimum change required.
+
+        As the model learns, the callback will look at the progress of the metric that is being monitored. If the
+        model doesn't improve by min_delta in patience number of epochs, will exit the model early.
+
+        :param monitor_stat: Metric to monitor performance of.
+        :type monitor_stat: str
+        :param monitor_mode: Type of monitoring. Default is 'auto'. In 'auto', direction of improvement is inferred
+        by the name of the metric. In 'min', direction of improvement is decreasing the metric. In 'max', direction of
+        improvement is increasing the metric.
+        :type monitor_mode: str
+        :param patience: Number of epochs to wait for metric improvement.
+        :type patience: int
+        :param min_delta: Size difference for the metric to be considered improving.
+        :type min_delta: double
+
+        :return: A callback for early stopping.
+        :rtype: Tensorflow.callback
+        """
+
         return tf.keras.callbacks.EarlyStopping(monitor=monitor_stat, mode=monitor_mode, verbose=1,
                                                 patience=patience, min_delta=min_delta)
 
     @staticmethod
     def create_model_checkpoint_callback(filepath, monitor_stat, mode='auto'):
+
+        """Creates a callback for a Tensorflow object, that will trigger early stopping of a model based on conditions.
+        Can set the metric to monitor, the amount of patience, and the minimum change required.
+
+        As the model learns, the callback will look at the progress of the metric that is being monitored. If the
+        model doesn't improve by min_delta in patience number of epochs, will exit the model early.
+
+        :param filepath: File location to save the model checkpoint to.
+        :type filepath: str
+        :param monitor_stat: Metric to monitor performance of.
+        :type monitor_stat: str
+        :param mode: Type of monitoring. Default is 'auto'. In 'auto', direction of improvement is inferred
+        by the name of the metric. In 'min', direction of improvement is decreasing the metric. In 'max', direction of
+        improvement is increasing the metric.
+        :type mode: str
+
+        :return: A callback for model checkpoints.
+        :rtype: Tensorflow.callback
+        """
+
         return tf.keras.callbacks.ModelCheckpoint(filepath, monitor=monitor_stat, mode=mode, verbose=1,
                                                   save_best_only=True)
 
     @staticmethod
     def load_saved_model(filepath):
+
+        """Loads a model from a model checkpoint file. Will be uncompiled, need to compile model before evaluating.
+
+        :param filepath: File location to load the model checkpoint from.
+        :type filepath: str
+
+        :return: A saved model
+        :rtype: Tensorflow.model
+        """
         return tf.keras.models.load_model(filepath, compile=False)
 
     def test_classifier(self, test_data):
@@ -210,20 +419,6 @@ class NLPSentimentCalculations:
 
         return accuracy
 
-    @staticmethod
-    def tokenize_string(text):
-
-        """Tokenizes a string, to unigrams.
-
-        :param text: Text to be tokenized
-        :type text: str
-
-        :return: The tokens from the text
-        :rtype: list(str)
-        """
-
-        return word_tokenize(text)
-
     def classify_text(self, text):
 
         """Classifies text using a model that has been trained. Takes in unclean data and passes it through a
@@ -236,7 +431,7 @@ class NLPSentimentCalculations:
         :rtype: str
         """
 
-        custom_tokens = NLPSentimentCalculations.sanitize_text_tokens(word_tokenize(text))
+        custom_tokens = NLPSentimentCalculations.sanitize_text_tokens(ToktokTokenizer().tokenize(text))
         return self.classifier.classify(dict([token, True] for token in custom_tokens))
 
     @staticmethod
@@ -273,7 +468,7 @@ class NLPSentimentCalculations:
 
         cleaned_tokens = []
         for tokens in all_tokens:
-            cleaned_tokens.append(NLPSentimentCalculations.sanitize_text_tokens(tokens, stop_words))
+            cleaned_tokens.append(NLPSentimentCalculations.sanitize_text_tokens(tokens))
         return cleaned_tokens
 
     @staticmethod
@@ -324,27 +519,45 @@ class NLPSentimentCalculations:
         return [(class_dict, classifier_tag) for class_dict in token_tags]
 
     @staticmethod
-    def sanitize_text_string(sen, stop_words=()):
+    def get_wordnet_pos(word):
 
-        sentence = re.sub('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+#]|[!*\(\),]|' \
+        """Map POS tag to first character lemmatize() accepts"""
+
+        tag = nltk.pos_tag([word])[0][1][0].upper()
+        tag_dict = {"J": wordnet.ADJ,
+                    "N": wordnet.NOUN,
+                    "V": wordnet.VERB,
+                    "R": wordnet.ADV}
+
+        return tag_dict.get(tag, wordnet.NOUN)
+
+    @staticmethod
+    def sanitize_text_string(sen):
+
+        sentence = re.sub('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_.&+#]|[!*\(\),]|' \
                           '(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', sen)
+
+        sentence = re.sub("(@[A-Za-z0-9_]+)", "", sentence)
 
         sentence = re.sub('[^a-zA-Z]', ' ', sentence)
 
         sentence = re.sub(r'\s+', ' ', sentence)
 
-        sentence = re.sub("(@[A-Za-z0-9_]+)", "", sentence)
+        sentence = ToktokTokenizer().tokenize(sentence.lower())
+
+        stop_words = stopwords.words('english')
+        sentence = [word for word in sentence if word not in stop_words and word not in string.punctuation]
 
         wn = nltk.WordNetLemmatizer()
-        sentence = wn.lemmatize(sentence)
+        sentence = [wn.lemmatize(word, NLPSentimentCalculations.get_wordnet_pos(word)) for word in sentence]
 
-        if len(sentence) > 0 and sentence not in string.punctuation and sentence.lower() not in stop_words:
-            return sentence.lower()
+        if len(sentence) > 0:
+            return ' '.join(sentence)
         else:
             return ''
 
     @staticmethod
-    def sanitize_text_tokens(tweet_tokens, stop_words=()):
+    def sanitize_text_tokens(tweet_tokens):
 
         """Cleans text data by removing bad punctuation, emojies, and lematizes.
 
@@ -367,6 +580,8 @@ class NLPSentimentCalculations:
 
             wn = nltk.WordNetLemmatizer()
             token = wn.lemmatize(token)
+
+            stop_words = stopwords.words('english')
 
             if len(token) > 0 and token not in string.punctuation and token.lower() not in stop_words:
                 cleaned_tokens.append(token.lower())
@@ -550,6 +765,7 @@ class NLPSentimentCalculations:
         return y_true, y_pred
 
     @staticmethod
+    @tf.function
     def precision(y_true, y_pred):
 
         """Computes the precision, a metric for multi-label classification of
@@ -573,9 +789,10 @@ class NLPSentimentCalculations:
         return precision
 
     @staticmethod
+    @tf.function
     def recall(y_true, y_pred):
 
-        """Computes the precision, a metric for multi-label classification of
+        """Computes the recall, a metric for multi-label classification of
         how many relevant items are selected.
 
         :param y_true: The actual classification labels.
@@ -596,6 +813,7 @@ class NLPSentimentCalculations:
         return recall
 
     @staticmethod
+    @tf.function
     def mcor(y_true, y_pred):
 
         """Computes the Matthew Correlation Coefficient, the measure of quality of binary classifications.
