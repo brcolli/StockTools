@@ -1,8 +1,8 @@
-import importlib
+import Scheduler
 
 
-sm = importlib.import_module('Scheduler').ScheduleManager
-ds = importlib.import_module('Scheduler').Days
+sm = Scheduler.ScheduleManager
+ds = Scheduler.Days
 
 
 def main():
