@@ -19,8 +19,7 @@ class NasdaqShareOrdersManager:
 
     @staticmethod
     def get_nasdaq_trade_order(ticker):
-
-        ticker = 'AAPL'
+        
         print('Getting {} data'.format(ticker))
 
         res = {'nlsTime': [], 'nlsPrice': [], 'nlsShareVolume': []}
