@@ -1,14 +1,17 @@
 import schedule
 import time
-import importlib
 import datetime
 import enum
+import GetDailyShortInterest
+import NasdaqShareOrdersScraper
+import UpcomingEarningsScanner
+import utilities
 
 
-sim = importlib.import_module('GetDailyShortInterest').ShortInterestManager
-nso = importlib.import_module('NasdaqShareOrdersScraper').NasdaqShareOrdersManager
-UES = importlib.import_module('UpcomingEarningsScanner').main
-Utils = importlib.import_module('utilities').Utils
+sim = GetDailyShortInterest.ShortInterestManager
+nso = NasdaqShareOrdersScraper.NasdaqShareOrdersManager
+UES = UpcomingEarningsScanner.main
+Utils = utilities.Utils
 
 
 # For representing days of the week
@@ -44,8 +47,7 @@ class ScheduleManager:
         if Utils.get_last_trading_day().date() != datetime.datetime.today().date():
             return
 
-        nso_obj = nso()
-        nso_obj.write_nasdaq_trade_orders()
+        nso.write_nasdaq_trade_orders()
 
     @staticmethod
     def call_upcoming_earnings_scanner():
@@ -99,7 +101,6 @@ class ScheduleManager:
 
 
 def main():
-
     sch = ScheduleManager()
 
 

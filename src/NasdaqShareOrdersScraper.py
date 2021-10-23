@@ -1,21 +1,26 @@
 import requests
-import importlib
+import utilities
 import json
 import time
 import datetime
 import pandas as pd
 from os import path
 import os
+from selenium import webdriver
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.options import Options
 
-Utils = importlib.import_module('utilities').Utils
+Utils = utilities.Utils
 
 
 class NasdaqShareOrdersManager:
     def __init__(self):
         self.session = requests.Session()
 
-    def get_nasdaq_trade_order(self, ticker):
+    @staticmethod
+    def get_nasdaq_trade_order(ticker):
 
+        ticker = 'AAPL'
         print('Getting {} data'.format(ticker))
 
         res = {'nlsTime': [], 'nlsPrice': [], 'nlsShareVolume': []}
@@ -27,7 +32,8 @@ class NasdaqShareOrdersManager:
 
         # Start session
         session = requests.Session()
-        cookies = session.cookies
+        options = Options()
+        options.add_argument('--headless')
 
         while not repeating:
 
@@ -45,31 +51,47 @@ class NasdaqShareOrdersManager:
             header = {'authority': 'api.nasdaq.com',
                       'path': url_extension}
 
+            data = []
+            jdata = {'data': None}
+
             # Set header attribute based on operating system
             if os.name == 'nt':
                 # Windows
                 header['user-agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like ' \
                                        'Gecko) Chrome/92.0.4515.107 Safari/537.36'
+
+                while True:
+                    try:
+                        data = session.get(data_cmd, headers=header).text
+                        jdata = json.loads(data)
+                        break
+                    except Exception as e:
+                        print(e)
+                        time.sleep(5)
+                        continue
+
             else:
                 # Assume linux
                 header['user-agent'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) ' \
                                        'Chrome/90.0.4430.212 Safari/537.36'
-                
-            data = []
-            jdata = {'data': None}
-            while True:
-                try:
-                    data = session.get(data_cmd, headers=header, cookies=cookies)
-                    jdata = json.loads(data.text)
-                    break
-                except:
-                    time.sleep(5)
-                    continue
 
-            if data.text == curr_data:
+                with webdriver.Chrome(ChromeDriverManager().install()) as driver:
+
+                    while True:
+                        try:
+                            driver.get(data_cmd)
+                            data = driver.find_element_by_tag_name('pre').text
+                            jdata = json.loads(data)
+                            break
+                        except Exception as e:
+                            print(e)
+                            time.sleep(5)
+                            continue
+
+            if data == curr_data:
                 repeating = True
                 continue
-            curr_data = data.text
+            curr_data = data
 
             # For invalid data requests
             if not jdata['data'] or not jdata['data']['rows']:
@@ -88,7 +110,8 @@ class NasdaqShareOrdersManager:
 
         return res
 
-    def get_nasdaq_trade_orders(self, tickers, curr_date):
+    @staticmethod
+    def get_nasdaq_trade_orders(tickers, curr_date):
 
         res = {}
         for ticker in tickers:
@@ -100,11 +123,12 @@ class NasdaqShareOrdersManager:
                 res[ticker] = (pd.DataFrame(), filename)
                 continue
 
-            res[ticker] = (pd.DataFrame(self.get_nasdaq_trade_order(ticker)), filename)
+            res[ticker] = (pd.DataFrame(NasdaqShareOrdersManager.get_nasdaq_trade_order(ticker)), filename)
 
         return res
 
-    def write_nasdaq_trade_orders(self, curr_date=None, tickers=None):
+    @staticmethod
+    def write_nasdaq_trade_orders(curr_date=None, tickers=None):
 
         if not curr_date:
             curr_date = Utils.datetime_to_time_str(datetime.datetime.today())
@@ -123,7 +147,7 @@ class NasdaqShareOrdersManager:
         files = []
         for ts in tickers_chunks:
 
-            data = self.get_nasdaq_trade_orders(ts, curr_date)
+            data = NasdaqShareOrdersManager.get_nasdaq_trade_orders(ts, curr_date)
 
             # Iterate through tickers and write to csvs
             for ticker in ts:
@@ -141,10 +165,7 @@ class NasdaqShareOrdersManager:
 
 
 def main():
-
-    nso = NasdaqShareOrdersManager()
-
-    nso.write_nasdaq_trade_orders()
+    NasdaqShareOrdersManager.write_nasdaq_trade_orders()
 
 
 if __name__ == '__main__':
