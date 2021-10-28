@@ -192,14 +192,16 @@ class NLPSentimentCalculations:
         :rtype: Tensorflow.model
         """
 
+        dropout_rate = 0.15
+
         input_text_layer, lstm_text_layer = self.create_text_submodel(blocks=5,
-                                                                      dropout_rate=0.2,
+                                                                      dropout_rate=dropout_rate,
                                                                       filters=64,
                                                                       kernel_size=3,
                                                                       pool_size=2,
                                                                       embedding_matrix=embedding_matrix,
                                                                       maxlen=maxlen,
-                                                                      use_cnn=True)
+                                                                      use_cnn=False)
 
         if meta_feature_size < 1:
 
@@ -264,7 +266,9 @@ class NLPSentimentCalculations:
                                                         weights=[embedding_matrix],
                                                         trainable=False)(text_input_layer)
 
-            return text_input_layer, tf.keras.layers.LSTM(128)(embedding_layer)
+            drop = tf.keras.layers.Dropout(rate=dropout_rate)(embedding_layer)
+
+            return text_input_layer, tf.keras.layers.LSTM(128)(drop)
 
         else:
 

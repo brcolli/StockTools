@@ -421,7 +421,7 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
         spam_model_params = SpamModelParameters(epochs=1000,
                                                 batch_size=256,
                                                 load_model=False,
-                                                checkpoint_model=False,
+                                                checkpoint_model=True,
                                                 saved_model_bin='../data/analysis/Model Results/Saved Models/'
                                                                 'best_spam_model.h5')
 
@@ -448,6 +448,10 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
         spam_model_learning = SpamModelLearning(spam_model_params, spam_model_data)
         spam_model_learning.build_model()
 
+        score_dict = spam_model_learning.predict_and_score('../data/Learning Data/spam_test_set.csv')
+
+        print(score_dict)
+
         # tw.initialize_twitter_sentiment_model()
 
     # Search phrase
@@ -469,3 +473,6 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
             tw.start_stream(phrase)
         else:
             tw.start_stream(([phrase]))
+
+
+main(use_ml=True)
