@@ -227,7 +227,7 @@ class SpamModelLearning(ModelLearning):
         y = self.raw_predict(csv)
 
         # Use the highest softmax probability as the label (-1, 0, or 1)
-        return [max(range(len(y1)), key=y1.__getitem__) - 1 for y1 in y]
+        return [max(range(len(y1)), key=y1.__getitem__) for y1 in y]
 
     def predict_and_score(self, csv, affect_parameter_scores=False):
         """
@@ -258,6 +258,7 @@ class SpamModelLearning(ModelLearning):
         numerical = ['Total', 'True Positives', 'False Positives', 'True Negatives', 'False Negatives']
         score_dict = dict(zip(keys, scores))
         score_dict['Numerical'] = dict(zip(numerical, scores[4]))
+
         return score_dict
 
     def evaluate_model(self, test_input_layer, test_labels, cbs):
