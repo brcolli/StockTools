@@ -900,7 +900,7 @@ class NLPSentimentCalculations:
         plt.ylabel('scores')
         plt.xlabel('epoch')
         plt.legend(history_params, loc='upper left')
-        plt.show(block=True)
+        plt.show()
 
         plt.plot(history.history['loss'])
 
@@ -908,7 +908,7 @@ class NLPSentimentCalculations:
         plt.ylabel('loss')
         plt.xlabel('epoch')
         plt.legend(['train', 'test'], loc='upper left')
-        plt.show(block=True)
+        plt.show()
 
 
 def main():
