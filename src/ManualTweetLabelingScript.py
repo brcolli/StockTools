@@ -11,7 +11,7 @@ class Labeler:
     def __init__(self, source_data_path):
         self.source_data_path = source_data_path
         self.TINPUT = -1
-        self.hotkeys = '103rslbp'
+        self.hotkeys = '103rslb`'
         self.col_list = ["Tweet id", "Label"]
         self.tweet_base_url = 'https://twitter.com/i/web/status/'
         self.tweet_csv = pd.read_csv(self.source_data_path)
@@ -29,12 +29,12 @@ class Labeler:
 
     def on_release(self, key):
         if key == keyboard.Key.pause:
-            self.TINPUT = 'p'
+            self.TINPUT = '`'
             return False
         else:
             try:
                 value = key.char
-                if value in self.hotkeys and value != 'p':
+                if value in self.hotkeys:
                     self.TINPUT = value
                     return False
             except:
@@ -62,7 +62,7 @@ class Labeler:
 
         while str(self.TINPUT) not in self.hotkeys:
             self.wait_for_label()
-            if self.TINPUT == 'p':
+            if self.TINPUT == '`':
                 self.pause = not self.pause
                 self.TINPUT = -1
                 if self.pause:
@@ -118,8 +118,12 @@ def main(file_path, clear_data=False):
         file_path = fd.askopenfilename()
     labeler = Labeler(file_path)
     v = labeler.tweet_csv['Label'].value_counts()
-    print(f'Labeling: "{file_path}"\nClean: {v[0]} Spam: {v[1]} Skipped: {v[-1]} Unlabeled: {v[-2]} Total: '
-          f'{len(labeler.tweet_csv)}')
+    labels = {0: 'Clean', 1: 'Spam', -1: 'Skipped', -2: 'Unlabeled'}
+    print(f'Labeling: "{file_path}"\n')
+    for k in v.keys():
+        print(f'{labels[k]}: {v[k]}', end='\t')
+    print(f'Total: {len(labeler.tweet_csv)}')
+
     if clear_data:
         labeler.clear_labels()
     active = True

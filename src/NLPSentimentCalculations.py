@@ -18,9 +18,9 @@ import string
 import re
 import math
 import utilities
+import warnings
 
 Utils = utilities.Utils
-
 
 """NLPSentimentCalculations
 
@@ -204,7 +204,6 @@ class NLPSentimentCalculations:
                                                                       use_cnn=False)
 
         if meta_feature_size < 1:
-
             # No meta data, don't create and concat
             dense_layer = tf.keras.layers.Dense(10, activation='relu')(lstm_text_layer)
             output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax')(dense_layer)
@@ -278,8 +277,7 @@ class NLPSentimentCalculations:
                                                          weights=[embedding_matrix],
                                                          trainable=False)(text_input_layer)
 
-            for _ in range(blocks-1):
-
+            for _ in range(blocks - 1):
                 sep_drop = tf.keras.layers.Dropout(rate=dropout_rate)(block_connection)
 
                 sep_conv1 = tf.keras.layers.SeparableConv1D(filters=filters,
@@ -674,24 +672,23 @@ class NLPSentimentCalculations:
             augmented_states = list(augmented_states)
             max_test_size = augmented_states.count(0) / len(augmented_states)
             if max_test_size < test_size:
-                raise Exception(f"Too much augmented data, impossible to maintain test size of {test_size} Your max: "
-                                f"{max_test_size}")
-            else:
-                non_aug = [i for i in range(len(augmented_states)) if augmented_states[i] == 0]
-                aug = list(set(non_aug) ^ set(list(range(len(augmented_states)))))
-                aug.sort()
-                x_a = x.iloc[aug]
-                x = x.iloc[non_aug]
-                y_a = [y[i] for i in aug]
-                y = [y[i] for i in non_aug]
+                warnings.warn(f"Too much augmented data, impossible to maintain test size of {test_size} Your max of: "
+                              f"{max_test_size} will be used", UserWarning)
 
-                true_ts = test_size * len(augmented_states) / len(non_aug)
+                test_size = max_test_size - 0.001
 
-                x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=true_ts, random_state=random_state)
-                x_train = pd.concat([x_train, x_a])
-                y_train = y_train + y_a
-
-                return x_train, x_test, y_train, y_test
+            non_aug = [i for i in range(len(augmented_states)) if augmented_states[i] == 0]
+            aug = list(set(non_aug) ^ set(list(range(len(augmented_states)))))
+            aug.sort()
+            x_a = x.iloc[aug]
+            x = x.iloc[non_aug]
+            y_a = [y[i] for i in aug]
+            y = [y[i] for i in non_aug]
+            true_ts = test_size * len(augmented_states) / len(non_aug)
+            x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=true_ts, random_state=random_state)
+            x_train = pd.concat([x_train, x_a])
+            y_train = y_train + y_a
+            return x_train, x_test, y_train, y_test
         else:
             return train_test_split(x, y, test_size=test_size, random_state=random_state)
 

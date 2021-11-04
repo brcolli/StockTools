@@ -34,7 +34,7 @@ def load_model_from_bin(path):
         if data[0]:
             _, model_path, model_data, params = data
             model = SpamModelLearning(params, model_data)  # Params and model_data stored normally in pickle
-            model.model = tf.keras.models.load_model(model_path)  # Model stored through tensorflow
+            model.model = tf.keras.models.load_model(model_path, custom_objects=MetricsDict)  # Model stored through tensorflow
             model.parameters.trained = True
 
         # If model not trained yet, load normally from pickle

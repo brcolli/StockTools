@@ -15,6 +15,7 @@ import csv
 import re
 import itertools
 import ast
+import matplotlib.pyplot as plt
 
 
 """utilities
@@ -771,4 +772,38 @@ class Utils:
         f1 = 2 * (recall * precision) / max((recall + precision), 1)
 
         return accuracy, precision, recall, f1, (tp+fp+tn+fn, tp, fp, tn, fn)
+
+    @staticmethod
+    def tweet_data_analysis(df, df_path='', plot=False):
+        if path.exists(df_path):
+            df = pd.read_csv(df_path)
+
+        if type(df) != pd.DataFrame:
+            print('Something was wrong with the dataframe')
+            return False
+
+        values = df['Label'].value_counts()
+        labels = {0: 'Clean', 1: 'Spam', -1: 'Skipped'}
+        res_dict = {}
+        for k, v in labels.items():
+            try:
+                x = values[k]
+            except KeyError:
+                x = 0
+            res_dict[v] = {}
+            res_dict[v]['Count'] = x
+
+        res_dict['Total'] = {}
+        res_dict['Total']['Count'] = len(df)
+        res_dict['Total']['Percent'] = 1
+        for k in res_dict.keys():
+            if k != 'Total':
+                res_dict[k]['Percent'] = res_dict[k]['Count'] / res_dict['Total']['Count']
+
+        if plot:
+            plt.figure()
+            plt.bar(list(res_dict.keys()), [v['Count'] for v in res_dict.values()])
+            plt.show()
+
+        return res_dict
 

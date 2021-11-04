@@ -145,5 +145,22 @@ class TweetManager:
         df.to_csv(os.path.join(directory_path, 'Merged.csv'), index=False)
         return df
 
+    def cut_skipped(self, df, df_path='', to_file='', inplace=False):
+        if os.path.exists(df_path):
+            df = pd.read_csv(df_path)
+
+        if type(df) != pd.DataFrame:
+            print('Something was wrong with the dataframe')
+            return False
+
+        df = df[df['Label'] != -1]
+        if to_file != '' or (inplace and df_path != ''):
+            if inplace and df_path != '':
+                to_file = df_path
+
+            df.to_csv(to_file, index=False)
+
+        return df
+
 
 TM = TweetManager()
