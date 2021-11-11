@@ -888,6 +888,7 @@ class NLPSentimentCalculations:
     def plot_model_history(history):
 
         history_params = []
+        plt.figure(1)
         for key in history.history.keys():
             if key != 'loss':
                 history_params.append(key)
@@ -897,8 +898,9 @@ class NLPSentimentCalculations:
         plt.ylabel('scores')
         plt.xlabel('epoch')
         plt.legend(history_params, loc='upper left')
-        plt.show()
+        # plt.show()
 
+        plt.figure(2)
         plt.plot(history.history['loss'])
 
         plt.title('model loss')

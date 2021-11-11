@@ -335,6 +335,6 @@ class SpamModelLearning(ModelLearning):
         history = self.model.fit(x=train_input_layer, y=self.data.y_train, batch_size=self.parameters.batch_size,
                                  epochs=self.parameters.epochs, verbose=1, callbacks=cbs)
 
-        # NSC.plot_model_history(history)
+        NSC.plot_model_history(history)
 
         return self.evaluate_model(test_input_layer, self.data.y_test, [])
