@@ -418,7 +418,7 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
 
     if use_ml:
 
-        spam_model_params = SpamModelParameters(epochs=1000,
+        spam_model_params = SpamModelParameters(epochs=150,
                                                 batch_size=256,
                                                 load_model=False,
                                                 checkpoint_model=True,
@@ -442,8 +442,8 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
                                                            'raw_scores.universal.other',
                                                            'raw_scores.universal.self_declared',
                                                            'raw_scores.universal.spammer',
-                                                           'botscore', 'favorite_count', 'retweet_count'],
-                                        aug_data_csv='../data/Learning Data/augmented_spam_learning.csv')
+                                                           'botscore', 'favorite_count', 'retweet_count'])
+                                        #aug_data_csv='../data/Learning Data/augmented_spam_learning.csv')
 
         spam_model_learning = SpamModelLearning(spam_model_params, spam_model_data)
         spam_model_learning.build_model()
