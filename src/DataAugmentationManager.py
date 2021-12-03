@@ -25,6 +25,7 @@ class TweetEDA:
     """
     Used to augment tweets using eda.py augmentation techniques, also has remove url method
     """
+
     def __init__(self):
         pass
 
@@ -61,6 +62,31 @@ class TweetEDA:
             text_string = text_string[0:found] + text_string[remove:]
 
         return text_string
+
+    @staticmethod
+    def multi_method_augmentation(sentence: str, alpha_sr: float, alpha_ri: float, alpha_rs: float, alpha_rd: float,
+                                  total_augment: float, order=None):
+        if order is None:
+            order = ['SR', 'RI', 'RS', 'RD']
+
+        sentence = eda.get_only_chars(sentence)
+        words = sentence.split(' ')
+        words = [word for word in words if word != ' ']
+
+        aug_values = [alpha_sr, alpha_ri, alpha_rs, alpha_rd]
+        s = sum(aug_values)
+        aug_values = [v / s for v in aug_values]
+        aug_values = [x * total_augment for x in aug_values]
+        aug_values = [max(1, int(len(words) * x)) for x in aug_values[0:3]] + [aug_values[3]]
+        funcs = [eda.synonym_replacement, eda.random_insertion, eda.random_swap, eda.random_deletion]
+        func_val_dicts = [{'Func': f, 'Val': v} for f, v in zip(funcs, aug_values)]
+        operation_dict = dict(zip(['SR', 'RI', 'RS', 'RD'], func_val_dicts))
+
+        for o in order:
+            words = operation_dict[o]['Func'](words, operation_dict[o]['Val'])
+
+        res = ' '.join(words)
+        return res
 
     @staticmethod
     def augment_sentences(sentences: [str], alpha_sr=0.1, alpha_ri=0.1, alpha_rs=0.1, alpha_rd=0.1,
@@ -184,9 +210,26 @@ class TweetEDA:
         df['botscore'] = scored['botscore']
         return df
 
+    def random_multi_wrapper(self, sentences, aug_per_sentence, alpha_sr=0.1, alpha_ri=0.1, alpha_rs=0.1, alpha_rd=0.1,
+                             total_mod=0.5):
+        rand_values = lambda v: [random.uniform(0.5 * x, 1.5 * x) for x in v]
+        vals = [alpha_sr, alpha_ri, alpha_rs, alpha_rd, total_mod]
+        order = ['SR', 'RI', 'RS', 'RD']
+        augmented = []
+
+        for s in sentences:
+            new = []
+            for _ in range(aug_per_sentence):
+                sr, ri, rs, rd, tm = rand_values(vals)
+                random.shuffle(order)
+                new.append(self.multi_method_augmentation(s, sr, ri, rs, rd, tm, order=order))
+            augmented.append(new.copy())
+
+        return augmented
+
     def wrapper(self, entry_data=pd.DataFrame(), score_new_objects=False, keep_ua_data=True, total_aug_to_make=100,
                 general_alpha=0, alpha_sr=0.1, alpha_ri=0.1, alpha_rs=0.1, alpha_rd=0.1, increment_alpha=0,
-                to_file='', from_file='') -> pd.DataFrame:
+                random_multi=False, multi_total=0.5, to_file='', from_file='') -> pd.DataFrame:
         """
         A method to get EDA augmented TweetObjects and their botometer lite scores
 
@@ -244,29 +287,34 @@ class TweetEDA:
         sentences = [self.text_from_tweet(t) for t in tweet_objects]
         aug_per_sentence = math.ceil(total_aug_to_make / len(entry_data))
 
-        if increment_alpha != 0:
-            if (((aug_per_sentence - 1) * increment_alpha) + max(non_zero_techniques) > 1) or \
-                    (((aug_per_sentence - 1) * increment_alpha) + min(non_zero_techniques) < 0):
-                raise Exception("Increment alpha puts alpha out of range (0, 1)")
+        if random_multi:
+            aug_s = self.random_multi_wrapper(sentences, aug_per_sentence, alpha_sr, alpha_ri, alpha_rs, alpha_rd,
+                                              multi_total)
 
-            aug_s = []
-            original = [alpha_sr, alpha_ri, alpha_rs, alpha_rd]
-
-            for s in sentences:
-                s_augs = []
-                for _ in range(aug_per_sentence):
-                    s_augs.append(eda.eda(s, alpha_sr=alpha_sr, alpha_ri=alpha_ri, alpha_rs=alpha_rs, p_rd=alpha_rd,
-                                         num_aug=1)[0])
-
-                    alpha_sr, alpha_ri, alpha_rs, alpha_rd = [x + increment_alpha if x != 0 else 0 for x in (alpha_sr,
-                                                                                                             alpha_ri,
-                                                                                                             alpha_rs,
-                                                                                                             alpha_rd)]
-                alpha_sr, alpha_ri, alpha_rs, alpha_rd = original
-                aug_s.append(s_augs)
         else:
-            aug_s = self.augment_sentences(sentences, alpha_sr=alpha_sr, alpha_ri=alpha_ri, alpha_rs=alpha_rs,
-                                           alpha_rd=alpha_rd, num_aug_per_sentence=aug_per_sentence)
+            if increment_alpha != 0:
+                if (((aug_per_sentence - 1) * increment_alpha) + max(non_zero_techniques) > 1) or \
+                        (((aug_per_sentence - 1) * increment_alpha) + min(non_zero_techniques) < 0):
+                    raise Exception("Increment alpha puts alpha out of range (0, 1)")
+
+                aug_s = []
+                original = [alpha_sr, alpha_ri, alpha_rs, alpha_rd]
+
+                for s in sentences:
+                    s_augs = []
+                    for _ in range(aug_per_sentence):
+                        s_augs.append(eda.eda(s, alpha_sr=alpha_sr, alpha_ri=alpha_ri, alpha_rs=alpha_rs, p_rd=alpha_rd,
+                                              num_aug=1)[0])
+
+                        alpha_sr, alpha_ri, alpha_rs, alpha_rd = [x + increment_alpha if x != 0 else 0 for x in (alpha_sr,
+                                                                                                                 alpha_ri,
+                                                                                                                 alpha_rs,
+                                                                                                                 alpha_rd)]
+                    alpha_sr, alpha_ri, alpha_rs, alpha_rd = original
+                    aug_s.append(s_augs)
+            else:
+                aug_s = self.augment_sentences(sentences, alpha_sr=alpha_sr, alpha_ri=alpha_ri, alpha_rs=alpha_rs,
+                                               alpha_rd=alpha_rd, num_aug_per_sentence=aug_per_sentence)
 
         original_index_references = [i for i in range(len(sentences)) for _ in range(aug_per_sentence)]
         new_index_reference = [i for i in range(aug_per_sentence)] * len(aug_s)
@@ -311,7 +359,6 @@ class NumericalDataAugmentationManager:
 
     @staticmethod
     def shuffle_meta_scores(df, meta_headers):
-
         spam_df = df[df['Label'] == 1].reset_index(drop=True)
         y = spam_df[meta_headers].sample(frac=1)
         spam_df[meta_headers] = y.reset_index(drop=True)
@@ -323,11 +370,9 @@ class NumericalDataAugmentationManager:
 
     @staticmethod
     def smote_for_classification(x, y):
-
         # values to evaluate
         k_values = [1, 2, 3, 4, 5, 6, 7]
         for k in k_values:
-
             # define pipeline
             model = DecisionTreeClassifier()
             over = SMOTE(sampling_strategy=0.1, k_neighbors=k)
@@ -343,7 +388,6 @@ class NumericalDataAugmentationManager:
 
     @staticmethod
     def borderline_smote(x, y):
-
         # summarize class distribution
         counter = Counter(y)
         print(counter)
@@ -357,7 +401,6 @@ class NumericalDataAugmentationManager:
 
     @staticmethod
     def adaptive_synthetic_sampling(x, y):
-
         # summarize class distribution
         counter = Counter(y)
         print(counter)
@@ -377,17 +420,19 @@ class DataAugmentationManager:
         self.teda = TweetEDA()
 
     def augment_data(self, entry_data=pd.DataFrame(), score_new_objects=False, keep_ua_data=True, total_aug_to_make=100,
-                     general_alpha=0, alpha_sr=0.2, alpha_ri=0, alpha_rs=0.2, alpha_rd=0.1, increment_alpha=0.05,
+                     general_alpha=0, alpha_sr=0.6, alpha_ri=0.1, alpha_rs=0.2, alpha_rd=0.1, increment_alpha=0.05,
+                     random_text_aug=False, random_total=0.5,
                      to_file='', from_file=''):
 
         df = self.teda.wrapper(entry_data, score_new_objects, keep_ua_data, total_aug_to_make, general_alpha, alpha_sr,
-                               alpha_ri, alpha_rs, alpha_rd, increment_alpha, '', from_file)
+                               alpha_ri, alpha_rs, alpha_rd, increment_alpha, random_text_aug, random_total, '',
+                               from_file)
 
         meta_headers = df.columns.tolist()
         meta_headers = meta_headers[7:-2]
 
         df = self.sdam.shuffle_meta_scores(df, meta_headers)
-        
+
         if to_file:
             try:
                 df.to_csv(to_file, index=False)
@@ -399,11 +444,11 @@ class DataAugmentationManager:
 
 
 def main():
-
     dam = DataAugmentationManager()
-    dam.augment_data(total_aug_to_make=10000, to_file='../data/Learning Data/augmented_spam_learning.csv',
+    dam.augment_data(random_text_aug=True, random_total=0.6, total_aug_to_make=10000,
+                     to_file='../data/Learning Data/augmented_spam_learning.csv',
                      from_file='../data/Learning Data/spam_learning.csv')
 
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()

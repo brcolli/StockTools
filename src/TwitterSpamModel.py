@@ -11,6 +11,10 @@ NSC = NLPSentimentCalculations.NLPSentimentCalculations
 ModelParameters = ModelBase.ModelParameters
 ModelData = ModelBase.ModelData
 ModelLearning = ModelBase.ModelLearning
+Metrics = ['acc', NSC.precision, NSC.recall, NSC.mcor,
+           tfa.metrics.FBetaScore(num_classes=2, average='weighted', beta=1.0, name='fbeta')]
+MetricsKeys = ['acc', 'precision', 'recall', 'mcor', 'fbeta']
+MetricsDict = dict(zip(MetricsKeys, Metrics))
 
 
 class SpamModelParameters(ModelParameters):
@@ -26,7 +30,6 @@ class SpamModelParameters(ModelParameters):
                  batch_size=128,
                  trained=False,
                  debug=False):
-
         super().__init__(learning_rate,
                          epochs,
                          saved_model_bin,
@@ -179,17 +182,14 @@ class SpamModelLearning(ModelLearning):
         self.model = tf.keras.models.Model()
         self.parameters = model_params
         self.data = model_data
+        self.metrics = Metrics
 
     def compile_model(self):
 
         optimizer = tf.keras.optimizers.Adam(learning_rate=self.parameters.learning_rate)
         self.model.compile(loss='binary_crossentropy',
                            optimizer=optimizer,
-                           metrics=['acc',
-                                    NSC.precision,
-                                    NSC.recall,
-                                    NSC.mcor,
-                                    tfa.metrics.FBetaScore(num_classes=2, average='weighted', beta=1.0, name='fbeta')])
+                           metrics=self.metrics)
         print(self.model.summary())  # Print model summary
 
     # TODO: Add function to test the model on provided csv of Tweets. Would be useful for validation later.
@@ -298,7 +298,6 @@ class SpamModelLearning(ModelLearning):
 
         # Load previously saved model and test
         if self.parameters.load_model and os.path.exists(self.parameters.saved_model_bin):
-
             self.model = NSC.load_saved_model(self.parameters.saved_model_bin)
             self.compile_model()
 

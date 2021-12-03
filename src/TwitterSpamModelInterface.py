@@ -34,7 +34,7 @@ def load_model_from_bin(path):
         if data[0]:
             _, model_path, model_data, params = data
             model = SpamModelLearning(params, model_data)  # Params and model_data stored normally in pickle
-            model.model = tf.keras.models.load_model(model_path)  # Model stored through tensorflow
+            model.model = tf.keras.models.load_model(model_path, custom_objects=MetricsDict)  # Model stored through tensorflow
             model.parameters.trained = True
 
         # If model not trained yet, load normally from pickle
@@ -71,9 +71,9 @@ def save_model_to_bin(path, model):
 
 
 def load_model_from_origin(base_data_csv='', test_size=0.3, features_to_train=None, aug_data_csv=None,
-                           save_preload_data_to_bin='', from_preload_data_bin='', epochs=100, saved_model_bin='',
-                           early_stopping=False, load_model=False, early_stopping_patience=0, batch_size=128,
-                           settings_file=''):
+                           save_preload_data_to_bin='', from_preload_data_bin='', epochs=100, learning_rate=0.0001,
+                           saved_model_bin='', early_stopping=False, load_model=False, early_stopping_patience=0,
+                           batch_size=128, settings_file=''):
     """
     Loads and returns a model object from provided data with provided settings
 
@@ -126,8 +126,20 @@ def load_model_from_origin(base_data_csv='', test_size=0.3, features_to_train=No
         features_to_train = ['full_text']
 
     nsc = NSC()
-    parameters = SpamModelParameters(epochs, saved_model_bin, early_stopping, load_model, early_stopping_patience,
-                                     batch_size, False)
+    # parameters = SpamModelParameters(epochs, saved_model_bin, early_stopping, load_model, early_stopping_patience,
+    #                                  batch_size, False, False)
+
+    parameters = SpamModelParameters(learning_rate=learning_rate,
+                                     epochs=epochs,
+                                     saved_model_bin=saved_model_bin,
+                                     early_stopping=early_stopping,
+                                     checkpoint_model=False,
+                                     load_model=load_model,
+                                     early_stopping_patience=early_stopping_patience,
+                                     batch_size=batch_size,
+                                     trained=False,
+                                     debug=False)
+
     data = SpamModelData(nsc, base_data_csv, test_size, features_to_train, aug_data_csv=aug_data_csv,
                          save_preload_binary=save_preload_data_to_bin, from_preload_binary=from_preload_data_bin)
     model = SpamModelLearning(parameters, data)
