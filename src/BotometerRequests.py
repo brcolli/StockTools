@@ -199,7 +199,7 @@ class BotometerRequests:
 
         all_keys = pd.json_normalize(results)
         ids = all_keys['user.user_data.id_str']
-        dropped = all_keys.drop(labels=self.get_unwanted_keys(wanted_keys), axis=1)
+        dropped = all_keys.drop(labels=self.get_unwanted_keys(wanted_keys), axis=1, errors='ignore')
         dropped.insert(0, "user_id", ids)
         
         return dropped

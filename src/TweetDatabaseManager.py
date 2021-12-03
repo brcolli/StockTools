@@ -76,7 +76,7 @@ class TweetManager:
         df.to_csv(self.path + '/' + filename + '.csv', index=False)
         return df
 
-    def save_multiple_keywords(self, keywords: list[str], num: int, same_file=True, filename=None):
+    def save_multiple_keywords(self, keywords, num: int, same_file=True, filename=None):
         """
         Same as save_tweets, but on multiple keywords with num # of tweets for each keyword
 

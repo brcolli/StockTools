@@ -192,7 +192,7 @@ class NLPSentimentCalculations:
         :rtype: Tensorflow.model
         """
 
-        dropout_rate = 0.15
+        dropout_rate = 0.5
 
         input_text_layer, lstm_text_layer = self.create_text_submodel(blocks=5,
                                                                       dropout_rate=dropout_rate,
@@ -216,7 +216,9 @@ class NLPSentimentCalculations:
 
         dense_concat = tf.keras.layers.Dense(10, activation='relu')(concat_layer)
 
-        output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax')(dense_concat)
+        drop = tf.keras.layers.Dropout(rate=dropout_rate)(dense_concat)
+
+        output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax')(drop)
 
         return tf.keras.models.Model(inputs=[input_text_layer, input_meta_layer], outputs=output_layer)
 
