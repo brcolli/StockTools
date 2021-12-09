@@ -807,3 +807,22 @@ class Utils:
 
         return res_dict
 
+    @staticmethod
+    def compare_tweet_label(a, b):
+        if b == -1:
+            if a == -1:
+                return -1
+            else:
+                return -2
+        elif a == b:
+            return 0
+        else:
+            if b == 1:
+                return 1
+            else:
+                return 2
+
+    @staticmethod
+    def compare_many_tweet_labels(original, new):
+        return [Utils.compare_tweet_label(a, b) for a, b in zip(original, new)]
+
