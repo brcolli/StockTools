@@ -260,7 +260,7 @@ class SpamModelLearning(ModelLearning):
         keys = ['Accuracy', 'Precision', 'Recall', 'F-Score', 'MCor', 'Numerical']
         numerical = ['Total', 'True Positives', 'False Positives', 'True Negatives', 'False Negatives']
         score_dict = dict(zip(keys, scores))
-        score_dict['Numerical'] = dict(zip(numerical, scores[4]))
+        score_dict['Numerical'] = dict(zip(numerical, scores[5]))
 
         return score_dict
 
