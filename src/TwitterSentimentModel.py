@@ -17,7 +17,7 @@ MetricsKeys = ['acc', 'precision', 'recall', 'mcor', 'fbeta']
 MetricsDict = dict(zip(MetricsKeys, Metrics))
 
 
-class SpamModelParameters(ModelParameters):
+class SentimentModelParameters(ModelParameters):
 
     def __init__(self,
                  learning_rate=1e-3,
@@ -42,17 +42,15 @@ class SpamModelParameters(ModelParameters):
                          debug)
 
 
-class SpamModelData(ModelData):
+class SentimentModelData(ModelData):
 
-    def __init__(self, nsc, base_data_csv, test_size, features_to_train, aug_data_csv=None, save_preload_binary='',
+    def __init__(self, nsc, base_data_csv, test_size, aug_data_csv=None, save_preload_binary='',
                  from_preload_binary=''):
 
-        super().__init__(nsc, base_data_csv,
-                         test_size,
-                         features_to_train,
-                         aug_data_csv)
-
-        self.textless_features_to_train = [x for x in features_to_train if x != 'full_text']
+        super().__init__(nsc=nsc, base_data_csv=base_data_csv,
+                         test_size=test_size,
+                         features_to_train=None,
+                         aug_data_csv=aug_data_csv)
 
         if from_preload_binary:
             self.load_data_from_binary(from_preload_binary)
@@ -86,10 +84,8 @@ class SpamModelData(ModelData):
         :return: Data ready to be passed into the model for prediction
         :rtype: [x_val_text_embeddings, x_val_meta] or x_val_text_embeddings
         """
-        if 'full_text' in self.features_to_train:
-            x_val_text_data = x_val['full_text']
-        else:
-            x_val_text_data = pd.DataFrame()
+
+        x_val_text_data = x_val['full_text']
 
         # Sanitizes textual data
         x_val_text_clean = [NSC.sanitize_text_string(s) for s in list(x_val_text_data)]
@@ -97,11 +93,7 @@ class SpamModelData(ModelData):
         # Vectorizes textual data
         _, x_val_text_embeddings = self.nsc.keras_word_embeddings(x_val_text_clean, self.text_input_length)
 
-        if len(self.textless_features_to_train) > 0:
-            x_val_meta = x_val[self.textless_features_to_train]
-            return [x_val_text_embeddings, x_val_meta]
-        else:
-            return x_val_text_embeddings
+        return x_val_text_embeddings
 
     def get_dataset_from_tweet_spam(self, dataframe):
 
@@ -124,13 +116,8 @@ class SpamModelData(ModelData):
             return False
 
         # Split into text and meta data
-        if 'full_text' in self.features_to_train:
-            x_train_text_data = x_train['full_text']
-            x_test_text_data = x_test['full_text']
-
-        else:
-            x_train_text_data = pd.DataFrame()
-            x_test_text_data = pd.DataFrame()
+        x_train_text_data = x_train['full_text']
+        x_test_text_data = x_test['full_text']
 
         # Clean the textual data
         x_train_text_clean = [NSC.sanitize_text_string(s) for s in list(x_train_text_data)]
@@ -145,11 +132,7 @@ class SpamModelData(ModelData):
 
         glove_embedding_matrix = self.nsc.create_glove_word_vectors()
 
-        x_train_meta = x_train[self.textless_features_to_train]
-        x_test_meta = x_test[self.textless_features_to_train]
-
-        return x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
-               glove_embedding_matrix, y_train, y_test
+        return x_train_text_embeddings, x_test_text_embeddings, glove_embedding_matrix, y_train, y_test
 
     def load_data_from_csv(self):
         """
@@ -168,14 +151,13 @@ class SpamModelData(ModelData):
 
             twitter_df = pd.concat([twitter_df, aug_df])
 
-        self.x_train_text_embeddings, self.x_test_text_embeddings, self.x_train_meta, self.x_test_meta, \
-        self.glove_embedding_matrix, \
+        self.x_train_text_embeddings, self.x_test_text_embeddings, self.glove_embedding_matrix, \
         self.y_train, self.y_test = self.get_dataset_from_tweet_spam(twitter_df)
 
 
-class SpamModelLearning(ModelLearning):
+class SentimentModelLearning(ModelLearning):
 
-    def __init__(self, model_params: SpamModelParameters, model_data: SpamModelData):
+    def __init__(self, model_params: SentimentModelParameters, model_data: SentimentModelData):
 
         super().__init__()
 
@@ -254,13 +236,13 @@ class SpamModelLearning(ModelLearning):
         scores = Utils.calculate_ml_measures(y1, y)
 
         if affect_parameter_scores:
-            self.parameters.accuracy, self.parameters.precision, self.parameters.recall, \
+            self.parameters.accuracy, self.parameters.precision, self.parameters.recall,\
             self.parameters.f_score, self.parameters.mcor = scores[0:5]
 
         keys = ['Accuracy', 'Precision', 'Recall', 'F-Score', 'MCor', 'Numerical']
         numerical = ['Total', 'True Positives', 'False Positives', 'True Negatives', 'False Negatives']
         score_dict = dict(zip(keys, scores))
-        score_dict['Numerical'] = dict(zip(numerical, scores[5]))
+        score_dict['Numerical'] = dict(zip(numerical, scores[4]))
 
         return score_dict
 
@@ -304,10 +286,9 @@ class SpamModelLearning(ModelLearning):
             self.model = NSC.load_saved_model(self.parameters.saved_model_bin)
             self.compile_model()
 
-            return self.evaluate_model([self.data.x_test_text_embeddings, self.data.x_test_meta], self.data.y_test, [])
+            return self.evaluate_model(self.data.x_test_text_embeddings, self.data.y_test, [])
 
-        self.model = self.data.nsc.create_spam_text_meta_model(self.data.glove_embedding_matrix,
-                                                               len(self.data.x_train_meta.columns),
+        self.model = self.data.nsc.create_sentiment_text_model(self.data.glove_embedding_matrix,
                                                                self.data.y_train.shape,
                                                                len(self.data.x_train_text_embeddings[0]))
 
@@ -323,21 +304,9 @@ class SpamModelLearning(ModelLearning):
             cbs.append(NSC.create_model_checkpoint_callback(self.parameters.saved_model_bin, monitor_stat='mcor',
                                                             mode='max'))
 
-        # Change input layer based on what style of features we are using
-        if len(self.data.x_train_meta.columns) < 1:
-
-            # Using only text features
-            train_input_layer = self.data.x_train_text_embeddings
-            test_input_layer = self.data.x_test_text_embeddings
-        else:
-
-            # Using text and meta features
-            train_input_layer = [self.data.x_train_text_embeddings, self.data.x_train_meta]
-            test_input_layer = [self.data.x_test_text_embeddings, self.data.x_test_meta]
-
-        history = self.model.fit(x=train_input_layer, y=self.data.y_train, batch_size=self.parameters.batch_size,
+        history = self.model.fit(x=self.data.x_train_text_embeddings, y=self.data.y_train, batch_size=self.parameters.batch_size,
                                  epochs=self.parameters.epochs, verbose=1, callbacks=cbs)
 
         NSC.plot_model_history(history)
 
-        return self.evaluate_model(test_input_layer, self.data.y_test, [])
+        return self.evaluate_model(self.data.x_test_text_embeddings, self.data.y_test, [])

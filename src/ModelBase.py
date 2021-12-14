@@ -36,15 +36,16 @@ class ModelParameters:
         self.precision = 0
         self.recall = 0
         self.f_score = 0
+        self.mcor = 0
 
 
 class ModelData:
-    """This single class should represent all the data being used in the model. Point is that functions to load and process
-    data are contained within the class. In case new data is passed, the class processes it. Otherwise, the class should
-    load itself from a pickle.
+    """This single class should represent all the data being used in the model. Point is that functions to load and
+    process data are contained within the class. In case new data is passed, the class processes it. Otherwise, the
+    class should load itself from a pickle.
     """
 
-    def __init__(self, nsc, base_data_csv, test_size, features_to_train, aug_data_csv=None):
+    def __init__(self, nsc, base_data_csv, test_size, features_to_train=None, aug_data_csv=None):
 
         self.nsc = nsc
         self.base_data_csv = base_data_csv

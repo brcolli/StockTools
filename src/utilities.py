@@ -16,6 +16,7 @@ import re
 import itertools
 import ast
 import matplotlib.pyplot as plt
+import math
 
 
 """utilities
@@ -717,6 +718,9 @@ class Utils:
         for header in json_headers:
             json_dict[header] = []
 
+        if 'json' not in df.columns:
+            return df
+
         for row, col in df.iterrows():
 
             json_data = Utils.safe_str_to_dict(col['json'])
@@ -737,7 +741,7 @@ class Utils:
     @staticmethod
     def calculate_ml_measures(results, labels):
         """
-        Calculates the accuracy, precision, recall, f1 score as well as tp,fp,tn,fn from a list of result labels and
+        Calculates the accuracy, precision, recall, f1 score, mcor as well as tp,fp,tn,fn from a list of result labels and
         actual labels. Skips -1 results and labels.
 
         :param results: list of result labels
@@ -746,9 +750,9 @@ class Utils:
         :param labels: list of actual labels
         :type labels: list(int)
 
-        :return: accuracy, precision, recall, f1 score, (total, true positives, false positives, true negatives,
+        :return: accuracy, precision, recall, f1 score, mcor, (total, true positives, false positives, true negatives,
                                                         false negatives)
-        :rtype: float, float, float, float, (int, int, int, int, int)
+        :rtype: float, float, float, float, float, (int, int, int, int, int)
         """
 
         tp = 0
@@ -779,7 +783,16 @@ class Utils:
         recall = tp / max((tp + fn), 1)
         f1 = 2 * (recall * precision) / max((recall + precision), 1)
 
-        return accuracy, precision, recall, f1, (tp+fp+tn+fn, tp, fp, tn, fn)
+        eps = 1.0
+        while eps + 1 > 1:
+            eps /= 2
+        eps *= 2
+
+        mcor_numerator = (tp * tn - fp * fn)
+        mcor_denominator = math.sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
+        mcor = mcor_numerator / (mcor_denominator + eps)
+
+        return accuracy, precision, recall, f1, mcor, (tp+fp+tn+fn, tp, fp, tn, fn)
 
     @staticmethod
     def tweet_data_analysis(df, df_path='', plot=False):

@@ -165,7 +165,24 @@ class NLPSentimentCalculations:
 
         return embedding_matrix
 
-    def create_text_meta_model(self, embedding_matrix, meta_feature_size, output_shape, maxlen):
+    def create_sentiment_text_model(self, embedding_matrix, output_shape, maxlen):
+
+        dropout_rate = 0.5
+
+        input_text_layer, lstm_text_layer = self.create_spam_text_submodel(blocks=5,
+                                                                           dropout_rate=dropout_rate,
+                                                                           filters=64,
+                                                                           kernel_size=3,
+                                                                           pool_size=2,
+                                                                           embedding_matrix=embedding_matrix,
+                                                                           maxlen=maxlen,
+                                                                           use_cnn=False)
+
+        output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax')(lstm_text_layer)
+
+        return tf.keras.models.Model(inputs=input_text_layer, outputs=output_layer)
+
+    def create_spam_text_meta_model(self, embedding_matrix, meta_feature_size, output_shape, maxlen):
 
         """Creates a Tensorflow model that combines a text training model and a meta data training model. If the size
         of the meta features count is 0, will skip the meta model and just return a model for text training.
@@ -194,14 +211,14 @@ class NLPSentimentCalculations:
 
         dropout_rate = 0.5
 
-        input_text_layer, lstm_text_layer = self.create_text_submodel(blocks=5,
-                                                                      dropout_rate=dropout_rate,
-                                                                      filters=64,
-                                                                      kernel_size=3,
-                                                                      pool_size=2,
-                                                                      embedding_matrix=embedding_matrix,
-                                                                      maxlen=maxlen,
-                                                                      use_cnn=False)
+        input_text_layer, lstm_text_layer = self.create_spam_text_submodel(blocks=5,
+                                                                           dropout_rate=dropout_rate,
+                                                                           filters=64,
+                                                                           kernel_size=3,
+                                                                           pool_size=2,
+                                                                           embedding_matrix=embedding_matrix,
+                                                                           maxlen=maxlen,
+                                                                           use_cnn=False)
 
         if meta_feature_size < 1:
             # No meta data, don't create and concat
@@ -210,7 +227,7 @@ class NLPSentimentCalculations:
 
             return tf.keras.models.Model(inputs=input_text_layer, outputs=output_layer)
 
-        input_meta_layer, dense_meta_layer = NLPSentimentCalculations.create_meta_submodel(meta_feature_size)
+        input_meta_layer, dense_meta_layer = NLPSentimentCalculations.create_spam_meta_submodel(meta_feature_size)
 
         concat_layer = tf.keras.layers.Concatenate()([lstm_text_layer, dense_meta_layer])
 
@@ -222,8 +239,8 @@ class NLPSentimentCalculations:
 
         return tf.keras.models.Model(inputs=[input_text_layer, input_meta_layer], outputs=output_layer)
 
-    def create_text_submodel(self, blocks, dropout_rate, filters, kernel_size, pool_size, embedding_matrix, maxlen,
-                             use_cnn=False):
+    def create_spam_text_submodel(self, blocks, dropout_rate, filters, kernel_size, pool_size, embedding_matrix, maxlen,
+                                  use_cnn=False):
 
         """Creates a text-based model for learning. Can take 2 forms. Always begins by creating an Input layer.
 
@@ -317,7 +334,7 @@ class NLPSentimentCalculations:
             return text_input_layer, tf.keras.layers.Dropout(rate=dropout_rate)(ga_pooling)
 
     @staticmethod
-    def create_meta_submodel(meta_feature_size):
+    def create_spam_meta_submodel(meta_feature_size):
 
         """Creates a model based on training with meta features, non-textual features. If meta_feature_size is 0,
         returns None for both input and output layers.
@@ -900,7 +917,6 @@ class NLPSentimentCalculations:
         plt.ylabel('scores')
         plt.xlabel('epoch')
         plt.legend(history_params, loc='upper left')
-        # plt.show()
 
         plt.figure(2)
         plt.plot(history.history['loss'])

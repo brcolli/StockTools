@@ -7,12 +7,16 @@ from nltk.corpus import twitter_samples
 import utilities
 import NLPSentimentCalculations
 import TwitterSpamModel
+import TwitterSentimentModel
 
 Utils = utilities.Utils
 NSC = NLPSentimentCalculations.NLPSentimentCalculations
 SpamModelParameters = TwitterSpamModel.SpamModelParameters
 SpamModelData = TwitterSpamModel.SpamModelData
 SpamModelLearning = TwitterSpamModel.SpamModelLearning
+SentimentModelParameters = TwitterSentimentModel.SentimentModelParameters
+SentimentModelData = TwitterSentimentModel.SentimentModelData
+SentimentModelLearning = TwitterSentimentModel.SentimentModelLearning
 
 
 """NewsSentimentAnalysis
@@ -418,8 +422,8 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
 
     if use_ml:
 
-        spam_model_params = SpamModelParameters(epochs=150,
-                                                batch_size=256,
+        spam_model_params = SpamModelParameters(epochs=400,
+                                                batch_size=128,
                                                 load_model=False,
                                                 checkpoint_model=True,
                                                 saved_model_bin='../data/analysis/Model Results/Saved Models/'
@@ -448,11 +452,23 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
         spam_model_learning = SpamModelLearning(spam_model_params, spam_model_data)
         spam_model_learning.build_model()
 
-        score_dict = spam_model_learning.predict_and_score('../data/Learning Data/spam_test_set.csv')
+        spam_score_dict = spam_model_learning.predict_and_score('../data/Learning Data/spam_test_set.csv')
 
-        print(score_dict)
+        print(spam_score_dict)
 
-        # tw.initialize_twitter_sentiment_model()
+        sentiment_model_params = SentimentModelParameters(epochs=150,
+                                                          batch_size=128,
+                                                          load_model=False,
+                                                          checkpoint_model=True,
+                                                          saved_model_bin='../data/analysis/Model Results/Saved Models/'
+                                                                          'best_sentiment_model.h5')
+
+        sentiment_model_data = SentimentModelData(nsc=NSC(), base_data_csv='../data/Learning Data/'
+                                                                           'sentiment_learning.csv',
+                                                  test_size=0.1)
+
+        spam_model_learning = SentimentModelLearning(sentiment_model_params, sentiment_model_data)
+        spam_model_learning.build_model()
 
     # Search phrase
     if search_past:
