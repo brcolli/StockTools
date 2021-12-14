@@ -704,7 +704,15 @@ class Utils:
     @staticmethod
     def parse_json_tweet_data(filename, json_headers):
 
-        df = pd.read_csv(filename)
+        if type(filename) == str:
+            df = pd.read_csv(filename)
+
+        elif type(filename) == pd.DataFrame:
+            df = filename
+
+        else:
+            raise Exception("utilities.py 705 passed in not a filename and not a dataframe")
+
         json_dict = {}
         for header in json_headers:
             json_dict[header] = []
