@@ -193,6 +193,9 @@ class SentimentModelLearning(ModelLearning):
         x_val = self.data.get_x_val_from_csv(csv)
         return self.model.predict(x_val).tolist()
 
+    def raw_predict_from_x_val(self, x_val):
+        return self.model.predict(x_val)
+
     def predict(self, csv):
         """
         Predicts Tweet labels from a csv of Tweets. CSV must be a saved dataframe of tweets with all the

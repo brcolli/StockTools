@@ -1,36 +1,55 @@
 import pandas as pd
 
-from TwitterSpamModelInterface import *
+import TwitterSpamModelInterface as SpamMI
+import TwitterSentimentModelInterface as SentMI
 
 """
-1. Grabs Tweets
+1. Grabs Tweets from csv
 2. Labels Using Spam Model
 3. Evaluates Using Sentiment Model
+4. Saves outputs to csv
 """
 
 
-class OperationHandler:
-    def __init__(self, spam_model_path, sentiment_model_path):
-        self.spam_model = load_model_from_bin(spam_model_path)
-        self.sentiment_model = 0
+class ModelHandler:
+    def __init__(self, spam_model_path):
+        self.spam_model = SpamMI.load_model_from_bin(spam_model_path)
+        self.sentiment_model = SentMI.load_model()
 
     def analyze_tweets(self, path):
         """
         Function to analyze a csv of Tweets
         """
-        base_df = pd.read_csv(path)
 
-
-        # Add way to get processed text
-        processed_data = self.spam_model.data.get_x_val_from_csv(path)
-
-
-        labels = self.spam_model.model.predict(processed_data).tolist()
-        labels = [max(range(len(y1)), key=y1.__getitem__) for y1 in labels]
+        # Read in dataframe from file once
         df = pd.read_csv(path)
-        df['Model Label'] = labels
 
-        results = self.sentiment_model.evaluate(processed_data, labels)
-        df['Sentiment'] = results
+        # Predict spam labels: binary output
+        labels = self.spam_model.predict(df)
+
+        # Predict sentiment labels: float in (0, 1) where 0 is negative and 1 is positive
+        # Format: [[Probability of Negative, P(Positive)], [P(N), P(P)]] where P(N) + P(P) = 1 for each datapoint
+        sentiments = self.sentiment_model.raw_predict(df)
+
+        # Grab only the Probability of Positive sentiment to have a single float value
+        sentiments = [s[1] for s in sentiments]
+
+        print(labels)
+        print(sentiments)
+
+        # Write predictions to dataframe and csv
+        df['Model Label'] = labels
+        df['Sentiment'] = sentiments
         df.to_csv(path, index=False)
 
+        return df
+
+
+def main():
+    MH = ModelHandler('../data/Learning Data/OH.bin')
+    df = MH.analyze_tweets('../data/TweetData/Test0.csv')
+    return df
+
+
+if __name__ == '__main__':
+    x = main()
