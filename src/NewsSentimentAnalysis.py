@@ -422,7 +422,7 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
 
     if use_ml:
 
-        spam_model_params = SpamModelParameters(epochs=400,
+        spam_model_params = SpamModelParameters(epochs=10,
                                                 batch_size=128,
                                                 load_model=False,
                                                 checkpoint_model=True,
@@ -467,8 +467,8 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
                                                                            'sentiment_learning.csv',
                                                   test_size=0.1)
 
-        spam_model_learning = SentimentModelLearning(sentiment_model_params, sentiment_model_data)
-        spam_model_learning.build_model()
+        sentiment_model_learning = SentimentModelLearning(sentiment_model_params, sentiment_model_data)
+        sentiment_model_learning.build_model()
 
     # Search phrase
     if search_past:
