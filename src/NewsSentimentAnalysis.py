@@ -472,7 +472,7 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
         sentiment_model_learning.build_model()
 
         MH = ModelHandler(spam_model=spam_model_learning, sentiment_model=sentiment_model_learning)
-        MH.analyze_tweets('SOURCE OF TWEETS', 'SOURCE TO WRITE TO')
+        MH.analyze_tweets('SOURCE OF TWEETS', out_path='SOURCE TO WRITE TO')
 
     # Search phrase
     if search_past:
