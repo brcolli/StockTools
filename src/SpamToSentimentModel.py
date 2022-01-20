@@ -12,11 +12,18 @@ import TwitterSentimentModelInterface as SentMI
 
 
 class ModelHandler:
-    def __init__(self, spam_model_path):
-        self.spam_model = SpamMI.load_model_from_bin(spam_model_path)
-        self.sentiment_model = SentMI.load_model()
+    def __init__(self, spam_model=None, sentiment_model=None, load_spam_model_path=''):
+        if spam_model is not None:
+            self.spam_model = spam_model
+        else:
+            self.spam_model = SpamMI.load_model_from_bin(load_spam_model_path)
 
-    def analyze_tweets(self, path):
+        if sentiment_model is not None:
+            self.sentiment_model = sentiment_model
+        else:
+            self.sentiment_model = SentMI.load_model()
+
+    def analyze_tweets(self, path, out_path=''):
         """
         Function to analyze a csv of Tweets
         """
@@ -40,7 +47,16 @@ class ModelHandler:
         # Write predictions to dataframe and csv
         df['Model Label'] = labels
         df['Sentiment'] = sentiments
-        df.to_csv(path, index=False)
+
+        if out_path:
+            write_path = out_path
+        else:
+            write_path = path
+
+        try:
+            df.to_csv(write_path, index=False)
+        except FileNotFoundError:
+            print(f'Path not found: {write_path}')
 
         return df
 
