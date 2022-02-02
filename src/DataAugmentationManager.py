@@ -358,13 +358,25 @@ class TweetEDA:
 class NumericalDataAugmentationManager:
 
     @staticmethod
-    def shuffle_meta_scores(df, meta_headers):
-        spam_df = df[df['Label'] == 1].reset_index(drop=True)
-        y = spam_df[meta_headers].sample(frac=1)
-        spam_df[meta_headers] = y.reset_index(drop=True)
+    def shuffle_meta_scores(df, meta_headers, group=True):
 
-        ham_df = df[df['Label'] == 0].reset_index(drop=True)
-        ham_df[meta_headers] = ham_df[meta_headers].sample(frac=1).reset_index(drop=True)
+        if group:
+
+            spam_df = df[df['Label'] == 1].reset_index(drop=True)
+            y = spam_df[meta_headers].sample(frac=1)
+            spam_df[meta_headers] = y.reset_index(drop=True)
+
+            ham_df = df[df['Label'] == 0].reset_index(drop=True)
+            ham_df[meta_headers] = ham_df[meta_headers].sample(frac=1).reset_index(drop=True)
+        else:
+
+            spam_df = df[df['Label'] == 1].reset_index(drop=True)
+            y = spam_df[meta_headers].apply(lambda m: m.sample(frac=1).values)
+            spam_df[meta_headers] = y.reset_index(drop=True)
+
+            ham_df = df[df['Label'] == 0].reset_index(drop=True)
+            y = ham_df[meta_headers].apply(lambda m: m.sample(frac=1).values)
+            ham_df[meta_headers] = y.reset_index(drop=True)
 
         return pd.concat([spam_df, ham_df], axis=0).reset_index(drop=True)
 
@@ -431,7 +443,7 @@ class DataAugmentationManager:
         meta_headers = df.columns.tolist()
         meta_headers = meta_headers[7:-2]
 
-        df = self.sdam.shuffle_meta_scores(df, meta_headers)
+        df = self.sdam.shuffle_meta_scores(df, meta_headers, group=False)
 
         if to_file:
             try:
@@ -445,10 +457,10 @@ class DataAugmentationManager:
 
 def main():
     dam = DataAugmentationManager()
-    dam.augment_data(random_text_aug=True, random_total=0.6, total_aug_to_make=10000,
+    dam.augment_data(random_text_aug=True, random_total=0.6, total_aug_to_make=1000,
                      to_file='../data/Learning Data/augmented_spam_learning.csv',
                      from_file='../data/Learning Data/spam_learning.csv')
 
 
-# if __name__ == '__main__':
-#     main()
+if __name__ == '__main__':
+    main()
