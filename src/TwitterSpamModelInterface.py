@@ -17,7 +17,7 @@ Date: October 13, 2021
 """
 
 
-def load_model_from_bin(path):
+def load_model_from_bin(path) -> SpamModelLearning:
     """
     Loads and returns a model object from a binary save file
 
