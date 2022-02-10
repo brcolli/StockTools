@@ -95,7 +95,7 @@ class SentimentModelData(ModelData):
 
         return x_val_text_embeddings
 
-    def get_dataset_from_tweet_spam(self, dataframe):
+    def get_dataset_from_tweet_sentiment(self, dataframe):
 
         """Converts the text feature to a dataset of labeled unigrams and bigrams.
 
@@ -136,7 +136,7 @@ class SentimentModelData(ModelData):
 
     def load_data_from_csv(self):
         """
-        Loads twitter dataframe from csv and calls self.get_dataset_from_tweet_spam
+        Loads twitter dataframe from csv and calls self.get_dataset_from_tweet_sentiment
         """
 
         twitter_df = Utils.parse_json_tweet_data(self.base_data_csv, self.features_to_train)
@@ -152,7 +152,7 @@ class SentimentModelData(ModelData):
             twitter_df = pd.concat([twitter_df, aug_df])
 
         self.x_train_text_embeddings, self.x_test_text_embeddings, self.glove_embedding_matrix, \
-        self.y_train, self.y_test = self.get_dataset_from_tweet_spam(twitter_df)
+        self.y_train, self.y_test = self.get_dataset_from_tweet_sentiment(twitter_df)
 
 
 class SentimentModelLearning(ModelLearning):

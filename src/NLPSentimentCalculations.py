@@ -14,6 +14,7 @@ from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 import tensorflow as tf
 from tensorflow.keras import backend as kb
+import transformers
 import string
 import re
 import math
@@ -165,6 +166,30 @@ class NLPSentimentCalculations:
 
         return embedding_matrix
 
+    def create_roberta_tokenizer(self, test_df, sentiment_id, maxlen):
+
+        tokenizer = transformers.ByT5Tokenizer(
+            vocab_file='../data/vocab-roberta-base.json',
+            merges_file='../data/merges-roberta-base.txt',
+            lowercase=True,
+            add_prefix_space=True
+        )
+
+        ct = test_df.shape[0]
+        input_ids_t = np.ones((ct, maxlen), dtype='int32')
+        attention_mask_t = np.zeros((ct, maxlen), dtype='int32')
+        token_type_ids_t = np.zeros((ct, maxlen), dtype='int32')
+
+        for k in range(test_df.shape[0]):
+            # INPUT_IDS
+            text1 = " " + " ".join(test_df.loc[k, 'text'].split())
+            enc = tokenizer.encode(text1)
+            s_tok = sentiment_id[test_df.loc[k, 'sentiment']]
+            input_ids_t[k, :len(enc.ids) + 5] = [0] + enc.ids + [2, 2] + [s_tok] + [2]
+            attention_mask_t[k, :len(enc.ids) + 5] = 1
+
+        return token_type_ids_t, input_ids_t, attention_mask_t
+
     def create_sentiment_text_model(self, embedding_matrix, output_shape, maxlen):
 
         dropout_rate = 0.5
@@ -218,7 +243,8 @@ class NLPSentimentCalculations:
                                                                            pool_size=2,
                                                                            embedding_matrix=embedding_matrix,
                                                                            maxlen=maxlen,
-                                                                           use_cnn=False)
+                                                                           use_cnn=False,
+                                                                           use_transformers=True)
 
         if meta_feature_size < 1:
             # No meta data, don't create and concat
@@ -240,7 +266,7 @@ class NLPSentimentCalculations:
         return tf.keras.models.Model(inputs=[input_text_layer, input_meta_layer], outputs=output_layer)
 
     def create_spam_text_submodel(self, blocks, dropout_rate, filters, kernel_size, pool_size, embedding_matrix, maxlen,
-                                  use_cnn=False):
+                                  use_cnn=False, use_transformers=False):
 
         """Creates a text-based model for learning. Can take 2 forms. Always begins by creating an Input layer.
 
@@ -269,6 +295,8 @@ class NLPSentimentCalculations:
         :type maxlen: int
         :param use_cnn: Flag to use Separated CNN. If false, will use MLP.
         :type use_cnn: bool
+        :param use_transformers: Flag to use transformers. If false, will use MLP.
+        :type use_transformers: bool
 
         :return: A tuple of an input layer and an output layer.
         :rtype: tuple(Tensorflow.layer, Tensorflow.layer)
@@ -276,19 +304,30 @@ class NLPSentimentCalculations:
 
         text_input_layer = tf.keras.layers.Input(shape=(maxlen,))
 
-        if not use_cnn:
+        if use_transformers:
 
-            embedding_layer = tf.keras.layers.Embedding(input_dim=len(self.tokenizer.word_index) + 1,
-                                                        input_length=maxlen,
-                                                        output_dim=embedding_matrix.shape[1],
-                                                        weights=[embedding_matrix],
-                                                        trainable=False)(text_input_layer)
+            ids = tf.keras.layers.Input((maxlen,), dtype=tf.int32)
+            att = tf.keras.layers.Input((maxlen,), dtype=tf.int32)
+            tok = tf.keras.layers.Input((maxlen,), dtype=tf.int32)
 
-            drop = tf.keras.layers.Dropout(rate=dropout_rate)(embedding_layer)
+            config = transformers.RobertaConfig.from_pretrained('../data/config-roberta-base.json')
+            bert_model = transformers.TFRobertaModel.from_pretrained('../data/pretrained-roberta-base.h5',
+                                                                     config=config)
+            x = bert_model(ids, attention_mask=att, token_type_ids=tok)
 
-            return text_input_layer, tf.keras.layers.LSTM(128)(drop)
+            x1 = tf.keras.layers.Dropout(0.1)(x[0])
+            x1 = tf.keras.layers.Conv1D(1, 1)(x1)
+            x1 = tf.keras.layers.Flatten()(x1)
+            x1 = tf.keras.layers.Activation('softmax')(x1)
 
-        else:
+            x2 = tf.keras.layers.Dropout(0.1)(x[0])
+            x2 = tf.keras.layers.Conv1D(1, 1)(x2)
+            x2 = tf.keras.layers.Flatten()(x2)
+            x2 = tf.keras.layers.Activation('softmax')(x2)
+
+            return text_input_layer, tf.keras.layers.LSTM(128)([x1, x2])
+
+        elif use_cnn:
 
             block_connection = tf.keras.layers.Embedding(input_dim=len(self.tokenizer.word_index) + 1,
                                                          input_length=maxlen,
@@ -332,6 +371,19 @@ class NLPSentimentCalculations:
             ga_pooling = tf.keras.layers.GlobalAveragePooling1D()(sep_conv2)
 
             return text_input_layer, tf.keras.layers.Dropout(rate=dropout_rate)(ga_pooling)
+
+        else:
+
+            embedding_layer = tf.keras.layers.Embedding(input_dim=len(self.tokenizer.word_index) + 1,
+                                                        input_length=maxlen,
+                                                        output_dim=embedding_matrix.shape[1],
+                                                        weights=[embedding_matrix],
+                                                        trainable=False)(text_input_layer)
+
+            drop = tf.keras.layers.Dropout(rate=dropout_rate)(embedding_layer)
+
+            return text_input_layer, tf.keras.layers.LSTM(128)(drop)
+
 
     @staticmethod
     def create_spam_meta_submodel(meta_feature_size):

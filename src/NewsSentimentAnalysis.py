@@ -411,8 +411,8 @@ class TwitterStreamListener(tweepy.StreamListener):
             print('Tweet saved...')
 
 
-def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter_in=None, filter_out=None,
-         history_count=1000):
+def main(search_past=False, search_stream=False, train_spam=False, train_sent=False,
+         phrase='', filter_in=None, filter_out=None, history_count=1000):
     if not filter_in:
         filter_in = []
     if not filter_out:
@@ -420,9 +420,8 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
 
     tw = TwitterManager()
 
-    if use_ml:
-
-        spam_model_params = SpamModelParameters(epochs=10,
+    if train_spam:
+        spam_model_params = SpamModelParameters(epochs=10000,
                                                 batch_size=128,
                                                 load_model=False,
                                                 checkpoint_model=True,
@@ -430,7 +429,7 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
                                                                 'best_spam_model.h5')
 
         spam_model_data = SpamModelData(nsc=NSC(), base_data_csv='../data/Learning Data/spam_learning.csv',
-                                        test_size=0.1,
+                                        test_size=0.01,
                                         features_to_train=['full_text', 'cap.english', 'cap.universal',
                                                            'raw_scores.english.overall',
                                                            'raw_scores.universal.overall',
@@ -447,7 +446,6 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
                                                            'raw_scores.universal.self_declared',
                                                            'raw_scores.universal.spammer',
                                                            'botscore', 'favorite_count', 'retweet_count'])
-                                        #aug_data_csv='../data/Learning Data/augmented_spam_learning.csv')
 
         spam_model_learning = SpamModelLearning(spam_model_params, spam_model_data)
         spam_model_learning.build_model()
@@ -456,6 +454,7 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
 
         print(spam_score_dict)
 
+    if train_sent:
         sentiment_model_params = SentimentModelParameters(epochs=150,
                                                           batch_size=128,
                                                           load_model=False,
@@ -491,4 +490,4 @@ def main(search_past=False, search_stream=False, use_ml=False, phrase='', filter
             tw.start_stream(([phrase]))
 
 
-main(use_ml=True)
+main(train_spam=True)
