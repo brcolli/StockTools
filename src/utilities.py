@@ -705,7 +705,15 @@ class Utils:
     @staticmethod
     def parse_json_tweet_data(filename, json_headers):
 
-        df = pd.read_csv(filename)
+        if type(filename) == str:
+            df = pd.read_csv(filename)
+
+        elif type(filename) == pd.DataFrame:
+            df = filename
+
+        else:
+            raise Exception("utilities.py 705 passed in not a filename and not a dataframe")
+
         json_dict = {}
         for header in json_headers:
             json_dict[header] = []
@@ -819,4 +827,23 @@ class Utils:
             plt.show()
 
         return res_dict
+
+    @staticmethod
+    def compare_tweet_label(a, b):
+        if b == -1:
+            if a == -1:
+                return -1
+            else:
+                return -2
+        elif a == b:
+            return 0
+        else:
+            if b == 1:
+                return 1
+            else:
+                return 2
+
+    @staticmethod
+    def compare_many_tweet_labels(original, new):
+        return [Utils.compare_tweet_label(a, b) for a, b in zip(original, new)]
 

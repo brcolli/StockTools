@@ -432,7 +432,7 @@ class DataAugmentationManager:
         self.teda = TweetEDA()
 
     def augment_data(self, entry_data=pd.DataFrame(), score_new_objects=False, keep_ua_data=True, total_aug_to_make=100,
-                     general_alpha=0, alpha_sr=0.6, alpha_ri=0.1, alpha_rs=0.2, alpha_rd=0.1, increment_alpha=0.05,
+                     general_alpha=0, alpha_sr=0.6, alpha_ri=0.3, alpha_rs=0.2, alpha_rd=0.1, increment_alpha=0.05,
                      random_text_aug=False, random_total=0.5,
                      to_file='', from_file=''):
 
@@ -461,6 +461,5 @@ def main():
                      to_file='../data/Learning Data/augmented_spam_learning.csv',
                      from_file='../data/Learning Data/spam_learning.csv')
 
-
-if __name__ == '__main__':
-    main()
+#if __name__ == '__main__':
+#    main()
