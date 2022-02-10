@@ -153,7 +153,7 @@ class SpamModelData(ModelData):
 
     def load_data_from_csv(self):
         """
-        Loads twitter dataframe from csv and calls self.get_dataset_from_tweet_spam
+        Loads twitter dataframe from csv and calls self.get_dataset_from_tweet_sentiment
         """
 
         twitter_df = Utils.parse_json_tweet_data(self.base_data_csv, self.features_to_train)
