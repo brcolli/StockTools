@@ -1,8 +1,7 @@
 import random
 import pandas as pd
 import openpyxl
-from openpyxl.styles import *
-from openpyxl.chart import AreaChart, Reference, Series
+from openpyxl.chart import AreaChart, Reference
 import os
 import numpy as np
 import string

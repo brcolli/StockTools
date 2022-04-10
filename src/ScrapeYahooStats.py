@@ -1,13 +1,14 @@
 import requests
-import importlib
 import json
 from os import path
 import time
 import yfinance as yf
+import utilities
+import SqliteManager
 
 
-Utils = importlib.import_module('utilities').Utils
-Sqm = importlib.import_module('SqliteManager').SqliteManager
+Utils = utilities.Utils
+Sqm = SqliteManager.SqliteManager
 
 
 def get_yahoo_stat_for_ticker(ticker):

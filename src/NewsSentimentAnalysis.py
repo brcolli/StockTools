@@ -105,7 +105,8 @@ class TwitterManager:
         self.scKey = 'MF5w3g6jmn7WnYM6DG8xtIWkdjnEhInnBSf5bU6HclTF4wSkJ9'
         self.shToken = '4149804506-DrTR0UhuQ8pWf16r9wm8NYdkGNSBWuib2Y8nUlw'
         self.scToken = 'PYkfcY2w6tvovb4RMyCNpEAPyValmReJlaHUgC2KsWWzQ'
-        self.bearer = 'AAAAAAAAAAAAAAAAAAAAAHfLGwEAAAAA23M6%2FAOdV1Gp6xMLfN1txD8DUwM%3DlxzfwHEkS1xPDAcAMncrZKVOUJEL0csMBxQCKOFp89CLlcVo6v'
+        self.bearer = 'AAAAAAAAAAAAAAAAAAAAAHfLGwEAAAAA23M6%2FAOdV1Gp6xMLfN1txD8DUwM%3DlxzfwHEkS1xPDAcAMncrZKVOUJEL0' \
+                      'csMBxQCKOFp89CLlcVo6v'
 
         # Set up authentication
         self.auth = tweepy.OAuthHandler(self.shKey, self.scKey)
@@ -422,10 +423,10 @@ def main(search_past=False, search_stream=False, train_spam=False, train_sent=Fa
     tw = TwitterManager()
 
     if train_spam:
-        spam_model_params = SpamModelParameters(epochs=10000,
+        spam_model_params = SpamModelParameters(epochs=1000,
                                                 batch_size=128,
                                                 load_model=False,
-                                                checkpoint_model=True,
+                                                checkpoint_model=False,
                                                 saved_model_bin='../data/analysis/Model Results/Saved Models/'
                                                                 'best_spam_model.h5')
 

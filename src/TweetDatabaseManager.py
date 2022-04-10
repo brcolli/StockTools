@@ -1,9 +1,6 @@
-import importlib
 import random
-
 import pandas as pd
 import BotometerRequests as br
-import sqlite3 as sq
 import TweetCollector
 import utilities
 import SqliteManager

@@ -1,14 +1,15 @@
 import requests
 import re
-import importlib
 from bs4 import BeautifulSoup
 import pandas as pd
 from os import path
 import time
+import utilities
+import SqliteManager
 
 
-Utils = importlib.import_module('utilities').Utils
-Sqm = importlib.import_module('SqliteManager').SqliteManager
+Utils = utilities.Utils
+Sqm = SqliteManager.SqliteManager
 
 
 # Scrape Nasdaq site for a single ticker value's short interest

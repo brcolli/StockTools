@@ -1,16 +1,18 @@
 import botometer
 import pandas
 import pandas as pd
-import importlib
 import os
 from dotenv import load_dotenv
 import time
 import itertools
 import tweepy
 import ast
+import utilities
+import TwitterManager
 
 
-Utils = importlib.import_module('utilities').Utils
+Utils = utilities.Utils
+tm = TwitterManager.TwitterManager
 
 # TODO Add wrapper functions for main entry points
 # TODO Add functions for accuracy, recall, precision, F-scores
@@ -34,19 +36,26 @@ class BotometerRequests:
             }
         self.ALL_BOT_KEYS = os.getenv('ALL_BOT_KEYS').split(',')
         self.ALL_LITE_KEYS = ['user_id', 'tweet_id', 'botscore']
-        self.excel_keys = ['Tweet id', 'User id', 'user.majority_lang', 'user.user_data.screen_name', 'Label', 'botscore', 'u_botscore', 'cap.english', 'cap.universal', 'raw_scores.english.astroturf', 'raw_scores.english.fake_follower', 'raw_scores.english.financial', 'raw_scores.english.other', 'raw_scores.english.overall', 'raw_scores.english.self_declared', 'raw_scores.english.spammer', 'raw_scores.universal.astroturf', 'raw_scores.universal.fake_follower', 'raw_scores.universal.financial', 'raw_scores.universal.other', 'raw_scores.universal.overall', 'raw_scores.universal.self_declared', 'raw_scores.universal.spammer']
+        self.excel_keys = ['Tweet id', 'User id', 'user.majority_lang', 'user.user_data.screen_name', 'Label',
+                           'botscore', 'u_botscore', 'cap.english', 'cap.universal', 'raw_scores.english.astroturf',
+                           'raw_scores.english.fake_follower', 'raw_scores.english.financial',
+                           'raw_scores.english.other', 'raw_scores.english.overall', 'raw_scores.english.self_declared',
+                           'raw_scores.english.spammer', 'raw_scores.universal.astroturf',
+                           'raw_scores.universal.fake_follower', 'raw_scores.universal.financial',
+                           'raw_scores.universal.other', 'raw_scores.universal.overall',
+                           'raw_scores.universal.self_declared', 'raw_scores.universal.spammer']
 
         self.bot_null_result = ast.literal_eval(os.getenv('null_bot_dictionary'))
         self.lite_null_result = {"botscore": -1, "tweet_id": -1, "user_id": -1}
         self.u_lite_null_result = {"u_botscore": -1, "tweet_id": -1, "user_id": -1}
 
-        self.auth = False
+        self.auth = None
         self.twitter_api = twitter_api
         self.file_keys = ['Tweet id', 'User id', 'json']
 
         self.bom = botometer.Botometer(wait_on_ratelimit=True,
-                                  rapidapi_key=self.rapidapi_key,
-                                  **self.twitter_app_auth)
+                                       rapidapi_key=self.rapidapi_key,
+                                       **self.twitter_app_auth)
 
         self.lite = botometer.BotometerLite(rapidapi_key=self.rapidapi_key, **self.twitter_app_auth)
 
@@ -367,7 +376,8 @@ class BotometerRequests:
 
         return self.replace_errors(scores, self.lite_null_result)
 
-    def get_tweets_from_ids(self, tweet_ids, api):
+    @staticmethod
+    def get_tweets_from_ids(tweet_ids, api):
         """
         Takes a list of tweet ids and Tweepy api and returns a list of json tweet objects.
 

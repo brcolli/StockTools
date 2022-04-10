@@ -71,7 +71,7 @@ class SentimentModelData(ModelData):
         :rtype: [x_val_text_embeddings, x_val_meta] or x_val_text_embeddings
         """
 
-        df = Utils.parse_json_tweet_data(csv, self.features_to_train)
+        df = Utils.parse_json_tweet_data_from_csv(csv, self.features_to_train)
         return self.get_x_val_from_dataframe(df)
 
     def get_x_val_from_dataframe(self, x_val):
@@ -139,13 +139,13 @@ class SentimentModelData(ModelData):
         Loads twitter dataframe from csv and calls self.get_dataset_from_tweet_sentiment
         """
 
-        twitter_df = Utils.parse_json_tweet_data(self.base_data_csv, self.features_to_train)
+        twitter_df = Utils.parse_json_tweet_data_from_csv(self.base_data_csv, self.features_to_train)
 
         if 'augmented' not in twitter_df.columns:
             twitter_df['augmented'] = 0
 
         if self.aug_data_csv:
-            aug_df = Utils.parse_json_tweet_data(self.aug_data_csv, self.features_to_train)
+            aug_df = Utils.parse_json_tweet_data_from_csv(self.aug_data_csv, self.features_to_train)
             if 'augmented' not in aug_df.columns:
                 aug_df['augmented'] = 1
 
@@ -173,9 +173,6 @@ class SentimentModelLearning(ModelLearning):
                            optimizer=optimizer,
                            metrics=self.metrics)
         print(self.model.summary())  # Print model summary
-
-    # TODO: Add function to test the model on provided csv of Tweets. Would be useful for validation later.
-    # TODO: Add functions to calculate, store, and return aspects apart from accuracy like fscore, precision, and recall
 
     def raw_predict(self, csv):
         """
@@ -307,7 +304,8 @@ class SentimentModelLearning(ModelLearning):
             cbs.append(NSC.create_model_checkpoint_callback(self.parameters.saved_model_bin, monitor_stat='mcor',
                                                             mode='max'))
 
-        history = self.model.fit(x=self.data.x_train_text_embeddings, y=self.data.y_train, batch_size=self.parameters.batch_size,
+        history = self.model.fit(x=self.data.x_train_text_embeddings, y=self.data.y_train,
+                                 batch_size=self.parameters.batch_size,
                                  epochs=self.parameters.epochs, verbose=1, callbacks=cbs)
 
         NSC.plot_model_history(history)

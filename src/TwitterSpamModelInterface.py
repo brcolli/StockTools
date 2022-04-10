@@ -34,7 +34,9 @@ def load_model_from_bin(path) -> SpamModelLearning:
         if data[0]:
             _, model_path, model_data, params = data
             model = SpamModelLearning(params, model_data)  # Params and model_data stored normally in pickle
-            model.model = tf.keras.models.load_model(model_path, custom_objects=MetricsDict)  # Model stored through tensorflow
+
+            # Model stored through tensorflow
+            model.model = tf.keras.models.load_model(model_path, custom_objects=MetricsDict)
             model.parameters.trained = True
 
         # If model not trained yet, load normally from pickle
@@ -92,6 +94,8 @@ def load_model_from_origin(base_data_csv='', test_size=0.3, features_to_train=No
     :type from_preload_data_bin: str
     :param epochs: Number of epochs to train the model on, can be changed later, before training model
     :type epochs: int
+    :param learning_rate: Learning rate of model
+    :type learning_rate: float
     :param saved_model_bin: Path to save the model at for early stopping (not the same as saving the entire Model Class
                             (SpamModelLearning) through save_model_to_bin)
     :type saved_model_bin: str
@@ -126,8 +130,6 @@ def load_model_from_origin(base_data_csv='', test_size=0.3, features_to_train=No
         features_to_train = ['full_text']
 
     nsc = NSC()
-    # parameters = SpamModelParameters(epochs, saved_model_bin, early_stopping, load_model, early_stopping_patience,
-    #                                  batch_size, False, False)
 
     parameters = SpamModelParameters(learning_rate=learning_rate,
                                      epochs=epochs,

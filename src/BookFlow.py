@@ -1,10 +1,10 @@
 from tda.streaming import StreamClient
 import asyncio
 import pprint
-import importlib
+import TdaClientManager
 
 
-TCM = importlib.import_module('TdaClientManager').TdaClientManager
+TCM = TdaClientManager.TdaClientManager
 
 
 class OptionsFlowManager:

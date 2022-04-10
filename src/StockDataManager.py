@@ -1,10 +1,11 @@
-import importlib
 from os import path
 import yahoo_fin.stock_info as si
+import utilities
+import SqliteManager
 
 
-Utils = importlib.import_module('utilities').Utils
-Sqm = importlib.import_module('SqliteManager').SqliteManager
+Utils = utilities.Utils
+Sqm = SqliteManager.SqliteManager
 
 
 """StockDataManager
@@ -249,6 +250,12 @@ class StockDataManager:
             data = list(ps.itertuples(name=None))
 
             self.add_ticker_data(ticker, data)
+
+    def write_stock_data_dataframe_to_sqlite(self, df):
+
+        for row, col in df.iterrows():
+            self.add_ticker_data(row, [(col['Date'], col['Open'], col['High'], col['Low'], col['Unadjusted Close'],
+                                       col['Close'], col['Total Volume'])])
 
 
 def main():

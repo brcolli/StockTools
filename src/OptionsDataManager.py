@@ -1,10 +1,11 @@
-import importlib
-from os import path
+import utilities
+import SqliteManager
+import TdaClientManager
 
 
-Utils = importlib.import_module('utilities').Utils
-Sqm = importlib.import_module('SqliteManager').SqliteManager
-TCM = importlib.import_module('TdaClientManager').TdaClientManager
+Utils = utilities.Utils
+Sqm = SqliteManager.SqliteManager
+TCM = TdaClientManager.TdaClientManager
 
 
 class OptionsDataManager:
