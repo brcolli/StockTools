@@ -1,3 +1,4 @@
+import random
 import pandas as pd
 import BotometerRequests as br
 import TweetCollector
@@ -151,7 +152,7 @@ class TweetManager:
             print('Something was wrong with the dataframe')
             return False
 
-        df = df[df['Label'] != -1]
+        df = df[df['Label'] >= 0]
         if to_file != '' or (inplace and df_path != ''):
             if inplace and df_path != '':
                 to_file = df_path
@@ -159,6 +160,33 @@ class TweetManager:
             df.to_csv(to_file, index=False)
 
         return df
+
+    def merge_no_duplicates(self, dataframes: [pd.DataFrame], directory_path=''):
+        if directory_path:
+            full_df = self.vertical_merge(directory_path)
+
+        else:
+            full_df = pd.concat(dataframes)
+
+        full_df.drop_duplicates(subset=['Tweet id'], inplace=True)
+        return full_df
+
+    def sample_df(self, df, n, df_path='', to_base='', to_sample=''):
+        if df_path:
+            df = pd.read_csv(df_path)
+
+        sample_rands = random.sample(range(len(df)), n)
+        base = list(set(sample_rands) ^ set(list(range(len(df)))))
+        sample = df.iloc[sample_rands]
+        basedf = df.iloc[base]
+
+        if to_base:
+            basedf.to_csv(to_base, index=False)
+
+        if to_sample:
+            sample.to_csv(to_sample, index=False)
+
+        return basedf, sample
 
 
 TM = TweetManager()

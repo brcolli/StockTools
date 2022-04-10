@@ -8,6 +8,7 @@ import utilities
 import NLPSentimentCalculations
 import TwitterSpamModel
 import TwitterSentimentModel
+from SpamToSentimentModel import ModelHandler
 
 Utils = utilities.Utils
 NSC = NLPSentimentCalculations.NLPSentimentCalculations
@@ -469,6 +470,9 @@ def main(search_past=False, search_stream=False, train_spam=False, train_sent=Fa
 
         sentiment_model_learning = SentimentModelLearning(sentiment_model_params, sentiment_model_data)
         sentiment_model_learning.build_model()
+
+        MH = ModelHandler(spam_model=spam_model_learning, sentiment_model=sentiment_model_learning)
+        MH.analyze_tweets('SOURCE OF TWEETS', out_path='SOURCE TO WRITE TO')
 
     # Search phrase
     if search_past:

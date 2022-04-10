@@ -212,6 +212,9 @@ class SpamModelLearning(ModelLearning):
         x_val = self.data.get_x_val_from_dataframe(tweet_df)
         return self.model.predict(x_val)
 
+    def raw_predict_from_x_val(self, x_val):
+        return self.model.predict(x_val)
+
     def predict(self, csv='', tweet_df=None):
         """
         Predicts Tweet labels from a csv of Tweets. CSV must be a saved dataframe of tweets with all the
