@@ -1,8 +1,9 @@
-import importlib
 import tweepy
 import pandas as pd
+import utilities
 
-Utils = importlib.import_module('utilities').Utils
+
+Utils = utilities.Utils
 
 """TweetCollector
  
@@ -25,7 +26,8 @@ class TwitterManager:
         self.scKey = 'MF5w3g6jmn7WnYM6DG8xtIWkdjnEhInnBSf5bU6HclTF4wSkJ9'
         self.shToken = '4149804506-DrTR0UhuQ8pWf16r9wm8NYdkGNSBWuib2Y8nUlw'
         self.scToken = 'PYkfcY2w6tvovb4RMyCNpEAPyValmReJlaHUgC2KsWWzQ'
-        self.bearer = 'AAAAAAAAAAAAAAAAAAAAAHfLGwEAAAAA23M6%2FAOdV1Gp6xMLfN1txD8DUwM%3DlxzfwHEkS1xPDAcAMncrZKVOUJEL0csMBxQCKOFp89CLlcVo6v'
+        self.bearer = 'AAAAAAAAAAAAAAAAAAAAAHfLGwEAAAAA23M6%2FAOdV1Gp6xMLfN1txD8DUwM%3DlxzfwHEkS1xPDAcAMncr' \
+                      'ZKVOUJEL0csMBxQCKOFp89CLlcVo6v'
 
         # Set up authentication
         self.auth = tweepy.OAuthHandler(self.shKey, self.scKey)
@@ -112,7 +114,7 @@ class TwitterManager:
         return query
 
 
-def prep_for_labeling(path, name):
+def prep_for_labeling(path):
     data = pd.read_csv(path)
     data = data.drop(columns='json')
     data['Label'] = -2

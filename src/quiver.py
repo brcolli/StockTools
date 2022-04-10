@@ -1,8 +1,8 @@
 import quiverquant
-import importlib
+import utilities
 
 
-Utils = importlib.import_module('utilities').Utils
+Utils = utilities.Utils
 
 ticker = ''
 politician = ''

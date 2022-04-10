@@ -1,20 +1,24 @@
 import sys
-import importlib
 import numpy as np
 import pandas as pd
 from os import path
 import datetime
+import utilities
+import TdaClientManager
+import SqliteManager
 
 #  Needed to handle systems that don't support Tk, i.e. cloud servers without a graphic interface
 try:
     from tkinter import Tk
     from tkinter.filedialog import askopenfilename
 except ImportError:
+    Tk = None
+    askopenfilename = None
     pass
 
-Utils = importlib.import_module('utilities').Utils
-TCM = importlib.import_module('TdaClientManager').TdaClientManager
-Sqm = importlib.import_module('SqliteManager').SqliteManager
+Utils = utilities.Utils
+TCM = TdaClientManager.TdaClientManager
+Sqm = SqliteManager.SqliteManager
 
 
 class ShortInterestManager:

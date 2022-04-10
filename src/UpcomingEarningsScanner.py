@@ -1,18 +1,21 @@
-import importlib
 import pandas as pd
 import yahoo_fin.stock_info as si
 from os import path
 import sys
+import TdaClientManager
+import utilities
 
 try:
     from tkinter import Tk
     from tkinter.filedialog import askopenfilename
 except ImportError:
+    Tk = None
+    askopenfilename = None
     pass
 
 
-TCM = importlib.import_module('TdaClientManager').TdaClientManager
-Utils = importlib.import_module('utilities').Utils
+TCM = TdaClientManager.TdaClientManager
+Utils = utilities.Utils
 
 
 class EarningsManager:

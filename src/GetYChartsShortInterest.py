@@ -1,15 +1,15 @@
 import requests
-import re
-import importlib
 from bs4 import BeautifulSoup
 import pandas as pd
 from os import path
 import time
 import datetime
+import utilities
+import SqliteManager
 
 
-Utils = importlib.import_module('utilities').Utils
-Sqm = importlib.import_module('SqliteManager').SqliteManager
+Utils = utilities.Utils
+Sqm = SqliteManager.SqliteManager
 
 
 def get_short_data_from_html(html):

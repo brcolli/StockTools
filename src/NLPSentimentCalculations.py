@@ -244,7 +244,7 @@ class NLPSentimentCalculations:
                                                                            embedding_matrix=embedding_matrix,
                                                                            maxlen=maxlen,
                                                                            use_cnn=False,
-                                                                           use_transformers=True)
+                                                                           use_transformers=False)
 
         if meta_feature_size < 1:
             # No meta data, don't create and concat

@@ -1,18 +1,24 @@
 import sys
-import importlib
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLineEdit, QLabel, QMainWindow
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename
 import pandas as pd
+import utilities
+import StockToolsUI
+import GetDailyShortInterest
+import NasdaqShareOrdersScraper
+import UpcomingEarningsScanner
+import NewsSentimentAnalysis
+import TdaClientManager
 
 
-StockToolsUI = importlib.import_module('StockToolsUI').Ui_MainWindow
-Utils = importlib.import_module('utilities').Utils
-SIM = importlib.import_module('GetDailyShortInterest').main
-NSO = importlib.import_module('NasdaqShareOrdersScraper').main
-UES = importlib.import_module('UpcomingEarningsScanner').main
-NSA = importlib.import_module('NewsSentimentAnalysis').main
-TCM = importlib.import_module('TdaClientManager').TdaClientManager
+StockToolsUI = StockToolsUI.Ui_MainWindow
+Utils = utilities.Utils
+SIM = GetDailyShortInterest.main
+NSO = NasdaqShareOrdersScraper.main
+UES = UpcomingEarningsScanner.main
+NSA = NewsSentimentAnalysis.main
+TCM = TdaClientManager.TdaClientManager
 
 ##################################
 # Class controllers for each tab #
@@ -202,7 +208,7 @@ class QtManager(QMainWindow, StockToolsUI):
 
         opts = tcm.find_options(symbols, Utils.time_str_to_datetime(to_date), Utils.time_str_to_datetime(from_date),
                                 float(max_mark), float(max_spread), float(min_delta), float(max_theta), float(max_iv),
-                                float(min_oi))
+                                int(min_oi))
 
         # Write to file
         for sym, sym_opts in opts.items():

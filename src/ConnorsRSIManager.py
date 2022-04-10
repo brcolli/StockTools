@@ -1,11 +1,12 @@
-import importlib
-import pandas as pd
 from os import path
+import utilities
+import TdaClientManager
+import SqliteManager
 
 
-Utils = importlib.import_module('utilities').Utils
-TCM = importlib.import_module('TdaClientManager').TdaClientManager
-Sqm = importlib.import_module('SqliteManager').SqliteManager
+Utils = utilities.Utils
+TCM = TdaClientManager.TdaClientManager
+Sqm = SqliteManager.SqliteManager
 
 
 def get_historical_closing(tcm, tickers, lookback):

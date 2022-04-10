@@ -73,7 +73,7 @@ class SpamModelData(ModelData):
         :rtype: [x_val_text_embeddings, x_val_meta] or x_val_text_embeddings
         """
 
-        df = Utils.parse_json_tweet_data(csv, self.features_to_train)
+        df = Utils.parse_json_tweet_data_from_csv(csv, self.features_to_train)
         return self.get_x_val_from_dataframe(df)
 
     def get_x_val_from_dataframe(self, x_val):
@@ -156,13 +156,13 @@ class SpamModelData(ModelData):
         Loads twitter dataframe from csv and calls self.get_dataset_from_tweet_sentiment
         """
 
-        twitter_df = Utils.parse_json_tweet_data(self.base_data_csv, self.features_to_train)
+        twitter_df = Utils.parse_json_tweet_data_from_csv(self.base_data_csv, self.features_to_train)
 
         if 'augmented' not in twitter_df.columns:
             twitter_df['augmented'] = 0
 
         if self.aug_data_csv:
-            aug_df = Utils.parse_json_tweet_data(self.aug_data_csv, self.features_to_train)
+            aug_df = Utils.parse_json_tweet_data_from_csv(self.aug_data_csv, self.features_to_train)
             if 'augmented' not in aug_df.columns:
                 aug_df['augmented'] = 1
 
@@ -192,10 +192,7 @@ class SpamModelLearning(ModelLearning):
                            metrics=self.metrics)
         print(self.model.summary())  # Print model summary
 
-    # TODO: Add function to test the model on provided csv of Tweets. Would be useful for validation later.
-    # TODO: Add functions to calculate, store, and return aspects apart from accuracy like fscore, precision, and recall
-
-    def raw_predict(self, csv):
+    def raw_predict_csv(self, csv):
         """
         Returns raw model prediction scores on tweets from a csv. CSV must be a saved dataframe of tweets with
         all the columns in self.data.features_to_train present. Raw model prediction scores are currently formatted as
@@ -211,7 +208,11 @@ class SpamModelLearning(ModelLearning):
         x_val = self.data.get_x_val_from_csv(csv)
         return self.model.predict(x_val).tolist()
 
-    def predict(self, csv):
+    def raw_predict_tweets(self, tweet_df):
+        x_val = self.data.get_x_val_from_dataframe(tweet_df)
+        return self.model.predict(x_val)
+
+    def predict(self, csv='', tweet_df=None):
         """
         Predicts Tweet labels from a csv of Tweets. CSV must be a saved dataframe of tweets with all the
         columns in self.data.features_to_train present. Each prediction is either a -1 (not marked), 0 (clean), or
@@ -219,12 +220,20 @@ class SpamModelLearning(ModelLearning):
 
         :param csv: Filepath to dataframe of tweets with self.data.features_to_train columns
         :type csv: str
+        :param tweet_df: Dataframe of tweet data
+        :type tweet_df: pandas.core.frame.DataFrame
 
         :return: Prediction for each tweet
         :rtype: [int] where int is -1, 0, or 1
         """
+
         # Get the raw softmax probability predictions
-        y = self.raw_predict(csv)
+        if csv:
+            y = self.raw_predict_csv(csv)
+        elif tweet_df is not None:
+            y = self.raw_predict_tweets(tweet_df)
+        else:
+            return []
 
         # Use the highest softmax probability as the label (-1, 0, or 1)
         return [max(range(len(y1)), key=y1.__getitem__) for y1 in y]

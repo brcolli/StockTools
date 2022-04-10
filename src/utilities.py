@@ -10,7 +10,6 @@ import fnmatch
 from pydrive.drive import GoogleDrive
 from pydrive.auth import GoogleAuth
 from io import StringIO
-import importlib
 import csv
 import re
 import itertools
@@ -27,6 +26,7 @@ Module for functions that can be reused and shared between various other modules
 Authors: Benjamin Collins
 Date: April 22, 2021 
 """
+
 
 class Utils:
 
@@ -331,16 +331,6 @@ class Utils:
                         writer.writerow(row)
             except:
                 print('Could not open ' + filename + '. Is the file open?')
-
-    @staticmethod
-    def write_stock_data_dataframe_to_sqlite(df):
-
-        Sdm = importlib.import_module('StockDataManager').StockDataManager
-        sdm = Sdm()
-
-        for row, col in df.iterrows():
-            sdm.add_ticker_data(row, [(col['Date'], col['Open'], col['High'], col['Low'], col['Unadjusted Close'],
-                                       col['Close'], col['Total Volume'])])
 
     '''
     Writes a pandas DataFrame to a csv
@@ -703,9 +693,14 @@ class Utils:
         return string
 
     @staticmethod
-    def parse_json_tweet_data(filename, json_headers):
+    def parse_json_tweet_data_from_csv(filename, json_headers):
 
         df = pd.read_csv(filename)
+        return Utils.parse_json_tweet_data(df, json_headers)
+
+    @staticmethod
+    def parse_json_tweet_data(df, json_headers):
+
         json_dict = {}
         for header in json_headers:
             json_dict[header] = []

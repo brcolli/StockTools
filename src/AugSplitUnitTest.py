@@ -3,7 +3,6 @@ import NLPSentimentCalculations
 import NewsSentimentAnalysis
 import pandas as pd
 import math
-import os
 
 nsc = NLPSentimentCalculations.NLPSentimentCalculations()
 nsa = NewsSentimentAnalysis.TwitterManager()

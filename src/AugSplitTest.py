@@ -1,8 +1,6 @@
 import NLPSentimentCalculations
 import NewsSentimentAnalysis
 import pandas as pd
-import math
-import os
 
 
 nsa = NewsSentimentAnalysis.TwitterManager()

@@ -1,12 +1,12 @@
-import importlib
 import string
 import pandas as pd
-from os import path
 from os import listdir
+import utilities
+import SqliteManager
 
 
-Utils = importlib.import_module('utilities').Utils
-Sqm = importlib.import_module('SqliteManager').SqliteManager
+Utils = utilities.Utils
+Sqm = SqliteManager.SqliteManager
 
 
 class DatabaseManager:
