@@ -6,11 +6,12 @@ import pandas as pd
 from PIL import Image
 import matplotlib.pyplot as plt
 from keybert import KeyBERT
+from textwrap import wrap
 
 
 class Extractor:
-    def __init__(self, number_keywords=100, min_ngram=1, max_ngram=3, diversity_level=0.5,
-                 match_language_structure=True, file_path='data/Keywords/'):
+    def __init__(self, number_keywords=15, min_ngram=1, max_ngram=2, diversity_level=0.5,
+                 match_language_structure=True, file_path='../data/Keywords/'):
         self.number_keywords = number_keywords
         self.ngram_range = (min_ngram, max_ngram)
         self.diversity_level = diversity_level
@@ -24,6 +25,10 @@ class Extractor:
         self.yake_kw = yake.KeywordExtractor(lan="en", n=self.ngram_range[1], dedupLim=self.deduplication_threshold,
                                              top=self.number_keywords)
         self.bert_kw = KeyBERT()
+
+    def relaunch_yake(self):
+        self.yake_kw = yake.KeywordExtractor(lan="en", n=self.ngram_range[1], dedupLim=self.deduplication_threshold,
+                                             top=self.number_keywords)
 
     def bert_extract(self, text):
         return self.bert_kw.extract_keywords(text, keyphrase_ngram_range=self.ngram_range, stop_words='english',
@@ -106,7 +111,9 @@ class Extractor:
         plt.clf()
         plt.pie(y, labels=labels, explode=explode, autopct='%1.0f%%')
         print(labels, y, explode)
-        plt.title(name)
+
+        title = "\n".join(wrap(name, 60))
+        plt.title(title)
 
         return plt
 
