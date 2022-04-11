@@ -422,6 +422,8 @@ def main(search_past=False, search_stream=False, train_spam=False, train_sent=Fa
 
     tw = TwitterManager()
 
+    spam_model_learning = None
+
     if train_spam:
         spam_model_params = SpamModelParameters(epochs=1000,
                                                 batch_size=128,

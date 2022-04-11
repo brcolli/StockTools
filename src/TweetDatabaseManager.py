@@ -11,13 +11,13 @@ Utils = utilities.Utils()
 Sqm = SqliteManager.SqliteManager(path='../data/TweetData/TweetDataBase.db')
 
 
-class TweetManager:
+class TweetDatabaseManager:
     """
     Used to collect historical tweets and run botometer on them as well as multiple other useful functions
     """
     def __init__(self):
         # These are the keys used in our Spam Model training database in the correct order
-        # Note: modifying keys here affects Line 51 - use caution
+        # Note: modifying keys here affects Line 53 - use caution
         self.keys = ['Tweet id', 'User id', 'Screen name', 'Label', 'Search term', 'json', 'user.majority_lang',
                      'botscore',
                      'cap.english', 'cap.universal', 'raw_scores.english.astroturf', 'raw_scores.english.fake_follower',
@@ -30,6 +30,9 @@ class TweetManager:
 
         # Path to save tweets to
         self.path = '../data/TweetData/Tweets'
+
+        # Botometer config
+        self.use_botometer_lite = True
 
     def modify(self, to_execute: list):
         pass
@@ -47,8 +50,8 @@ class TweetManager:
         :rtype: pd.DataFrame
         """
         tweets = TweetCollector.collect_tweets(phrase=keyword, history_count=num)
-        bot_labels = self.BR.wrapper(from_dataframe=tweets, lite_tweet_request=True, bot_user_request=True,
-                                     wanted_bot_keys=([self.keys[6]] + self.keys[8:]))
+        bot_labels = self.BR.wrapper(from_dataframe=tweets, lite_tweet_request=self.use_botometer_lite,
+                                     bot_user_request=True, wanted_bot_keys=(self.keys[6:]))
         full_df = Utils.basic_merge(tweets, bot_labels)
         full_df = Utils.order_dataframe_columns(full_df, self.keys, cut=True)
 
@@ -189,4 +192,4 @@ class TweetManager:
         return basedf, sample
 
 
-TM = TweetManager()
+TM = TweetDatabaseManager()
