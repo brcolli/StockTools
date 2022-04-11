@@ -1,9 +1,11 @@
 import dill
 import json
 import operator
+import TweetDatabaseManager
 
 # Used for convenience as this module is pretty much a wrapper for TwitterSpamModel.py
 from TwitterSpamModel import *
+TweetDatabaseManager = TweetDatabaseManager.TweetDatabaseManager
 
 """TwitterSpamModelInterface
 
@@ -66,24 +68,27 @@ class TwitterSpamModelInterface:
         return spam_model_learning
 
     @staticmethod
-    def label_tweets_csv(filename):
+    def classify_twitter_query(keywords, num: int, same_file=True, filename=None):
 
-        tobj = labeler.tm.twitter_api.get_status(tid, tweet_mode='extended')
+        tdm = TweetDatabaseManager()
+        tdm.use_botometer_lite = False
+        tdm.keys.remove('botscore')
 
-        tjson = tobj._json
-        uid = tobj.user.id
+        df = tdm.save_multiple_keywords(keywords, num, same_file, filename)
 
-        tdf = self.br.wrapper(bot_user_request=True, tweet_objects=[tjson], user_ids=[uid],
-                              tweet_ids=[tid], existing_api=self.tm.twitter_api,
-                              wanted_bot_keys=self.features_to_train[1:17])
+        spam_model_learning = TwitterSpamModelInterface.standard_spam_model(use_botometer_lite=tdm.use_botometer_lite,
+                                                                            load_model=True)
 
-        # Add full_text, retweets, and favorites to df
-        tdf['full_text'] = tobj.full_text
-        tdf['retweet_count'] = tobj.retweet_count
-        tdf['favorite_count'] = tobj.favorite_count
+        features_to_train = tdm.keys
+        features_to_train += ['full_text', 'retweet_count', 'favorite_count']
 
-        spam_prediction = self.spam_model_learning.predict(tweet_df=tdf)
-        self.tweet_csv.at[self.count, 'Spam Label'] = spam_prediction[0]
+        df = Utils.parse_json_tweet_data(df, features_to_train)
+
+        df['SpamModelLabel'] = spam_model_learning.predict(tweet_df=df)
+
+        Utils.write_dataframe_to_csv(df, '../data/TweetData' + filename + '.csv', write_index=False)
+
+        return df
 
     @staticmethod
     def load_model_from_bin(path) -> SpamModelLearning:
