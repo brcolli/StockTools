@@ -68,13 +68,13 @@ class TwitterSpamModelInterface:
         return spam_model_learning
 
     @staticmethod
-    def classify_twitter_query(keywords, num: int, same_file=True, filename=None):
+    def classify_twitter_query(keywords: [str], num: int, filename=None, path=None):
 
         tdm = TweetDatabaseManager()
         tdm.use_botometer_lite = False
         tdm.keys.remove('botscore')
 
-        df = tdm.save_multiple_keywords(keywords, num, same_file, filename)
+        df = tdm.save_multiple_keywords(keywords, num, same_file=True, filename=None, save_to_file=False)
 
         spam_model_learning = TwitterSpamModelInterface.standard_spam_model(use_botometer_lite=tdm.use_botometer_lite,
                                                                             load_model=True)
@@ -86,7 +86,22 @@ class TwitterSpamModelInterface:
 
         df['SpamModelLabel'] = spam_model_learning.predict(tweet_df=df)
 
-        Utils.write_dataframe_to_csv(df, '../data/TweetData' + filename + '.csv', write_index=False)
+        full_file_name = ''
+        if path is None:
+            full_file_name = tdm.path
+        else:
+            full_file_name = path
+
+        if full_file_name[-1] != '/':
+            full_file_name += '/'
+
+        if filename is None:
+            filename = '&'.join(keywords)
+            filename += f'x{num}'
+
+        full_file_name = full_file_name + filename + '.csv'
+
+        Utils.write_dataframe_to_csv(df, full_file_name, write_index=False)
 
         return df
 
