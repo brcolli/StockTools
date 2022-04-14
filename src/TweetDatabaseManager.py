@@ -3,12 +3,12 @@ import pandas as pd
 import BotometerRequests as br
 import TweetCollector
 import utilities
-import SqliteManager
+# import SqliteManager
 import os
 import time
 
 Utils = utilities.Utils()
-Sqm = SqliteManager.SqliteManager(path='../data/TweetData/TweetDataBase.db')
+# Sqm = SqliteManager.SqliteManager(path='../data/TweetData/TweetDataBase.db')
 
 
 class TweetDatabaseManager:
@@ -29,7 +29,7 @@ class TweetDatabaseManager:
         self.BR = br.BotometerRequests()
 
         # Path to save tweets to
-        self.path = '../data/TweetData/Tweets'
+        self.path = '../data/TweetData/'
 
         # Botometer config
         self.use_botometer_lite = True
@@ -75,10 +75,10 @@ class TweetDatabaseManager:
         df = self.req_tweets(keyword, num)
         if filename is None:
             filename = str(time.time())
-        df.to_csv(self.path + '/' + filename + '.csv', index=False)
+        df.to_csv(self.path + filename + '.csv', index=False)
         return df
 
-    def save_multiple_keywords(self, keywords, num: int, same_file=True, filename=None):
+    def save_multiple_keywords(self, keywords, num: int, same_file=True, filename=None, save_to_file=False):
         """
         Same as save_tweets, but on multiple keywords with num # of tweets for each keyword
 
@@ -92,6 +92,8 @@ class TweetDatabaseManager:
         :param filename: Name of the file to save to (not directory), otherwise saves to an auto-generated time based
                         filename.csv. Used only if same_file = True
         :type filename: None or str
+        :param save_to_file: Whether to save to file
+        :type save_to_file: bool
 
         :return: Dataframe of all the keywords with all of the keys found in self.keys (also saves the dataframe to csv)
                 or a separate csv for each keyword search
@@ -99,11 +101,15 @@ class TweetDatabaseManager:
         """
         if same_file:
             full_df = pd.concat([self.req_tweets(k, num) for k in keywords])
-            if filename is None:
-                filename = str(time.time())
-            full_df.to_csv(self.path + '/' + filename + '.csv', index=False)
+            if save_to_file:
+                if filename is None:
+                    filename = str(time.time())
+                full_df.to_csv(self.path + filename + '.csv', index=False)
         else:
-            full_df = [self.save_tweets(k, num) for k in keywords]
+            if save_to_file:
+                full_df = [self.save_tweets(k, num) for k in keywords]
+            else:
+                full_df = [self.req_tweets(k, num) for k in keywords]
 
         return full_df
 
@@ -121,7 +127,7 @@ class TweetDatabaseManager:
         files = os.listdir(path=directory_path)
         full_df = pd.DataFrame(columns=self.keys)
         for f in files:
-            df = pd.read_csv(directory_path + '/' + f)
+            df = pd.read_csv(directory_path + f)
             full_df = pd.concat([full_df, df])
 
         return full_df
