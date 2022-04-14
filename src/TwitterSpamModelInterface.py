@@ -23,7 +23,7 @@ class TwitterSpamModelInterface:
 
     @staticmethod
     def create_spam_model(nsc=None,
-                          test_size=0,
+                          test_size=0.1,
                           features_to_train=None,
                           learning_rate=1e-3,
                           epochs=1000,
@@ -115,7 +115,7 @@ class TwitterSpamModelInterface:
         spam_model_learning = TwitterSpamModelInterface.create_spam_model(use_botometer_lite=tdm.use_botometer_lite,
                                                                           saved_model_bin=saved_model_bin,
                                                                           load_model=load_model,
-                                                                          evaluate_model=load_model)
+                                                                          evaluate_model=(not load_model))
 
         features_to_train = tdm.keys
         features_to_train += ['full_text', 'retweet_count', 'favorite_count']
