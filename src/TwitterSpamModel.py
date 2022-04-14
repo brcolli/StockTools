@@ -5,6 +5,7 @@ import os
 import NLPSentimentCalculations
 import utilities
 import ModelBase
+from typing import Tuple
 
 Utils = utilities.Utils
 NSC = NLPSentimentCalculations.NLPSentimentCalculations
@@ -21,7 +22,7 @@ class SpamModelParameters(ModelParameters):
 
     def __init__(self,
                  learning_rate=1e-3,
-                 epochs=100,
+                 epochs=1000,
                  saved_model_bin='',
                  early_stopping=False,
                  checkpoint_model=False,
@@ -29,6 +30,7 @@ class SpamModelParameters(ModelParameters):
                  early_stopping_patience=0,
                  batch_size=128,
                  trained=False,
+                 evaluate_model=True,
                  debug=False):
         super().__init__(learning_rate,
                          epochs,
@@ -39,6 +41,7 @@ class SpamModelParameters(ModelParameters):
                          early_stopping_patience,
                          batch_size,
                          trained,
+                         evaluate_model,
                          debug)
 
 
@@ -169,8 +172,8 @@ class SpamModelData(ModelData):
             twitter_df = pd.concat([twitter_df, aug_df])
 
         self.x_train_text_embeddings, self.x_test_text_embeddings, self.x_train_meta, self.x_test_meta, \
-        self.glove_embedding_matrix, \
-        self.y_train, self.y_test = self.get_dataset_from_tweet_spam(twitter_df)
+        self.glove_embedding_matrix, self.y_train, self.y_test = self.get_dataset_from_tweet_spam(
+            twitter_df)
 
 
 class SpamModelLearning(ModelLearning):
@@ -183,6 +186,7 @@ class SpamModelLearning(ModelLearning):
         self.parameters = model_params
         self.data = model_data
         self.metrics = Metrics
+        self.score = (-1, -1)
 
     def compile_model(self):
 
@@ -276,7 +280,7 @@ class SpamModelLearning(ModelLearning):
 
         return score_dict
 
-    def evaluate_model(self, test_input_layer, test_labels, cbs):
+    def evaluate_model(self, test_input_layer, test_labels, cbs) -> Tuple[float, float]:
         """
         Evaluate model using tensorflow methods
 
@@ -287,8 +291,8 @@ class SpamModelLearning(ModelLearning):
         :param cbs: List of callbacks
         :type cbs: list(func)
 
-        :return: Model and score
-        :rtype: tf.keras.Models.model, (float, float)
+        :return: score and accuracy tuple
+        :rtype: (float, float)
         """
 
         score = self.model.evaluate(x=test_input_layer, y=test_labels, verbose=1, callbacks=cbs)
@@ -298,25 +302,27 @@ class SpamModelLearning(ModelLearning):
 
         self.parameters.trained = True
 
-        return self.model, score
+        return score
 
-    def build_model(self):
+    def build_model(self) -> None:
         """
         Builds (trains) the model
-
-        :return: Model and score
-        :rtype: tf.keras.Models.model, (float, float)
         """
 
         if self.parameters.debug:
             tf.config.run_functions_eagerly(True)
 
-        # Load previously saved model and test
+        # Load previously saved model and test if requested
         if self.parameters.load_model and os.path.exists(self.parameters.saved_model_bin):
+
             self.model = NSC.load_saved_model(self.parameters.saved_model_bin)
             self.compile_model()
 
-            return self.evaluate_model([self.data.x_test_text_embeddings, self.data.x_test_meta], self.data.y_test, [])
+            if self.parameters.evaluate_model:
+                self.score = self.evaluate_model([self.data.x_test_text_embeddings,
+                                                  self.data.x_test_meta], self.data.y_test, [])
+
+            return
 
         self.model = self.data.nsc.create_spam_text_meta_model(self.data.glove_embedding_matrix,
                                                                len(self.data.x_train_meta.columns),
@@ -352,4 +358,7 @@ class SpamModelLearning(ModelLearning):
 
         NSC.plot_model_history(history)
 
-        return self.evaluate_model(test_input_layer, self.data.y_test, [])
+        if self.parameters.evaluate_model:
+            self.score = self.evaluate_model(test_input_layer, self.data.y_test, [])
+
+        return

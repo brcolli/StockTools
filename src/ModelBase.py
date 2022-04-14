@@ -20,6 +20,7 @@ class ModelParameters:
                  early_stopping_patience=0,
                  batch_size=128,
                  trained=False,
+                 evaluate_model=True,
                  debug=False):
 
         self.learning_rate = learning_rate
@@ -31,6 +32,7 @@ class ModelParameters:
         self.early_stopping_patience = early_stopping_patience
         self.batch_size = batch_size
         self.trained = trained
+        self.evaluate_model = evaluate_model
         self.debug = debug
         self.accuracy = 0
         self.precision = 0
@@ -101,3 +103,4 @@ class ModelLearning:
     def __init__(self):
 
         self.model = tf.keras.models.Model
+        self.score = (-1, -1)
