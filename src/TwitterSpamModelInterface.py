@@ -23,7 +23,7 @@ class TwitterSpamModelInterface:
 
     @staticmethod
     def create_spam_model(nsc=None,
-                          test_size=0,
+                          test_size=0.1,
                           features_to_train=None,
                           learning_rate=1e-3,
                           epochs=1000,
@@ -56,38 +56,35 @@ class TwitterSpamModelInterface:
                                                 evaluate_model=evaluate_model,
                                                 debug=debug)
 
-        spam_model_data = None
-        if evaluate_model:
+        if not nsc:
+            nsc = NSC()
 
-            if not nsc:
-                nsc = NSC()
+        if not features_to_train:
+            features_to_train = ['full_text', 'cap.english', 'cap.universal',
+                                 'raw_scores.english.overall',
+                                 'raw_scores.universal.overall',
+                                 'raw_scores.english.astroturf',
+                                 'raw_scores.english.fake_follower',
+                                 'raw_scores.english.financial',
+                                 'raw_scores.english.other',
+                                 'raw_scores.english.self_declared',
+                                 'raw_scores.english.spammer',
+                                 'raw_scores.universal.astroturf',
+                                 'raw_scores.universal.fake_follower',
+                                 'raw_scores.universal.financial',
+                                 'raw_scores.universal.other',
+                                 'raw_scores.universal.self_declared',
+                                 'raw_scores.universal.spammer',
+                                 'favorite_count', 'retweet_count']
 
-            if not features_to_train:
-                features_to_train = ['full_text', 'cap.english', 'cap.universal',
-                                     'raw_scores.english.overall',
-                                     'raw_scores.universal.overall',
-                                     'raw_scores.english.astroturf',
-                                     'raw_scores.english.fake_follower',
-                                     'raw_scores.english.financial',
-                                     'raw_scores.english.other',
-                                     'raw_scores.english.self_declared',
-                                     'raw_scores.english.spammer',
-                                     'raw_scores.universal.astroturf',
-                                     'raw_scores.universal.fake_follower',
-                                     'raw_scores.universal.financial',
-                                     'raw_scores.universal.other',
-                                     'raw_scores.universal.self_declared',
-                                     'raw_scores.universal.spammer',
-                                     'favorite_count', 'retweet_count']
+        if use_botometer_lite:
+            features_to_train.append('botscore')
 
-            if use_botometer_lite:
-                features_to_train.append('botscore')
-
-            spam_model_data = SpamModelData(nsc=nsc, base_data_csv=base_data_csv,
-                                            test_size=test_size,
-                                            features_to_train=features_to_train,
-                                            aug_data_csv=aug_data_csv, save_preload_binary=save_preload_binary,
-                                            from_preload_binary=from_preload_binary)
+        spam_model_data = SpamModelData(nsc=nsc, base_data_csv=base_data_csv,
+                                        test_size=test_size,
+                                        features_to_train=features_to_train,
+                                        aug_data_csv=aug_data_csv, save_preload_binary=save_preload_binary,
+                                        from_preload_binary=from_preload_binary)
 
         spam_model_learning = SpamModelLearning(spam_model_params, spam_model_data)
         spam_model_learning.build_model()
@@ -115,7 +112,7 @@ class TwitterSpamModelInterface:
         spam_model_learning = TwitterSpamModelInterface.create_spam_model(use_botometer_lite=tdm.use_botometer_lite,
                                                                           saved_model_bin=saved_model_bin,
                                                                           load_model=load_model,
-                                                                          evaluate_model=load_model)
+                                                                          evaluate_model=(not load_model))
 
         features_to_train = tdm.keys
         features_to_train += ['full_text', 'retweet_count', 'favorite_count']
@@ -266,3 +263,6 @@ class TwitterSpamModelInterface:
         model = SpamModelLearning(parameters, data)
 
         return model
+
+
+dft = TwitterSpamModelInterface.classify_twitter_query(['Trump'], 3, load_model=True)

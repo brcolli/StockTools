@@ -237,7 +237,7 @@ class SpamModelLearning(ModelLearning):
         # Get the raw softmax probability predictions
         if csv:
             y = self.raw_predict_csv(csv)
-        elif tweet_df is not None:
+        elif not tweet_df.empty:
             y = self.raw_predict_tweets(tweet_df)
         else:
             return []
