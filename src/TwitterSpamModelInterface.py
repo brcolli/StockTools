@@ -100,7 +100,7 @@ class TwitterSpamModelInterface:
         return spam_model_learning
 
     @staticmethod
-    def classify_twitter_query(keywords, num: int, same_file=True, filename=None, load_model=False,
+    def classify_twitter_query(keywords, num: int, filename=None, load_model=False,
                                use_botometer_lite=False,
                                saved_model_bin='../data/analysis/Model Results/Saved Models/best_spam_model.h5'):
 
@@ -124,22 +124,12 @@ class TwitterSpamModelInterface:
 
         df['SpamModelLabel'] = spam_model_learning.predict(tweet_df=df)
 
-        full_file_name = ''
-        if path is None:
-            full_file_name = tdm.path
-        else:
-            full_file_name = path
-
-        if full_file_name[-1] != '/':
-            full_file_name += '/'
-
         if filename is None:
             filename = '&'.join(keywords)
             filename += f'x{num}'
+            filename += '.csv'
 
-        full_file_name = full_file_name + filename + '.csv'
-
-        Utils.write_dataframe_to_csv(df, full_file_name, write_index=False)
+        Utils.write_dataframe_to_csv(df, filename, write_index=False)
 
         return df
 
