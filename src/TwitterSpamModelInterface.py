@@ -265,4 +265,5 @@ class TwitterSpamModelInterface:
         return model
 
 
-dft = TwitterSpamModelInterface.classify_twitter_query(['Trump'], 3, load_model=True)
+if __name__ == 'main':
+    dft = TwitterSpamModelInterface.classify_twitter_query(['Trump'], 3, load_model=True)

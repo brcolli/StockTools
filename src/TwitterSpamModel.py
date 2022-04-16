@@ -48,7 +48,7 @@ class SpamModelParameters(ModelParameters):
 class SpamModelData(ModelData):
 
     def __init__(self, nsc, base_data_csv, test_size, features_to_train, aug_data_csv=None, save_preload_binary='',
-                 from_preload_binary=''):
+                 from_preload_binary='', load_nsc_only=False, text_input_length=44):
 
         super().__init__(nsc, base_data_csv,
                          test_size,
@@ -57,13 +57,19 @@ class SpamModelData(ModelData):
 
         self.textless_features_to_train = [x for x in features_to_train if x != 'full_text']
 
-        if from_preload_binary:
-            self.load_data_from_binary(from_preload_binary)
-        else:
-            self.load_data_from_csv()
+        self.text_input_length = text_input_length
 
-            if save_preload_binary:
-                self.save_data_to_binary(save_preload_binary)
+        if load_nsc_only:
+            pass
+
+        else:
+            if from_preload_binary:
+                self.load_data_from_binary(from_preload_binary)
+            else:
+                self.load_data_from_csv()
+
+                if save_preload_binary:
+                    self.save_data_to_binary(save_preload_binary)
 
     def get_x_val_from_csv(self, csv):
         """
