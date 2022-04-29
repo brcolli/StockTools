@@ -204,6 +204,17 @@ class TwitterSpamModelInterface:
                                  aug_data_csv='../data/Learning Data/spam_train_aug.csv',
                                  test_size=0.1, save_train_data_dill='../data/Learning Data/preload.dill',
                                  features_to_train=None) -> bool:
+        """
+        Loads csv training data and processes it (sanitizes, vectorizes, molds into model input shape). Saves this to a
+        dill file for use whenever loading the model to train. Parameters passed here are the only ones needed for data
+        to be preprocessed. If parameters here need to be changed, then data needs to be reprocessed before training.
+
+        See process_spam_model_args() for descriptions of args
+
+        :return: Whether or not the preprocessing was successful and the save_train_data_dill file exists
+        :rtype: bool
+        """
+
         successful = False
         settings = TwitterSpamModelInterface.process_spam_model_args(json_settings=json_settings,
                                                                      train_data_csv=train_data_csv,
