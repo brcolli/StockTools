@@ -15,7 +15,7 @@ class TweetDatabaseManager:
     """
     Used to collect historical tweets and run botometer on them as well as multiple other useful functions
     """
-    def __init__(self):
+    def __init__(self, use_botometer_lite=False):
         # These are the keys used in our Spam Model training database in the correct order
         # Note: modifying keys here affects Line 53 - use caution
         self.keys = ['Tweet id', 'User id', 'Screen name', 'Label', 'Search term', 'json', 'user.majority_lang',
@@ -31,8 +31,10 @@ class TweetDatabaseManager:
         # Path to save tweets to
         self.path = '../data/TweetData/'
 
-        # Botometer config
-        self.use_botometer_lite = True
+        # Botometer lite config
+        self.use_botometer_lite = use_botometer_lite
+        if not use_botometer_lite:
+            self.keys.remove('botscore')
 
     def modify(self, to_execute: list):
         pass

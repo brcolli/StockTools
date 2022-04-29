@@ -79,5 +79,3 @@ with open('timer-logs.txt', 'a') as f:
                      stmt = PREDICT_MODEL,
                      number = n)))
     f.write('\n')
-
-
