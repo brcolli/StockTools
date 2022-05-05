@@ -17,7 +17,7 @@ class TweetDatabaseManager:
     """
     def __init__(self, use_botometer_lite=False):
         # These are the keys used in our Spam Model training database in the correct order
-        # Note: modifying keys here affects Line 53 - use caution
+        # Note: modifying keys here affects Line 56 - use caution
         self.keys = ['Tweet id', 'User id', 'Screen name', 'Label', 'Search term', 'json', 'user.majority_lang',
                      'botscore',
                      'cap.english', 'cap.universal', 'raw_scores.english.astroturf', 'raw_scores.english.fake_follower',
@@ -155,7 +155,7 @@ class TweetDatabaseManager:
         df.to_csv(os.path.join(directory_path, 'Merged.csv'), index=False)
         return df
 
-    def cut_skipped(self, df, df_path='', to_file='', inplace=False):
+    def cut_skipped(self, df, df_path='', to_file='', inplace=False, label='Label'):
         if os.path.exists(df_path):
             df = pd.read_csv(df_path)
 
@@ -163,7 +163,7 @@ class TweetDatabaseManager:
             print('Something was wrong with the dataframe')
             return False
 
-        df = df[df['Label'] >= 0]
+        df = df[df[label] >= 0]
         if to_file != '' or (inplace and df_path != ''):
             if inplace and df_path != '':
                 to_file = df_path
@@ -198,6 +198,26 @@ class TweetDatabaseManager:
             sample.to_csv(to_sample, index=False)
 
         return basedf, sample
+
+    def restore_tweet_ids(self, df, df_path='', to_file='', inplace=False):
+        if os.path.exists(df_path):
+            df = pd.read_csv(df_path)
+
+        if type(df) != pd.DataFrame:
+            print('Something was wrong with the dataframe')
+            return False
+
+        # Tweet id is located between 55th char in json and is followed by a comma
+        # We use this to restore Tweet id column by applying this method to the json column
+        df = df.assign(**{'Tweet id': (lambda s: int(s['json'][55:s.find(',', 55)]))})
+
+        if to_file != '' or (inplace and df_path != ''):
+            if inplace and df_path != '':
+                to_file = df_path
+
+            df.to_csv(to_file, index=False)
+
+        return df
 
 
 TM = TweetDatabaseManager()
