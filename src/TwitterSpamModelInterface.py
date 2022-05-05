@@ -1,7 +1,6 @@
-import os.path
 import dill
 import json
-import pandas as pd
+import operator
 import TweetDatabaseManager
 
 # Used for convenience as this module is pretty much a wrapper for TwitterSpamModel.py
@@ -11,75 +10,54 @@ TweetDatabaseManager = TweetDatabaseManager.TweetDatabaseManager
 """TwitterSpamModelInterface
 
 Description:
-Module to work with the TwitterSpamModel.py class with functions to create a new model from data, preprocess data, save
-a model for future predictions, or load a saved model.
-
-This module needs to be separate from TwitterSpamModel.py so that the dill library
+Module to work with the TwitterSpamModel.py class with functions to load the model from origin, load the model from bin,
+or save the model to bin. This module needs to be separate from TwitterSpamModel.py so that the dill library
 (saving library) works properly. 
 
 Authors: Fedya Semenov, Benjamin Collins
-Creation date: October 13, 2021
+Date: October 13, 2021
 """
 
 
 class TwitterSpamModelInterface:
 
     @staticmethod
-    def process_spam_model_args(json_settings='../data/Learning Data/spam_settings.json', learning_rate=1e-3,
-                                epochs=1000, early_stopping=False, checkpoint_model=False, early_stopping_patience=0,
-                                batch_size=128, evaluate_model=True, debug=False, score=(-1, -1),
-                                train_data_csv='../data/Learning Data/spam_train.csv',
-                                aug_data_csv='../data/Learning Data/spam_train_aug.csv',
-                                test_size=0.1, preload_train_data_dill='', save_train_data_dill='',
-                                features_to_train=None,
-                                model_h5='../data/Learning Data/best_spam_model.h5') -> dict:
+    def create_spam_model(nsc=None,
+                          test_size=0.1,
+                          features_to_train=None,
+                          learning_rate=1e-3,
+                          epochs=1000,
+                          early_stopping=False,
+                          checkpoint_model=False,
+                          load_model=False,
+                          early_stopping_patience=0,
+                          batch_size=128,
+                          trained=False,
+                          evaluate_model=True,
+                          debug=False,
+                          aug_data_csv=None,
+                          save_preload_binary='',
+                          from_preload_binary='',
+                          use_botometer_lite=True,
+                          test_model=False,
+                          base_data_csv='../data/Learning Data/spam_learning.csv',
+                          test_set_csv='../data/Learning Data/spam_test_set.csv',
+                          saved_model_bin='../data/analysis/Model Results/Saved Models/best_spam_model.h5'):
 
-        """
-        Function that processes all spam model args (both passed and from json) and returns one dictionary of args
+        spam_model_params = SpamModelParameters(learning_rate=learning_rate,
+                                                epochs=epochs,
+                                                trained=trained,
+                                                early_stopping=early_stopping,
+                                                early_stopping_patience=early_stopping_patience,
+                                                batch_size=batch_size,
+                                                load_model=load_model,
+                                                checkpoint_model=checkpoint_model,
+                                                saved_model_bin=saved_model_bin,
+                                                evaluate_model=evaluate_model,
+                                                debug=debug)
 
-        :param json_settings: An optional path to a json settings file which contains a dictionary of values that are
-                                treated as args passed to this function
-        :type json_settings: str
-        :param learning_rate: Learning rate of model
-        :type learning_rate: float
-        :param epochs: Number of epochs to train the model on
-        :type epochs: int
-        :param early_stopping: Whether or not to use Early Stopping during model training
-        :type early_stopping: bool
-        :param checkpoint_model: Whether or not to save model checkpoints during training
-        :type checkpoint_model: bool
-        :param early_stopping_patience: In the case of early stopping, number of epochs to run without improvement
-                                        before stopping the training
-        :type early_stopping_patience: int
-        :param batch_size: Data batch size to train the model with
-        :type batch_size: int
-        :param evaluate_model: Whether or not to "evaluate" the model performance after training on test dataset
-        :type evaluate_model: bool
-        :param debug: Whether or not to run the model in debugging mode
-        :type debug: bool
-        :param score: Pass in an existing model score???
-        :type score: (float, float)
-        :param train_data_csv: Path to the train data csv file containing unaugmented training set
-                                (can contain augmented rows if 'augment' column is present)
-        :type train_data_csv: str
-        :param aug_data_csv: Path to augmented train data csv file (containing augmented Tweet dataframe in csv format)
-        :type aug_data_csv: str
-        :param test_size: The test size (or portion of data to be used for test set during training)
-        :type test_size: float 0 < x < 1
-        :param preload_train_data_dill: Path to a dill file containing preprocessed training data (used in place of
-                                        loading from CSVs)
-        :type preload_train_data_dill: str
-        :param save_train_data_dill: Path to save training data to a dill file after it gets processed (for future
-                                     loading)
-        :type save_train_data_dill: str
-        :param features_to_train: Tweet and botometer features to train the model on
-        :type features_to_train: list(str)
-        :param model_h5: Path to save trained model in h5 format to after training
-        :type model_h5: str
-
-        :return: Dictionary of spam model settings that can be used to initialize SpamModelParameters
-        :rtype: dict
-        """
+        if not nsc:
+            nsc = NSC()
 
         if not features_to_train:
             features_to_train = ['full_text', 'cap.english', 'cap.universal',
@@ -99,196 +77,192 @@ class TwitterSpamModelInterface:
                                  'raw_scores.universal.spammer',
                                  'favorite_count', 'retweet_count']
 
-        # Most values come from passed arguments
-        # Some values are pre-set because they never need to be changed in this mode of loading
-        settings_dict = {
-            'learning_rate': learning_rate,
-            'epochs': epochs,
-            'early_stopping': early_stopping,
-            'checkpoint_model': checkpoint_model,
-            'early_stopping_patience': early_stopping_patience,
-            'batch_size': batch_size,
-            'trained': False,
-            'evaluate_model': evaluate_model,
-            'debug': debug,
-            'score': score,
+        if use_botometer_lite:
+            features_to_train.append('botscore')
 
-            'custom_tokenizer': None,
-            'train_data_csv': train_data_csv,
-            'aug_data_csv': aug_data_csv,
-            'test_size': test_size,
-            'preload_train_data_dill': preload_train_data_dill,
-            'save_train_data_dill': save_train_data_dill,
-            'features_to_train': features_to_train,
-            'custom_text_input_length': 44,
-            'load_predict_only': False,
-            'model_h5': model_h5
-        }
+        spam_model_data = SpamModelData(nsc=nsc, base_data_csv=base_data_csv,
+                                        test_size=test_size,
+                                        features_to_train=features_to_train,
+                                        aug_data_csv=aug_data_csv, save_preload_binary=save_preload_binary,
+                                        from_preload_binary=from_preload_binary)
 
-        if os.path.exists(json_settings):
-            with open(json_settings, 'r') as f:
-                data = json.load(f)
+        spam_model_learning = SpamModelLearning(spam_model_params, spam_model_data)
+        spam_model_learning.build_model()
 
-            # Replace arg dict values with json values
-            for key in data.keys():
-                if key in settings_dict.keys():
-                    settings_dict[key] = data[key]
+        if test_model:
+            spam_score_dict = spam_model_learning.predict_and_score(test_set_csv)
 
-        return settings_dict
+            print(spam_score_dict)
+
+        return spam_model_learning
 
     @staticmethod
-    def classify_twitter_query(keywords, num: int, dill_file: str, filename=None,
-                               use_botometer_lite=False) -> pd.DataFrame:
-        """
-        Queries tweets and their botscores, loads spam model from dill and h5, predicts on tweets, and returns tweet
-        dataframe with spam model predictions.
+    def classify_twitter_query(keywords, num: int, filename=None, load_model=False,
+                               use_botometer_lite=False,
+                               saved_model_bin='../data/analysis/Model Results/Saved Models/best_spam_model.h5'):
 
-        :param keywords: Tweet keywords to query
-        :type keywords: list(str)
-        :param num: Number of Tweets to query per keyword
-        :type num: int
-        :param dill_file: Path to dill file which stores SpamModelParameters
-        :type dill_file: str
-        :param filename: Filename to save labeled dataframe to
-        :type filename: str
-        :param use_botometer_lite: Whether or not to use botometer lite (when querying Tweets)
-        :type use_botometer_lite: bool
+        tdm = TweetDatabaseManager()
+        tdm.use_botometer_lite = use_botometer_lite
 
-        :return: Dataframe of Tweets with Spam Model labels
-        :rtype: pd.DataFrame
-        """
+        if not use_botometer_lite:
+            tdm.keys.remove('botscore')
+
+        df = tdm.save_multiple_keywords(keywords, num, same_file=True, filename=None, save_to_file=False)
+
+        spam_model_learning = TwitterSpamModelInterface.create_spam_model(use_botometer_lite=tdm.use_botometer_lite,
+                                                                          saved_model_bin=saved_model_bin,
+                                                                          load_model=load_model,
+                                                                          evaluate_model=(not load_model))
+
+        features_to_train = tdm.keys
+        features_to_train += ['full_text', 'retweet_count', 'favorite_count']
+
+        df = Utils.parse_json_tweet_data(df, features_to_train)
+
+        df['SpamModelLabel'] = spam_model_learning.predict(tweet_df=df)
+
         if filename is None:
             filename = '&'.join(keywords)
             filename += f'x{num}'
             filename += '.csv'
-
-        # Tweet query
-        tdm = TweetDatabaseManager(use_botometer_lite=use_botometer_lite)
-        df = tdm.save_multiple_keywords(keywords, num, same_file=True, filename=None, save_to_file=False)
-
-        spam_model_learning = TwitterSpamModelInterface.load_spam_model_to_predict(dill_file)
-
-        # Parse Tweet df to make sure it has needed keys
-        df = Utils.parse_json_tweet_data(df, spam_model_learning.parameters.features_to_train)
-
-        df['SpamModelLabel'] = spam_model_learning.predict(tweet_df=df)
 
         Utils.write_dataframe_to_csv(df, filename, write_index=False)
 
         return df
 
     @staticmethod
-    def create_spam_model_to_train(**kwargs) -> SpamModelLearning:
+    def load_model_from_bin(path) -> SpamModelLearning:
         """
-        Creates instances of SpamModelData, SpamModelParameters, and SpamModelLearning in a way that these
-        objects are prepared for training the model.
+        Loads and returns a model object from a binary save file
 
-        :param kwargs: Any keyword arguments which are described in process_spam_model_args
-        :type kwargs: str: any
+        :param path: Path to the saved model
+        :type path: str
 
-        :return: Initialized and trained Twitter spam model
+        :return: Loaded model
         :rtype: SpamModelLearning
         """
+        with open(path, 'rb') as mb:
+            data = dill.load(mb)
 
-        settings_dict = TwitterSpamModelInterface.process_spam_model_args(**kwargs)
-        parameters = SpamModelParameters(**settings_dict)
-        data = SpamModelData(parameters)
-        model = SpamModelLearning(parameters, data)
-        model.build_model()
+            # If model has been trained, we must load the model.model using tensorflow method
+            if data[0]:
+                _, model_path, model_data, params = data
+                model = SpamModelLearning(params, model_data)  # Params and model_data stored normally in pickle
 
+                # Model stored through tensorflow
+                model.model = tf.keras.models.load_model(model_path, custom_objects=MetricsDict)
+                model.parameters.trained = True
+
+            # If model not trained yet, load normally from pickle
+            else:
+                _, model = data
         return model
 
     @staticmethod
-    def preprocess_training_data(json_settings='../data/Learning Data/spam_settings.json',
-                                 train_data_csv='../data/Learning Data/spam_train.csv',
-                                 aug_data_csv='../data/Learning Data/spam_train_aug.csv',
-                                 test_size=0.1, save_train_data_dill='../data/Learning Data/preload.dill',
-                                 features_to_train=None) -> bool:
+    def save_model_to_bin(path, model):
         """
-        Loads csv training data and processes it (sanitizes, vectorizes, molds into model input shape). Saves this to a
-        dill file for use whenever loading the model to train. Parameters passed here are the only ones needed for data
-        to be preprocessed. If parameters here need to be changed, then data needs to be reprocessed before training.
+        Saves a model object to a binary save file
 
-        See process_spam_model_args() for descriptions of args
-
-        :return: Whether or not the preprocessing was successful and the save_train_data_dill file exists
-        :rtype: bool
+        :param path: Path to save the model at
+        :type path: str
+        :param model: Twitter spam model instance to be saved
+        :type model: SpamModelLearning
         """
+        bin_path = path + '.bin'
 
-        successful = False
-        settings = TwitterSpamModelInterface.process_spam_model_args(json_settings=json_settings,
-                                                                     train_data_csv=train_data_csv,
-                                                                     aug_data_csv=aug_data_csv,
-                                                                     test_size=test_size,
-                                                                     save_train_data_dill=save_train_data_dill,
-                                                                     features_to_train=features_to_train)
+        # If model has been trained, save using tensorflow method and pickle
+        if model.parameters.trained:
+            data = model.data
+            params = model.parameters
+            model_path = path + '.tf'
+            model.model.save(model_path)
+            bin_data = (True, model_path, data, params)
 
-        parameters = SpamModelParameters(**settings)
-        _ = SpamModelData(parameters)
+        # If model not trained yet, save normally to pickle
+        else:
+            bin_data = (False, model)
 
-        if os.path.isfile(save_train_data_dill):
-            successful = True
-
-        return successful
+        with open(bin_path, 'wb') as mb:
+            dill.dump(bin_data, mb)
 
     @staticmethod
-    def save_trained_model(sml: SpamModelLearning, dill_parameters_file, h5_file='') -> bool:
+    def load_model_from_origin(base_data_csv='', test_size=0.3, features_to_train=None, aug_data_csv=None,
+                               save_preload_data_to_bin='', from_preload_data_bin='', epochs=100, learning_rate=0.0001,
+                               saved_model_bin='', early_stopping=False, load_model=False, early_stopping_patience=0,
+                               batch_size=128, settings_file=''):
         """
-        Saves a trained SpamModelLearning to an h5 file and its SpamModelParameters class to a dill file in a format
-        that the model can be loaded in prediction mode.
+        Loads and returns a model object from provided data with provided settings
 
-        :param sml: Trained SpamModelLearning
-        :type sml: SpamModelLearning
-        :param dill_parameters_file: Path to the dill file in which SpamModelParameters will be saved.
-        :type: str
-        :param h5_file: Optional path to the h5 file where SpamModelLearning model will be saved (otherwise uses the h5
-                        path in SpamModelLearning.SpamModelParameters.h5)
-        :type h5_file: str
+        :param base_data_csv: Path of the base data csv file (containing Tweet dataframe in csv format)
+        :type base_data_csv: str
+        :param test_size: The test size (or portion of data to be used for test set during training)
+        :type test_size: float 0 < x < 1
+        :param features_to_train: Tweet and botometer features to train the model on
+        :type features_to_train: list(str)
+        :param aug_data_csv: Path of the augmented data csv file (containing augmented Tweet dataframe in csv format)
+        :param save_preload_data_to_bin: Path to save model data into a preload bin (this saves time in case you are
+                                        initializing another model with the same data)
+        :type save_preload_data_to_bin: str
+        :param from_preload_data_bin: Path to preloaded model data saved in a bin (saves time in case you saved your
+                                      preload data on previous model initialization)
+        :type from_preload_data_bin: str
+        :param epochs: Number of epochs to train the model on, can be changed later, before training model
+        :type epochs: int
+        :param learning_rate: Learning rate of model
+        :type learning_rate: float
+        :param saved_model_bin: Path to save the model at for early stopping (not the same as saving the entire Model
+                                Class (SpamModelLearning) through save_model_to_bin)
+        :type saved_model_bin: str
+        :param early_stopping: Whether or not to use Early Stopping during model training
+        :type early_stopping: bool
+        :param load_model: Whether or not to load the model (when starting training) from a previously saved callback
+                           (not the same as loading the entire Model Class (SpamModelLearning) through
+                           load_model_from_bin)
+        :type load_model: str
+        :param early_stopping_patience: In the case of early stopping, number of epochs to run without improvement
+                                        before stopping the training
+        :type early_stopping_patience: int
+        :param batch_size: Batch size to train the model with
+        :type batch_size: int
+        :param settings_file: Path to an optional json file to load all of the aforementioned parameters from
+        :type settings_file: str
 
-        :return: Whether the saving operation was successful
-        :rtype: bool
-        """
-
-        successful = False
-
-        if h5_file:
-            sml.parameters.h5 = h5_file
-
-        # Save h5 of model
-        sml.model.save(sml.parameters.h5)
-
-        # Make sure parameters class is updated before saving
-        sml.parameters.update_to_save_as_trained(sml.data.nsc, sml.data.text_input_length)
-
-        # Save parameters to dill
-        with open(dill_parameters_file, 'wb') as dpf:
-            dill.dump(sml.parameters, dpf)
-
-        # Check that files exist
-        if os.path.isfile(dill_parameters_file) and os.path.isfile(sml.parameters.h5):
-            successful = True
-
-        return successful
-
-    @staticmethod
-    def load_spam_model_to_predict(dill_parameters_file: str) -> SpamModelLearning:
-        """
-        Loads an instance of SpamModelData, SpamModelParameters, and SpamModelLearning from saved model .h5 and
-        saved parameters .dill files in a way that these objects are prepared for using the model to predict.
-
-        :param dill_parameters_file: Path to dill file which stores SpamModelParameters
-        :type dill_parameters_file: str
-
-        :return: A compiled SpamModelLearning ready to make predictions
+        :return: Initialized, but not built (not trained) Twitter model
         :rtype: SpamModelLearning
         """
-        with open(dill_parameters_file, 'rb') as dpf:
-            parameters = dill.load(dpf)
+        if os.path.exists(settings_file):
+            with open(settings_file, 'r') as f:
+                data = json.load(f)
 
-        data = SpamModelData(parameters)
+            base_data_csv, test_size, features_to_train, aug_data_csv, save_preload_data_to_bin,\
+            from_preload_data_bin, epochs, learning_rate, saved_model_bin, early_stopping, load_model,\
+            early_stopping_patience, batch_size = \
+                operator.itemgetter('base_data_csv', 'test_size', 'features_to_train', 'aug_data_csv',
+                                    'save_preload_data_to_bin', 'from_preload_data_bin', 'epochs', 'learning_rate',
+                                    'saved_model_bin', 'early_stopping', 'load_model', 'early_stopping_patience',
+                                    'batch_size')(data)
+
+        if features_to_train is None:
+            features_to_train = ['full_text']
+
+        nsc = NSC()
+
+        parameters = SpamModelParameters(learning_rate=learning_rate,
+                                         epochs=epochs,
+                                         saved_model_bin=saved_model_bin,
+                                         early_stopping=early_stopping,
+                                         checkpoint_model=False,
+                                         load_model=load_model,
+                                         early_stopping_patience=early_stopping_patience,
+                                         batch_size=batch_size,
+                                         trained=False,
+                                         debug=False)
+
+        data = SpamModelData(nsc, base_data_csv, test_size, features_to_train, aug_data_csv=aug_data_csv,
+                             save_preload_binary=save_preload_data_to_bin, from_preload_binary=from_preload_data_bin)
         model = SpamModelLearning(parameters, data)
-        model.build_model()
 
         return model
 
 
+dft = TwitterSpamModelInterface.classify_twitter_query(['Trump'], 3, load_model=True)
