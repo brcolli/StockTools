@@ -12,75 +12,58 @@ NSC = NLPSentimentCalculations.NLPSentimentCalculations
 ModelParameters = ModelBase.ModelParameters
 ModelData = ModelBase.ModelData
 ModelLearning = ModelBase.ModelLearning
-
-# These have to be here and not in ModelParameters because they need to know about NSC functions
 Metrics = ['acc', NSC.precision, NSC.recall, NSC.mcor,
            tfa.metrics.FBetaScore(num_classes=2, average='weighted', beta=1.0, name='fbeta')]
 MetricsKeys = ['acc', 'precision', 'recall', 'mcor', 'fbeta']
 MetricsDict = dict(zip(MetricsKeys, Metrics))
 
 
-# Class to handle model settings, loading settings, and data file paths. Currently identical to ModelBase.py version.
 class SpamModelParameters(ModelParameters):
 
     def __init__(self,
                  learning_rate=1e-3,
-                 epochs=100,
+                 epochs=1000,
+                 saved_model_bin='',
                  early_stopping=False,
                  checkpoint_model=False,
+                 load_model=False,
                  early_stopping_patience=0,
                  batch_size=128,
                  trained=False,
                  evaluate_model=True,
-                 debug=False,
-                 score=(-1, -1),
-
-                 custom_tokenizer=None,
-                 train_data_csv='',
-                 aug_data_csv='',
-                 test_size=0.1,
-                 preload_train_data_dill='',
-                 save_train_data_dill='',
-                 features_to_train=None,
-                 custom_text_input_length=44,
-
-                 load_predict_only=False,
-                 model_h5=''):
-
-        dict_args = locals()
-        dict_args.pop('self')
-        dict_args.pop('__class__')
-        super().__init__(**dict_args)
+                 debug=False):
+        super().__init__(learning_rate,
+                         epochs,
+                         saved_model_bin,
+                         early_stopping,
+                         checkpoint_model,
+                         load_model,
+                         early_stopping_patience,
+                         batch_size,
+                         trained,
+                         evaluate_model,
+                         debug)
 
 
 class SpamModelData(ModelData):
 
-    def __init__(self, parameters: SpamModelParameters):
+    def __init__(self, nsc, base_data_csv, test_size, features_to_train, aug_data_csv=None, save_preload_binary='',
+                 from_preload_binary=''):
 
-        super().__init__(parameters)
+        super().__init__(nsc, base_data_csv,
+                         test_size,
+                         features_to_train,
+                         aug_data_csv)
 
-        if self.parameters.features_to_train is None:
-            self.parameters.features_to_train = ['full_text']
+        self.textless_features_to_train = [x for x in features_to_train if x != 'full_text']
 
-        self.parameters.textless_features_to_train = [x for x in self.parameters.features_to_train if x != 'full_text']
-
-        # Load Data necessary for training mode
-        if self.parameters.load_to_train:
-            # Preload train data from a dill
-            if parameters.preload_train_data_dill:
-                self.load_data_from_dill()
-
-            # Load data normally (from CSVs)
-            else:
-                self.load_data_from_csv()
-
-                # Save train data to a dill for preloading next time
-                if self.parameters.save_train_data_dill:
-                    self.save_data_to_dill()
-
-        # Nothing needs to be done if we are loading for prediction only mode
+        if from_preload_binary:
+            self.load_data_from_binary(from_preload_binary)
         else:
-            pass
+            self.load_data_from_csv()
+
+            if save_preload_binary:
+                self.save_data_to_binary(save_preload_binary)
 
     def get_x_val_from_csv(self, csv):
         """
@@ -93,7 +76,7 @@ class SpamModelData(ModelData):
         :rtype: [x_val_text_embeddings, x_val_meta] or x_val_text_embeddings
         """
 
-        df = Utils.parse_json_tweet_data_from_csv(csv, self.parameters.features_to_train)
+        df = Utils.parse_json_tweet_data_from_csv(csv, self.features_to_train)
         return self.get_x_val_from_dataframe(df)
 
     def get_x_val_from_dataframe(self, x_val):
@@ -106,7 +89,7 @@ class SpamModelData(ModelData):
         :return: Data ready to be passed into the model for prediction
         :rtype: [x_val_text_embeddings, x_val_meta] or x_val_text_embeddings
         """
-        if 'full_text' in self.parameters.features_to_train:
+        if 'full_text' in self.features_to_train:
             x_val_text_data = x_val['full_text']
         else:
             x_val_text_data = pd.DataFrame()
@@ -117,8 +100,8 @@ class SpamModelData(ModelData):
         # Vectorizes textual data
         _, x_val_text_embeddings = self.nsc.keras_word_embeddings(x_val_text_clean, self.text_input_length)
 
-        if len(self.parameters.textless_features_to_train) > 0:
-            x_val_meta = x_val[self.parameters.textless_features_to_train]
+        if len(self.textless_features_to_train) > 0:
+            x_val_meta = x_val[self.textless_features_to_train]
             return [x_val_text_embeddings, x_val_meta]
         else:
             return x_val_text_embeddings
@@ -134,17 +117,17 @@ class SpamModelData(ModelData):
         :rtype: list(dict(str-> bool), str)
         """
 
-        x_train, x_test, y_train, y_test = self.nsc.keras_preprocessing(dataframe[self.parameters.features_to_train],
+        x_train, x_test, y_train, y_test = self.nsc.keras_preprocessing(dataframe[self.features_to_train],
                                                                         dataframe['Label'],
                                                                         augmented_states=dataframe['augmented'],
-                                                                        test_size=self.parameters.test_size)
+                                                                        test_size=self.test_size)
 
         if x_train is False:
             print("Train test failed due to over augmentation")
             return False
 
         # Split into text and meta data
-        if 'full_text' in self.parameters.features_to_train:
+        if 'full_text' in self.features_to_train:
             x_train_text_data = x_train['full_text']
             x_test_text_data = x_test['full_text']
 
@@ -165,8 +148,8 @@ class SpamModelData(ModelData):
 
         glove_embedding_matrix = self.nsc.create_glove_word_vectors()
 
-        x_train_meta = x_train[self.parameters.textless_features_to_train]
-        x_test_meta = x_test[self.parameters.textless_features_to_train]
+        x_train_meta = x_train[self.textless_features_to_train]
+        x_test_meta = x_test[self.textless_features_to_train]
 
         return x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
                glove_embedding_matrix, y_train, y_test
@@ -176,15 +159,13 @@ class SpamModelData(ModelData):
         Loads twitter dataframe from csv and calls self.get_dataset_from_tweet_sentiment
         """
 
-        twitter_df = Utils.parse_json_tweet_data_from_csv(self.parameters.train_data_csv,
-                                                          self.parameters.features_to_train)
+        twitter_df = Utils.parse_json_tweet_data_from_csv(self.base_data_csv, self.features_to_train)
 
         if 'augmented' not in twitter_df.columns:
             twitter_df['augmented'] = 0
 
-        if self.parameters.aug_data_csv:
-            aug_df = Utils.parse_json_tweet_data_from_csv(self.parameters.aug_data_csv,
-                                                          self.parameters.features_to_train)
+        if self.aug_data_csv:
+            aug_df = Utils.parse_json_tweet_data_from_csv(self.aug_data_csv, self.features_to_train)
             if 'augmented' not in aug_df.columns:
                 aug_df['augmented'] = 1
 
@@ -205,6 +186,7 @@ class SpamModelLearning(ModelLearning):
         self.parameters = model_params
         self.data = model_data
         self.metrics = Metrics
+        self.score = (-1, -1)
 
     def compile_model(self):
 
@@ -260,7 +242,7 @@ class SpamModelLearning(ModelLearning):
         else:
             return []
 
-        # Use the highest softmax probability as the label (0 or 1)
+        # Use the highest softmax probability as the label (-1, 0, or 1)
         return [max(range(len(y1)), key=y1.__getitem__) for y1 in y]
 
     def predict_and_score(self, csv, affect_parameter_scores=False):
@@ -331,17 +313,14 @@ class SpamModelLearning(ModelLearning):
             tf.config.run_functions_eagerly(True)
 
         # Load previously saved model and test if requested
-        if self.parameters.load_to_predict and os.path.exists(self.parameters.h5):
+        if self.parameters.load_model and os.path.exists(self.parameters.saved_model_bin):
 
-            self.model = NSC.load_saved_model(self.parameters.h5)
+            self.model = NSC.load_saved_model(self.parameters.saved_model_bin)
             self.compile_model()
 
-            # @TODO This needs to be fixed because {data.x_test_text_embeddings}, etc. does not get preprocessed if
-            # @TODO model is being loaded from h5.
-            if self.parameters.evaluate_model_on_load:
-                print("\nEvaluation not currently supported for loading model in predict mode\n")
-                # self.score = self.evaluate_model([self.data.x_test_text_embeddings,
-                #                                   self.data.x_test_meta], self.data.y_test, [])
+            if self.parameters.evaluate_model:
+                self.score = self.evaluate_model([self.data.x_test_text_embeddings,
+                                                  self.data.x_test_meta], self.data.y_test, [])
 
             return
 
@@ -359,7 +338,7 @@ class SpamModelLearning(ModelLearning):
 
         if self.parameters.checkpoint_model:
             # Set up checkpointing model
-            cbs.append(NSC.create_model_checkpoint_callback(self.parameters.h5, monitor_stat='mcor',
+            cbs.append(NSC.create_model_checkpoint_callback(self.parameters.saved_model_bin, monitor_stat='mcor',
                                                             mode='max'))
 
         # Change input layer based on what style of features we are using
@@ -379,11 +358,7 @@ class SpamModelLearning(ModelLearning):
 
         NSC.plot_model_history(history)
 
-        if self.parameters.evaluate_model_on_load:
-            self.parameters.score = self.evaluate_model(test_input_layer, self.data.y_test, [])
+        if self.parameters.evaluate_model:
+            self.score = self.evaluate_model(test_input_layer, self.data.y_test, [])
 
         return
-
-    # def save_trained_model_to_h5(self):
-    #     print("Saving model")
-    #     self.model.save(self.parameters.h5)
