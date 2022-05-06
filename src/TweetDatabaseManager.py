@@ -52,12 +52,19 @@ class TweetDatabaseManager:
         :rtype: pd.DataFrame
         """
         tweets = TweetCollector.collect_tweets(phrase=keyword, history_count=num)
-        bot_labels = self.BR.wrapper(from_dataframe=tweets, lite_tweet_request=self.use_botometer_lite,
-                                     bot_user_request=True, wanted_bot_keys=(self.keys[6:]))
-        full_df = Utils.basic_merge(tweets, bot_labels)
-        full_df = Utils.order_dataframe_columns(full_df, self.keys, cut=True)
 
-        return full_df
+        if len(tweets) == 0:
+            print(f'No Tweets found for {keyword}...')
+            return None
+
+        else:
+            print(f'{len(tweets)} Tweets collected for {keyword}...')
+            bot_labels = self.BR.wrapper(from_dataframe=tweets, lite_tweet_request=self.use_botometer_lite,
+                                         bot_user_request=True, wanted_bot_keys=(self.keys[6:]))
+            full_df = Utils.basic_merge(tweets, bot_labels)
+            full_df = Utils.order_dataframe_columns(full_df, self.keys, cut=True)
+
+            return full_df
 
     def save_tweets(self, keyword: str, num: int, filename=None):
         """
