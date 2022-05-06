@@ -793,7 +793,7 @@ class BotometerRequests:
             tweet_ids, user_ids, tweet_objects = cols
 
         #  In case you don't have the data, catches error request to Botometer
-        if user_ids is None:
+        if user_ids is None or len(user_ids) == 0:
             bot_user_request = False
             lite_user_request = False
 
