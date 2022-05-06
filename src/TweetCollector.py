@@ -37,7 +37,7 @@ class TwitterManager:
         self.api = tweepy.API(self.auth)
 
     def phrase_search_history_with_id_jsons(self, phrase, count=1000):
-        print('Collecting tweets from phrase: ' + phrase + '...')
+        print('\nCollecting tweets from phrase: ' + phrase + '...')
 
         tweets = []
         tweet_keys = ['Tweet id', 'User id', 'Screen name', 'Label', 'Search term', 'json']
