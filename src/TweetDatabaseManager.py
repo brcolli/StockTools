@@ -53,8 +53,8 @@ class TweetDatabaseManager:
         """
         tweets = TweetCollector.collect_tweets(phrase=keyword, history_count=num)
 
-        if len(tweets) == 0:
-            print(f'No Tweets found for {keyword}...')
+        if tweets.shape[0] == 0:
+            print(f'No Tweets found for "{keyword}"...')
             return None
 
         else:
