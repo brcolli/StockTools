@@ -252,6 +252,8 @@ class TwitterManager:
 
         """Searches historic tweets for a phrase
 
+        TODO handle getting full_text from retweets
+
         :param phrase: A phrase to search for
         :type phrase: str
         :param count: Amount of tweets to grab; defaults to 1000
@@ -299,7 +301,7 @@ class TwitterManager:
         return pd.DataFrame(data=tweets, columns=tweet_keys)
 
     @staticmethod
-    def construct_twitter_query(phrase, filter_in=None, filter_out=None, exact_phrase=''):
+    def construct_twitter_query(phrase='', filter_in=None, filter_out=None, exact_phrase=''):
 
         """Constructs a proper advanced twitter search query given certain operations.
         Refer to https://developer.twitter.com/en/docs/twitter-api/v1/rules-and-filtering/overview/standard-operators
@@ -328,7 +330,8 @@ class TwitterManager:
         if exact_phrase != '':
             query += '"' + exact_phrase + '" '
 
-        query += phrase + ' OR ' + phrase.upper() + ' OR ' + phrase.capitalize()
+        if phrase:
+            query += phrase + ' OR ' + phrase.upper() + ' OR ' + phrase.capitalize()
 
         # Add all filtered in requirements
         for fin in filter_in:
@@ -415,6 +418,7 @@ class TwitterStreamListener(tweepy.StreamListener):
 
 def main(search_past=False, search_stream=False, train_spam=False, train_sent=False,
          phrase='', filter_in=None, filter_out=None, history_count=1000):
+
     if not filter_in:
         filter_in = []
     if not filter_out:
@@ -425,10 +429,10 @@ def main(search_past=False, search_stream=False, train_spam=False, train_sent=Fa
     spam_model_learning = None
 
     if train_spam:
-        spam_model_params = SpamModelParameters(epochs=1000,
+        spam_model_params = SpamModelParameters(epochs=3000,
                                                 batch_size=128,
                                                 load_model=False,
-                                                checkpoint_model=False,
+                                                checkpoint_model=True,
                                                 saved_model_bin='../data/analysis/Model Results/Saved Models/'
                                                                 'best_spam_model.h5')
 
@@ -449,7 +453,7 @@ def main(search_past=False, search_stream=False, train_spam=False, train_sent=Fa
                                                            'raw_scores.universal.other',
                                                            'raw_scores.universal.self_declared',
                                                            'raw_scores.universal.spammer',
-                                                           'botscore', 'favorite_count', 'retweet_count'])
+                                                           'favorite_count', 'retweet_count'])
 
         spam_model_learning = SpamModelLearning(spam_model_params, spam_model_data)
         spam_model_learning.build_model()
@@ -495,6 +499,3 @@ def main(search_past=False, search_stream=False, train_spam=False, train_sent=Fa
             tw.start_stream(phrase)
         else:
             tw.start_stream(([phrase]))
-
-
-main(train_spam=True)
