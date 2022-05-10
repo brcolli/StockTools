@@ -122,7 +122,7 @@ class TwitterSpamModelInterface:
         df['SpamModelLabel'] = spam_model_learning.predict(tweet_df=df)
 
         if filename is None:
-            filename = '&'.join(keywords)
+            filename = '&'.join(keywords).replace('\"', '').replace("\'", '')
             filename += f'x{num}'
             filename += '.csv'
 
@@ -263,6 +263,3 @@ class TwitterSpamModelInterface:
         model = SpamModelLearning(parameters, data)
 
         return model
-
-
-dft = TwitterSpamModelInterface.classify_twitter_query(['Trump'], 3, load_model=True)

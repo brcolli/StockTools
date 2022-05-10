@@ -283,6 +283,7 @@ class SentimentModelLearning(ModelLearning):
 
         # Load previously saved model and test
         if self.parameters.load_model and os.path.exists(self.parameters.saved_model_bin):
+
             self.model = NSC.load_saved_model(self.parameters.saved_model_bin)
             self.compile_model()
 
