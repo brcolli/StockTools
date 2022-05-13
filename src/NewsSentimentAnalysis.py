@@ -9,6 +9,7 @@ import NLPSentimentCalculations
 import TwitterSpamModel
 import TwitterSentimentModel
 from SpamToSentimentModel import ModelHandler
+from typing import List
 
 Utils = utilities.Utils
 NSC = NLPSentimentCalculations.NLPSentimentCalculations
@@ -100,7 +101,7 @@ class TwitterManager:
         """
 
         # Tokens and keys
-        #  TODO move keys to a hashed file on a cloud server
+        # TODO move keys to a hashed file on a cloud server
         self.shKey = 'BUYwpbmEi3A29cm9kOXeX9y8n'
         self.scKey = 'MF5w3g6jmn7WnYM6DG8xtIWkdjnEhInnBSf5bU6HclTF4wSkJ9'
         self.shToken = '4149804506-DrTR0UhuQ8pWf16r9wm8NYdkGNSBWuib2Y8nUlw'
@@ -173,7 +174,8 @@ class TwitterManager:
         return x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
                glove_embedding_matrix, y_train, y_test
 
-    def initialize_twitter_spam_model(self, spam_model_learning: SpamModelLearning, to_preprocess_binary='', from_preprocess_binary='',
+    def initialize_twitter_spam_model(self, spam_model_learning: SpamModelLearning, to_preprocess_binary='',
+                                      from_preprocess_binary='',
                                       learning_data='../data/Learning Data/spam_learning.csv', epochs=200,
                                       aug_df_file='',
                                       early_stopping=False, load_model=False,
@@ -343,7 +345,7 @@ class TwitterManager:
 
         return query
 
-    def start_stream(self, phrases, default_sentiment='', limit=-1):
+    def start_stream(self, phrases: List[str], default_sentiment: str = '') -> None:
 
         """Starts a stream to collect tweets based on search phrases
 
@@ -351,11 +353,6 @@ class TwitterManager:
         :type phrases: list(str)
         :param default_sentiment: The default sentiment to assign to all incoming tweets; defaults to empty
         :type default_sentiment: str
-        :param limit: The number of tweets to limit in your stream scanning, currently unused; defaults to -1
-        :type limit: int
-
-        :return: The properly formatted query for a Twitter API call
-        :rtype: str
         """
 
         print('Starting stream on ' + str(phrases))
@@ -384,7 +381,7 @@ class TwitterStreamListener(tweepy.StreamListener):
         self.output_file = ''
         self.default_sentiment = ''
 
-    def on_status(self, status):
+    def on_status(self, status: tweepy.api.API) -> None:
 
         """Main event method for when a stream listener gets a tweet. Writes to a file.
 
@@ -408,16 +405,33 @@ class TwitterStreamListener(tweepy.StreamListener):
             if self.default_sentiment != '':
                 self.default_sentiment += ','
 
-            data = str(status.created_at) + ',' + status.user.name + ',' + status.text.replace('\n', '') +\
-                   ',' + self.default_sentiment + '\n'
+            data = str(status.created_at) + ',' + status.user.name + ',' + status.text.replace('\n', '') + ',' +\
+                   self.default_sentiment + '\n'
 
             print(data)
             f.write(data)
             print('Tweet saved...')
 
 
-def main(search_past=False, search_stream=False, train_spam=False, train_sent=False,
-         phrase='', filter_in=None, filter_out=None, history_count=1000):
+def main(search_past: bool = False, search_stream: bool = False, use_ml: bool = False, phrase: str = '',
+         filter_in: list = None, filter_out: list = None, history_count: int = 1000) -> None:
+
+    """
+    :param search_past: Flag for choosing to search past Twitter posts with queries; defaults to False
+    :type search_past: Boolean
+    :param search_stream: Flag for choosing to search a stream of Twitter data; defaults to False
+    :type search_stream: Boolean
+    :param use_ml: Flag for choosing to build sentiment models; defaults to False
+    :type use_ml: Boolean
+    :param phrase: String to query for; defaults to empty string
+    :type phrase: string
+    :param filter_in: Types of data to include in query; defaults to []
+    :type filter_in: list(str)
+    :param filter_out: Types of data to remove from query; defaults to []
+    :type filter_out: list(str)
+    :param history_count: Number of historical tweets to collect; defaults to 1000
+    :type history_count: int
+    """
 
     if not filter_in:
         filter_in = []
