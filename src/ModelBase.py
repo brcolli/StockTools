@@ -5,15 +5,12 @@ import pickle
 import pandas as pd
 import tensorflow as tf
 import tensorflow_addons as tfa
-import NLPSentimentCalculations
+from NLPSentimentCalculations import NLPSentimentCalculations as nSC
 from dataclasses import dataclass
-import utilities
+from utilities import Utils
 
 
-Utils = utilities.Utils
-NSC = NLPSentimentCalculations.NLPSentimentCalculations
-
-Metrics = ['acc', NSC.precision, NSC.recall, NSC.mcor,
+Metrics = ['acc', nSC.precision, nSC.recall, nSC.mcor,
            tfa.metrics.FBetaScore(num_classes=2, average='weighted', beta=1.0, name='fbeta')]
 MetricsKeys = ['acc', 'precision', 'recall', 'mcor', 'fbeta']
 MetricsDict = dict(zip(MetricsKeys, Metrics))
@@ -26,43 +23,57 @@ such as hyper parameters and model initialization.
 @dataclass
 class ModelParameters:
 
+    # Learning Related Parameters
     learning_rate: float = 1E-3
     epochs: int = 1000
-    saved_model_bin: str = ''
     early_stopping: bool = False
     checkpoint_model: bool = False
-    load_model: bool = False
     early_stopping_patience: int = 0
     batch_size: int = 128
     trained: bool = False
     evaluate_model: bool = True
     debug: bool = False
+
+    # Data Related Parameters
+    custom_tokenizer: object = None
+    train_data_csv: str = ''
+    aug_data_csv: str = ''
+    test_size: float = 0.1
+    preload_train_data_dill: str = ''
+    save_train_data_dill: str = ''
+    features_to_train: list = None
+    textless_features_to_train: list = None
+    custom_text_input_length: int = 50
+
+    # Performance Related Parameters
     accuracy: float = 0.0
     precision: float = 0.0
     recall: float = 0.0
     f_score: float = 0.0
     mcor: float = 0.0
 
+    # Loading and Mode
+    load_to_predict: bool = False
+    model_h5: str = ''
+
 
 class ModelData(ABC):
+
     """This single class should represent all the data being used in the model. Point is that functions to load and
     process data are contained within the class. In case new data is passed, the class processes it. Otherwise, the
     class should load itself from a pickle.
     """
 
-    def __init__(self, nsc, base_data_csv, test_size, features_to_train=None, aug_data_csv=None):
+    def __init__(self, parameters: ModelParameters):
+        self.parameters = parameters
 
-        self.nsc = nsc
-        self.base_data_csv = base_data_csv
-        self.test_size = test_size
-        self.text_input_length = 0
+        self.nsc = nSC()
+        if self.parameters.custom_tokenizer:
+            self.nsc.tokenizer = self.parameters.custom_tokenizer
 
-        self.features_to_train = features_to_train
-        if features_to_train is None:
-            self.features_to_train = ['full_text']
+        self.text_input_length = self.parameters.custom_text_input_length
 
-        self.aug_data_csv = aug_data_csv
-
+        # ModelData specific parameters
         self.x_train_text_embeddings = None
         self.x_test_text_embeddings = None
         self.x_train_meta = None
@@ -82,7 +93,7 @@ class ModelData(ABC):
         :rtype: x_val_text_embeddings
         """
 
-        df = Utils.parse_json_tweet_data_from_csv(csv, self.features_to_train)
+        df = Utils.parse_json_tweet_data_from_csv(csv, self.parameters.features_to_train)
         return self.get_x_val_from_dataframe(df)
 
     @abstractmethod
@@ -101,13 +112,13 @@ class ModelData(ABC):
         :rtype: List[str]
         """
 
-        if 'full_text' in self.features_to_train:
+        if 'full_text' in self.parameters.features_to_train:
             x_val_text_data = x_val['full_text']
         else:
             x_val_text_data = pd.DataFrame()
 
         # Sanitizes textual data
-        x_val_text_clean = [NSC.sanitize_text_string(s) for s in list(x_val_text_data)]
+        x_val_text_clean = [nSC.sanitize_text_string(s) for s in list(x_val_text_data)]
 
         # Vectorizes textual data
         _, x_val_text_embeddings = self.nsc.keras_word_embeddings(x_val_text_clean, self.text_input_length)
@@ -130,8 +141,8 @@ class ModelData(ABC):
         """
 
         # Clean the textual data
-        x_train_text_clean = [NSC.sanitize_text_string(s) for s in list(x_train_text_data)]
-        x_test_text_clean = [NSC.sanitize_text_string(s) for s in list(x_test_text_data)]
+        x_train_text_clean = [nSC.sanitize_text_string(s) for s in list(x_train_text_data)]
+        x_test_text_clean = [nSC.sanitize_text_string(s) for s in list(x_test_text_data)]
 
         # Initialize tokenizer on training data
         self.nsc.tokenizer.fit_on_texts(x_train_text_clean)
@@ -150,13 +161,15 @@ class ModelData(ABC):
         Creates a dataframe from a CSV of tweets
         """
 
-        twitter_df = Utils.parse_json_tweet_data_from_csv(self.base_data_csv, self.features_to_train)
+        twitter_df = Utils.parse_json_tweet_data_from_csv(self.parameters.train_data_csv,
+                                                          self.parameters.features_to_train)
 
         if 'augmented' not in twitter_df.columns:
             twitter_df['augmented'] = 0
 
-        if self.aug_data_csv:
-            aug_df = Utils.parse_json_tweet_data_from_csv(self.aug_data_csv, self.features_to_train)
+        if self.parameters.aug_data_csv:
+            aug_df = Utils.parse_json_tweet_data_from_csv(self.parameters.aug_data_csv,
+                                                          self.parameters.features_to_train)
             if 'augmented' not in aug_df.columns:
                 aug_df['augmented'] = 1
 
@@ -164,29 +177,26 @@ class ModelData(ABC):
 
         return twitter_df
 
-    def load_data_from_binary(self, from_preload_binary):
+    def load_data_from_dill(self):
         """
         Loads model data from a binary file
-        :param from_preload_binary: Path to preload binary
-        :type from_preload_binary: str
         """
 
-        if os.path.exists(from_preload_binary):
-            with open(from_preload_binary, "rb") as fpb:
+        if os.path.exists(self.parameters.preload_train_data_dill):
+
+            with open(self.parameters.preload_train_data_dill, "rb") as fpb:
                 data = pickle.load(fpb)
 
             self.x_train_text_embeddings, self.x_test_text_embeddings, self.x_train_meta, self.x_test_meta, \
-            self.glove_embedding_matrix, self.y_train, self.y_test, self.nsc.tokenizer = data
+            self.glove_embedding_matrix, self.y_train, self.y_test, self.nsc.tokenizer, self.text_input_length = data
 
-    def save_data_to_binary(self, save_preload_binary):
+    def save_data_to_dill(self):
         """
         Saves data to a preload binary (so it can then be loaded using _load_data_from_binary)
-        :param save_preload_binary: Path to preload binary
-        :type save_preload_binary: str
         """
-        with open(save_preload_binary, 'w') as f:
+        with open(self.parameters.save_train_data_dill, 'wb') as f:
             data = (self.x_train_text_embeddings, self.x_test_text_embeddings, self.x_train_meta, self.x_test_meta,
-                    self.glove_embedding_matrix, self.y_train, self.y_test, self.nsc.tokenizer)
+                    self.glove_embedding_matrix, self.y_train, self.y_test, self.nsc.tokenizer, self.text_input_length)
             pickle.dump(data, f)
 
     @abstractmethod
@@ -205,9 +215,9 @@ class ModelData(ABC):
 
 
 class ModelLearning:
-    """This is the main Model class. It will create objects from Data() and Version() classes. Added functionality will be
-    to load the entire model in from a file, get version info on previous models, reuse data classes in case the same data
-    is to be used with different hyperparamaters, and to add model testing / operation functionality.
+    """This is the main Model class. It will create objects from Data() and Version() classes. Added functionality will
+    be to load the entire model in from a file, get version info on previous models, reuse data classes in case the same
+    data is to be used with different hyperparamaters, and to add model testing / operation functionality.
     """
 
     def __init__(self, model_params: ModelParameters, model_data: ModelData):
@@ -360,7 +370,7 @@ class ModelLearning:
         Loads a model from a previous file, compiles the model, and evaluates if selected.
         """
 
-        self.model = NSC.load_saved_model(self.parameters.saved_model_bin)
+        self.model = nSC.load_saved_model(self.parameters.model_h5)
         self.compile_model()
 
         if self.parameters.evaluate_model:
@@ -377,14 +387,25 @@ class ModelLearning:
         cbs = []
         if self.parameters.early_stopping:
             # Set up early stopping callback
-            cbs.append(NSC.create_early_stopping_callback('mcor', patience=self.parameters.early_stopping_patience))
+            cbs.append(nSC.create_early_stopping_callback('mcor', patience=self.parameters.early_stopping_patience))
 
         if self.parameters.checkpoint_model:
             # Set up checkpointing model
-            cbs.append(NSC.create_model_checkpoint_callback(self.parameters.saved_model_bin, monitor_stat='mcor',
+            cbs.append(nSC.create_model_checkpoint_callback(self.parameters.model_h5, monitor_stat='mcor',
                                                             mode='max'))
 
         return cbs
+
+    def update_to_save_as_trained(self, nsc, text_input_length):
+        # TODO ask Fedya why we have this
+        self.parameters.trained = True
+        self.parameters.custom_tokenizer = nsc.tokenizer
+        self.parameters.custom_text_input_length = text_input_length
+        self.parameters.train_data_csv = ''
+        self.parameters.aug_data_csv = ''
+        self.parameters.preload_train_data_dill = ''
+        self.parameters.save_train_data_dill = ''
+        self.parameters.load_to_predict = True
 
     @abstractmethod
     def build_model(self):

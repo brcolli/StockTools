@@ -2,11 +2,9 @@ import random
 import pandas as pd
 import BotometerRequests as br
 import TweetCollector
-import utilities
+from utilities import Utils
 import os
 import time
-
-Utils = utilities.Utils()
 
 
 class TweetDatabaseManager:

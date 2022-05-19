@@ -2,34 +2,23 @@ import pandas as pd
 import tensorflow as tf
 import os
 from typing import List
-import NLPSentimentCalculations
-import utilities
-import ModelBase
-
-Utils = utilities.Utils
-NSC = NLPSentimentCalculations.NLPSentimentCalculations
-ModelParameters = ModelBase.ModelParameters
-ModelData = ModelBase.ModelData
-ModelLearning = ModelBase.ModelLearning
+from NLPSentimentCalculations import NLPSentimentCalculations as nSC
+from ModelBase import ModelParameters, ModelData, ModelLearning
 
 
 class SentimentModelData(ModelData):
 
-    def __init__(self, nsc, base_data_csv, test_size, aug_data_csv=None, save_preload_binary='',
-                 from_preload_binary=''):
+    def __init__(self, parameters: ModelParameters):
 
-        super().__init__(nsc=nsc, base_data_csv=base_data_csv,
-                         test_size=test_size,
-                         features_to_train=None,
-                         aug_data_csv=aug_data_csv)
+        super().__init__(parameters)
 
-        if from_preload_binary:
-            self.load_data_from_binary(from_preload_binary)
+        if self.parameters.preload_train_data_dill:
+            self.load_data_from_dill()
         else:
             self.load_data_from_csv()
 
-            if save_preload_binary:
-                self.save_data_to_binary(save_preload_binary)
+            if self.parameters.save_train_data_dill:
+                self.save_data_to_dill()
 
     def get_x_val_from_dataframe(self, x_val: pd.DataFrame) -> List[str]:
         """
@@ -55,10 +44,10 @@ class SentimentModelData(ModelData):
         :rtype: list(dict(str-> bool), str)
         """
 
-        x_train, x_test, y_train, y_test = self.nsc.keras_preprocessing(dataframe[self.features_to_train],
+        x_train, x_test, y_train, y_test = self.nsc.keras_preprocessing(dataframe[self.parameters.features_to_train],
                                                                         dataframe['Label'],
                                                                         augmented_states=dataframe['augmented'],
-                                                                        test_size=self.test_size)
+                                                                        test_size=self.parameters.test_size)
 
         if x_train is False:
             print("Train test failed due to over augmentation")
@@ -94,7 +83,9 @@ class SentimentModelLearning(ModelLearning):
             tf.config.run_functions_eagerly(True)
 
         # Load previously saved model and test
-        if self.parameters.load_model and os.path.exists(self.parameters.saved_model_bin):
+        if self.parameters.load_to_predict and os.path.exists(self.parameters.model_h5):
+            # @TODO This needs to be fixed because {data.x_test_text_embeddings}, etc. does not get preprocessed if
+            # @TODO model is being loaded from h5.
             self.load_compile_test_model()
             return
 
@@ -110,7 +101,7 @@ class SentimentModelLearning(ModelLearning):
                                  batch_size=self.parameters.batch_size,
                                  epochs=self.parameters.epochs, verbose=1, callbacks=cbs)
 
-        NSC.plot_model_history(history)
+        nSC.plot_model_history(history)
 
         if self.parameters.evaluate_model:
             self.score = self.evaluate_model(self.data.x_test_text_embeddings, self.data.y_test, [])

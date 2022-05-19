@@ -4,24 +4,12 @@ import requests
 import pandas as pd
 import nltk
 from nltk.corpus import twitter_samples
-import utilities
-import NLPSentimentCalculations
-import TwitterSpamModel
-import TwitterSpamModelInterface
-import TwitterSentimentModel
-import TwitterSentimentModelInterface
-import ModelBase
+from utilities import Utils
+from NLPSentimentCalculations import NLPSentimentCalculations as nSC
+from TwitterModelInterface import TwitterSpamModelInterface as tSPMI
+from TwitterModelInterface import TwitterSentimentModelInterface as tSEMI
 from SpamToSentimentModel import ModelHandler
 from typing import List
-
-Utils = utilities.Utils
-NSC = NLPSentimentCalculations.NLPSentimentCalculations
-SpamModelData = TwitterSpamModel.SpamModelData
-SpamModelLearning = TwitterSpamModel.SpamModelLearning
-TSpMI = TwitterSpamModelInterface.TwitterSpamModelInterface
-TSeMI = TwitterSentimentModelInterface.TwitterSentimentModelInterface
-SentimentModelData = TwitterSentimentModel.SentimentModelData
-SentimentModelLearning = TwitterSentimentModel.SentimentModelLearning
 
 
 """NewsSentimentAnalysis
@@ -122,7 +110,7 @@ class TwitterManager:
         self.listener = TwitterStreamListener()
         self.stream = tweepy.Stream(auth=self.auth, listener=self.listener)
 
-        self.nsc = NSC()
+        self.nsc = nSC()
 
     def get_dataset_from_tweet_spam(self, dataframe, features_to_train=None):
 
@@ -140,7 +128,7 @@ class TwitterManager:
         if not features_to_train:
             features_to_train = ['full_text']
 
-        x_train, x_test, y_train, y_test = NSC.keras_preprocessing(dataframe[features_to_train], dataframe['Label'],
+        x_train, x_test, y_train, y_test = nSC.keras_preprocessing(dataframe[features_to_train], dataframe['Label'],
                                                                    test_size=0.185,
                                                                    augmented_states=dataframe['augmented'])
 
@@ -159,8 +147,8 @@ class TwitterManager:
             x_test_text_data = pd.DataFrame()
 
         # Clean the textual data
-        x_train_text_clean = [NSC.sanitize_text_string(s) for s in list(x_train_text_data)]
-        x_test_text_clean = [NSC.sanitize_text_string(s) for s in list(x_test_text_data)]
+        x_train_text_clean = [nSC.sanitize_text_string(s) for s in list(x_train_text_data)]
+        x_test_text_clean = [nSC.sanitize_text_string(s) for s in list(x_test_text_data)]
 
         # Initialize tokenizer on training data
         self.nsc.tokenizer.fit_on_texts(x_train_text_clean)
@@ -223,8 +211,8 @@ class TwitterManager:
         :rtype: list(dict(str-> bool), str)
         """
 
-        tweets_clean = NSC.get_clean_tokens(tweet_tokens)
-        return NSC.get_basic_dataset(tweets_clean, classifier_tag)
+        tweets_clean = nSC.get_clean_tokens(tweet_tokens)
+        return nSC.get_basic_dataset(tweets_clean, classifier_tag)
 
     def get_tweet_sentiment(self, text):
 
@@ -439,33 +427,35 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
 
     if train_spam:
 
-        spam_model_learning = TSpMI.create_spam_model(epochs=1000,
-                                                      batch_size=128,
-                                                      load_model=False,
-                                                      checkpoint_model=True,
-                                                      saved_model_bin='../data/analysis/Model Results/Saved Models/'
-                                                                      'best_spam_model.h5',
-                                                      nsc=NSC(),
-                                                      base_data_csv='../data/Learning Data/spam_learning.csv',
-                                                      test_size=0.01,
-                                                      test_set_csv='../data/Learning Data/spam_test_set.csv')
+        spam_model_learning = tSPMI.create_spam_model_to_train(epochs=1000,
+                                                               batch_size=128,
+                                                               load_model=False,
+                                                               checkpoint_model=True,
+                                                               saved_model_bin='../data/analysis/Model Results/'
+                                                                               'Saved Models/best_spam_model.h5',
+                                                               nsc=nSC(),
+                                                               base_data_csv='../data/Learning Data/spam_learning.csv',
+                                                               test_size=0.01,
+                                                               test_set_csv='../data/Learning Data/spam_test_set.csv')
 
     if train_sent:
 
-        sentiment_model_learning = TSeMI.create_sentiment_model(epochs=1000,
-                                                                batch_size=128,
-                                                                load_model=False,
-                                                                checkpoint_model=True,
-                                                                saved_model_bin='../data/analysis/Model Results/'
-                                                                                'Saved Models/best_sentiment_model.h5',
-                                                                nsc=NSC(), base_data_csv='../data/Learning Data/'
-                                                                                         'sentiment_learning.csv',
-                                                                test_size=0.1
-                                                                )
+        sentiment_model_learning = tSEMI.create_sentiment_model_to_train(epochs=1000,
+                                                                         batch_size=128,
+                                                                         load_model=False,
+                                                                         checkpoint_model=True,
+                                                                         saved_model_bin='../data/analysis/'
+                                                                                         'Model Results/'
+                                                                                         'Saved Models/'
+                                                                                         'best_sentiment_model.h5',
+                                                                         nsc=nSC(),
+                                                                         base_data_csv='../data/Learning Data/'
+                                                                                       'sentiment_learning.csv',
+                                                                         test_size=0.1)
 
     if train_spam and train_sent:
-        MH = ModelHandler(spam_model=spam_model_learning, sentiment_model=sentiment_model_learning)
-        MH.analyze_tweets('SOURCE OF TWEETS', out_path='SOURCE TO WRITE TO')
+        mh = ModelHandler(spam_model=spam_model_learning, sentiment_model=sentiment_model_learning)
+        mh.analyze_tweets('SOURCE OF TWEETS', out_path='SOURCE TO WRITE TO')
 
     # Search phrase
     if search_past:

@@ -2,36 +2,35 @@ import pandas as pd
 import tensorflow as tf
 from typing import List
 import os
-import NLPSentimentCalculations
-import utilities
-import ModelBase
-
-Utils = utilities.Utils
-NSC = NLPSentimentCalculations.NLPSentimentCalculations
-ModelParameters = ModelBase.ModelParameters
-ModelData = ModelBase.ModelData
-ModelLearning = ModelBase.ModelLearning
+from NLPSentimentCalculations import NLPSentimentCalculations as nSC
+from ModelBase import ModelParameters, ModelData, ModelLearning
 
 
 class SpamModelData(ModelData):
 
-    def __init__(self, nsc, base_data_csv, test_size, features_to_train, aug_data_csv=None, save_preload_binary='',
-                 from_preload_binary=''):
+    def __init__(self, parameters: ModelParameters):
 
-        super().__init__(nsc, base_data_csv,
-                         test_size,
-                         features_to_train,
-                         aug_data_csv)
+        super().__init__(parameters)
 
-        self.textless_features_to_train = [x for x in features_to_train if x != 'full_text']
+        if self.parameters.features_to_train is None:
+            self.parameters.features_to_train = ['full_text']
 
-        if from_preload_binary:
-            self.load_data_from_binary(from_preload_binary)
-        else:
-            self.load_data_from_csv()
+        self.parameters.textless_features_to_train = [x for x in self.parameters.features_to_train if x != 'full_text']
 
-            if save_preload_binary:
-                self.save_data_to_binary(save_preload_binary)
+        # Load data necessary for training mode
+        if not self.parameters.load_to_predict:
+
+            # Preload train data from a dill
+            if self.parameters.preload_train_data_dill:
+                self.load_data_from_dill()
+
+            # Load data normally (from CSVs)
+            else:
+                self.load_data_from_csv()
+
+                # Save train data to a dill for preloading next time
+                if self.parameters.save_train_data_dill:
+                    self.save_data_to_dill()
 
     def get_x_val_from_dataframe(self, x_val: pd.DataFrame) -> List[List[str]]:
         """
@@ -46,8 +45,8 @@ class SpamModelData(ModelData):
 
         x_val_text_embeddings = self.get_vectorized_text_tokens_from_val_dataframe(x_val)
 
-        if len(self.textless_features_to_train) > 0:
-            x_val_meta = x_val[self.textless_features_to_train]
+        if len(self.parameters.textless_features_to_train) > 0:
+            x_val_meta = x_val[self.parameters.textless_features_to_train]
             return [x_val_text_embeddings, x_val_meta]
         else:
             return [x_val_text_embeddings]
@@ -63,17 +62,17 @@ class SpamModelData(ModelData):
         :rtype: list(dict(str-> bool), str)
         """
 
-        x_train, x_test, y_train, y_test = self.nsc.keras_preprocessing(dataframe[self.features_to_train],
+        x_train, x_test, y_train, y_test = self.nsc.keras_preprocessing(dataframe[self.parameters.features_to_train],
                                                                         dataframe['Label'],
                                                                         augmented_states=dataframe['augmented'],
-                                                                        test_size=self.test_size)
+                                                                        test_size=self.parameters.test_size)
 
         if x_train is False:
             print("Train test failed due to over augmentation")
             return False
 
         # Split into text and meta data
-        if 'full_text' in self.features_to_train:
+        if 'full_text' in self.parameters.features_to_train:
             x_train_text_data = x_train['full_text']
             x_test_text_data = x_test['full_text']
 
@@ -86,8 +85,8 @@ class SpamModelData(ModelData):
         glove_embedding_matrix = self.get_vectorized_text_tokens_from_dataframes(x_train_text_data,
                                                                                  x_test_text_data)
 
-        x_train_meta = x_train[self.textless_features_to_train]
-        x_test_meta = x_test[self.textless_features_to_train]
+        x_train_meta = x_train[self.parameters.textless_features_to_train]
+        x_test_meta = x_test[self.parameters.textless_features_to_train]
 
         return x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
                glove_embedding_matrix, y_train, y_test
@@ -96,7 +95,6 @@ class SpamModelData(ModelData):
 class SpamModelLearning(ModelLearning):
 
     def __init__(self, model_params: ModelParameters, model_data: SpamModelData):
-
         super().__init__(model_params=model_params, model_data=model_data)
 
     def build_model(self):
@@ -108,7 +106,9 @@ class SpamModelLearning(ModelLearning):
             tf.config.run_functions_eagerly(True)
 
         # Load previously saved model and test if requested
-        if self.parameters.load_model and os.path.exists(self.parameters.saved_model_bin):
+        if self.parameters.load_to_predict and os.path.exists(self.parameters.model_h5):
+            # @TODO This needs to be fixed because {data.x_test_text_embeddings}, etc. does not get preprocessed if
+            # @TODO model is being loaded from h5.
             self.load_compile_test_model()
             return
 
@@ -136,9 +136,9 @@ class SpamModelLearning(ModelLearning):
         history = self.model.fit(x=train_input_layer, y=self.data.y_train, batch_size=self.parameters.batch_size,
                                  epochs=self.parameters.epochs, verbose=1, callbacks=cbs)
 
-        NSC.plot_model_history(history)
+        nSC.plot_model_history(history)
 
         if self.parameters.evaluate_model:
-            self.score = self.evaluate_model(test_input_layer, self.data.y_test, [])
+            self.parameters.score = self.evaluate_model(test_input_layer, self.data.y_test, [])
 
         return

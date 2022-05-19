@@ -1,11 +1,6 @@
 import tweepy
 import pandas as pd
-import utilities
-import BotometerRequests
 
-
-BotometerRequests = BotometerRequests.BotometerRequests
-Utils = utilities.Utils
 
 """TweetCollector
 """
