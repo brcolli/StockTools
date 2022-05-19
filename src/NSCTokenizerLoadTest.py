@@ -1,4 +1,4 @@
-from TwitterSpamModelInterface import *
+from TwitterModelInterface import *
 
 
 def load_from_csv():

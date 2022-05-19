@@ -3,8 +3,8 @@ from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLi
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename
 import pandas as pd
-import utilities
-import StockToolsUI
+from utilities import Utils
+from StockToolsUI import Ui_MainWindow as StockToolsUI
 import GetDailyShortInterest
 import NasdaqShareOrdersScraper
 import UpcomingEarningsScanner
@@ -12,8 +12,6 @@ import NewsSentimentAnalysis
 import TdaClientManager
 
 
-StockToolsUI = StockToolsUI.Ui_MainWindow
-Utils = utilities.Utils
 SIM = GetDailyShortInterest.main
 NSO = NasdaqShareOrdersScraper.main
 UES = UpcomingEarningsScanner.main

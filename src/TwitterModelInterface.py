@@ -3,15 +3,17 @@ import dill
 import json
 import pandas as pd
 import TweetDatabaseManager
+from TweetDatabaseManager import TweetDatabaseManager
+import ModelBase
+import TwitterSpamModel
+import TwitterSentimentModel
+from utilities import Utils
 
-# Used for convenience as this module is pretty much a wrapper for TwitterSpamModel.py
-from TwitterSpamModel import *
-TweetDatabaseManager = TweetDatabaseManager.TweetDatabaseManager
 
-"""TwitterSpamModelInterface
+"""TwitterModelInterface
 
 Description:
-Module to work with the TwitterSpamModel.py class with functions to create a new model from data, preprocess data, save
+Module to work with the TwitterModel.py class with functions to create a new model from data, preprocess data, save
 a model for future predictions, or load a saved model.
 
 This module needs to be separate from TwitterSpamModel.py so that the dill library
@@ -22,18 +24,16 @@ Creation date: October 13, 2021
 """
 
 
-class TwitterSpamModelInterface:
+class TwitterModelInterface:
 
     @staticmethod
-    def process_spam_model_args(json_settings='../data/Learning Data/spam_settings.json', learning_rate=1e-3,
-                                epochs=1000, early_stopping=False, checkpoint_model=False, early_stopping_patience=0,
-                                batch_size=128, evaluate_model=True, debug=False, score=(-1, -1),
-                                train_data_csv='../data/Learning Data/spam_train.csv',
-                                aug_data_csv='../data/Learning Data/spam_train_aug.csv',
-                                test_size=0.1, preload_train_data_dill='', save_train_data_dill='',
-                                features_to_train=None,
-                                model_h5='../data/Learning Data/best_spam_model.h5') -> dict:
-
+    def get_settings_dict(json_settings='../data/Learning Data/spam_settings.json', learning_rate=1e-3,
+                          epochs=1000, early_stopping=False, checkpoint_model=False, early_stopping_patience=0,
+                          batch_size=128, evaluate_model=True, debug=False,
+                          train_data_csv='../data/Learning Data/spam_train.csv',
+                          aug_data_csv='../data/Learning Data/spam_train_aug.csv',
+                          test_size=0.1, preload_train_data_dill='', save_train_data_dill='',
+                          model_h5='../data/Learning Data/best_spam_model.h5') -> dict:
         """
         Function that processes all spam model args (both passed and from json) and returns one dictionary of args
 
@@ -57,8 +57,6 @@ class TwitterSpamModelInterface:
         :type evaluate_model: bool
         :param debug: Whether or not to run the model in debugging mode
         :type debug: bool
-        :param score: Pass in an existing model score???
-        :type score: (float, float)
         :param train_data_csv: Path to the train data csv file containing unaugmented training set
                                 (can contain augmented rows if 'augment' column is present)
         :type train_data_csv: str
@@ -72,32 +70,12 @@ class TwitterSpamModelInterface:
         :param save_train_data_dill: Path to save training data to a dill file after it gets processed (for future
                                      loading)
         :type save_train_data_dill: str
-        :param features_to_train: Tweet and botometer features to train the model on
-        :type features_to_train: list(str)
         :param model_h5: Path to save trained model in h5 format to after training
         :type model_h5: str
 
         :return: Dictionary of spam model settings that can be used to initialize SpamModelParameters
         :rtype: dict
         """
-
-        if not features_to_train:
-            features_to_train = ['full_text', 'cap.english', 'cap.universal',
-                                 'raw_scores.english.overall',
-                                 'raw_scores.universal.overall',
-                                 'raw_scores.english.astroturf',
-                                 'raw_scores.english.fake_follower',
-                                 'raw_scores.english.financial',
-                                 'raw_scores.english.other',
-                                 'raw_scores.english.self_declared',
-                                 'raw_scores.english.spammer',
-                                 'raw_scores.universal.astroturf',
-                                 'raw_scores.universal.fake_follower',
-                                 'raw_scores.universal.financial',
-                                 'raw_scores.universal.other',
-                                 'raw_scores.universal.self_declared',
-                                 'raw_scores.universal.spammer',
-                                 'favorite_count', 'retweet_count']
 
         # Most values come from passed arguments
         # Some values are pre-set because they never need to be changed in this mode of loading
@@ -111,17 +89,15 @@ class TwitterSpamModelInterface:
             'trained': False,
             'evaluate_model': evaluate_model,
             'debug': debug,
-            'score': score,
-
             'custom_tokenizer': None,
             'train_data_csv': train_data_csv,
             'aug_data_csv': aug_data_csv,
             'test_size': test_size,
             'preload_train_data_dill': preload_train_data_dill,
             'save_train_data_dill': save_train_data_dill,
-            'features_to_train': features_to_train,
-            'custom_text_input_length': 44,
-            'load_predict_only': False,
+            'features_to_train': None,
+            'custom_text_input_length': 50,
+            'load_to_predict': False,
             'model_h5': model_h5
         }
 
@@ -135,6 +111,63 @@ class TwitterSpamModelInterface:
                     settings_dict[key] = data[key]
 
         return settings_dict
+
+
+class TwitterSentimentModelInterface(TwitterModelInterface):
+
+    @staticmethod
+    def process_sentiment_model_args(**kwargs) -> dict:
+        return TwitterModelInterface.get_settings_dict(**kwargs)
+
+    @staticmethod
+    def create_sentiment_model_to_train(**kwargs) -> TwitterSentimentModel.SentimentModelLearning:
+        """
+        Creates instances of SentimentModelData, SentimentModelParameters,
+        and SentimentModelLearning in a way that these objects are prepared for training the model.
+
+        :param kwargs: Any keyword arguments which are described in process_sentiment_model_args
+        :type kwargs: str: any
+
+        :return: Initialized and trained Twitter sentiment model
+        :rtype: SentimentModelLearning
+        """
+
+        settings_dict = TwitterSentimentModelInterface.process_sentiment_model_args(**kwargs)
+
+        parameters = ModelBase.ModelParameters(**settings_dict)
+
+        data = TwitterSentimentModel.SentimentModelData(parameters)
+
+        model = TwitterSentimentModel.SentimentModelLearning(parameters, data)
+        model.build_model()
+
+        return model
+
+
+class TwitterSpamModelInterface(TwitterModelInterface):
+
+    @staticmethod
+    def process_spam_model_args(**kwargs) -> dict:
+
+        if not kwargs['features_to_train']:
+            kwargs['features_to_train'] = ['full_text', 'cap.english', 'cap.universal',
+                                           'raw_scores.english.overall',
+                                           'raw_scores.universal.overall',
+                                           'raw_scores.english.astroturf',
+                                           'raw_scores.english.fake_follower',
+                                           'raw_scores.english.financial',
+                                           'raw_scores.english.other',
+                                           'raw_scores.english.self_declared',
+                                           'raw_scores.english.spammer',
+                                           'raw_scores.universal.astroturf',
+                                           'raw_scores.universal.fake_follower',
+                                           'raw_scores.universal.financial',
+                                           'raw_scores.universal.other',
+                                           'raw_scores.universal.self_declared',
+                                           'raw_scores.universal.spammer',
+                                           'favorite_count', 'retweet_count']
+
+        return TwitterModelInterface.get_settings_dict(**kwargs)
 
     @staticmethod
     def classify_twitter_query(keywords, num: int, dill_file: str, filename=None,
@@ -178,7 +211,7 @@ class TwitterSpamModelInterface:
         return df
 
     @staticmethod
-    def create_spam_model_to_train(**kwargs) -> SpamModelLearning:
+    def create_spam_model_to_train(**kwargs) -> TwitterSpamModel.SpamModelLearning:
         """
         Creates instances of SpamModelData, SpamModelParameters, and SpamModelLearning in a way that these
         objects are prepared for training the model.
@@ -191,9 +224,12 @@ class TwitterSpamModelInterface:
         """
 
         settings_dict = TwitterSpamModelInterface.process_spam_model_args(**kwargs)
-        parameters = SpamModelParameters(**settings_dict)
-        data = SpamModelData(parameters)
-        model = SpamModelLearning(parameters, data)
+
+        parameters = ModelBase.ModelParameters(**settings_dict)
+
+        data = TwitterSpamModel.SpamModelData(parameters)
+
+        model = TwitterSpamModel.SpamModelLearning(parameters, data)
         model.build_model()
 
         return model
@@ -223,8 +259,8 @@ class TwitterSpamModelInterface:
                                                                      save_train_data_dill=save_train_data_dill,
                                                                      features_to_train=features_to_train)
 
-        parameters = SpamModelParameters(**settings)
-        _ = SpamModelData(parameters)
+        parameters = ModelBase.ModelParameters(**settings)
+        _ = TwitterSpamModel.SpamModelData(parameters)
 
         if os.path.isfile(save_train_data_dill):
             successful = True
@@ -232,7 +268,8 @@ class TwitterSpamModelInterface:
         return successful
 
     @staticmethod
-    def save_trained_model(sml: SpamModelLearning, dill_parameters_file, h5_file='') -> bool:
+    def save_trained_model(sml: TwitterSpamModel.SpamModelLearning, dill_parameters_file: str,
+                           h5_file: str = '') -> bool:
         """
         Saves a trained SpamModelLearning to an h5 file and its SpamModelParameters class to a dill file in a format
         that the model can be loaded in prediction mode.
@@ -258,7 +295,7 @@ class TwitterSpamModelInterface:
         sml.model.save(sml.parameters.h5)
 
         # Make sure parameters class is updated before saving
-        sml.parameters.update_to_save_as_trained(sml.data.nsc, sml.data.text_input_length)
+        sml.update_to_save_as_trained(sml.data.nsc, sml.data.text_input_length)
 
         # Save parameters to dill
         with open(dill_parameters_file, 'wb') as dpf:
@@ -271,7 +308,7 @@ class TwitterSpamModelInterface:
         return successful
 
     @staticmethod
-    def load_spam_model_to_predict(dill_parameters_file: str) -> SpamModelLearning:
+    def load_spam_model_to_predict(dill_parameters_file: str) -> TwitterSpamModel.SpamModelLearning:
         """
         Loads an instance of SpamModelData, SpamModelParameters, and SpamModelLearning from saved model .h5 and
         saved parameters .dill files in a way that these objects are prepared for using the model to predict.
@@ -285,8 +322,8 @@ class TwitterSpamModelInterface:
         with open(dill_parameters_file, 'rb') as dpf:
             parameters = dill.load(dpf)
 
-        data = SpamModelData(parameters)
-        model = SpamModelLearning(parameters, data)
+        data = TwitterSpamModel.SpamModelData(parameters)
+        model = TwitterSpamModel.SpamModelLearning(parameters, data)
         model.build_model()
 
         return model

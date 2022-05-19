@@ -2,13 +2,9 @@ import random
 import pandas as pd
 import BotometerRequests as br
 import TweetCollector
-import utilities
-# import SqliteManager
+from utilities import Utils
 import os
 import time
-
-Utils = utilities.Utils()
-# Sqm = SqliteManager.SqliteManager(path='../data/TweetData/TweetDataBase.db')
 
 
 class TweetDatabaseManager:
@@ -159,10 +155,13 @@ class TweetDatabaseManager:
         for f in os.listdir(directory_path):
             os.remove(os.path.join(directory_path, f))
 
+        print(df.value_counts('SentimentManualLabel'))
+
         df.to_csv(os.path.join(directory_path, 'Merged.csv'), index=False)
         return df
 
-    def cut_skipped(self, df, df_path='', to_file='', inplace=False):
+    @staticmethod
+    def cut_skipped(df, df_path='', to_file='', inplace=False):
         if os.path.exists(df_path):
             df = pd.read_csv(df_path)
 
@@ -189,7 +188,8 @@ class TweetDatabaseManager:
         full_df.drop_duplicates(subset=['Tweet id'], inplace=True)
         return full_df
 
-    def sample_df(self, df, n, df_path='', to_base='', to_sample=''):
+    @staticmethod
+    def sample_df(df, n, df_path='', to_base='', to_sample=''):
         if df_path:
             df = pd.read_csv(df_path)
 
@@ -205,6 +205,3 @@ class TweetDatabaseManager:
             sample.to_csv(to_sample, index=False)
 
         return basedf, sample
-
-
-TM = TweetDatabaseManager()

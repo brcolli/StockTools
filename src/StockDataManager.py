@@ -1,11 +1,7 @@
 from os import path
 import yahoo_fin.stock_info as si
-import utilities
-import SqliteManager
-
-
-Utils = utilities.Utils
-Sqm = SqliteManager.SqliteManager
+from utilities import Utils
+from SqliteManager import SqliteManager as Sqm
 
 
 """StockDataManager
