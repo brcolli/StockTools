@@ -44,17 +44,17 @@ class TwitterSpamModelInterface:
                           test_set_csv='../data/Learning Data/spam_test_set.csv',
                           saved_model_bin='../data/analysis/Model Results/Saved Models/best_spam_model.h5'):
 
-        spam_model_params = SpamModelParameters(learning_rate=learning_rate,
-                                                epochs=epochs,
-                                                trained=trained,
-                                                early_stopping=early_stopping,
-                                                early_stopping_patience=early_stopping_patience,
-                                                batch_size=batch_size,
-                                                load_model=load_model,
-                                                checkpoint_model=checkpoint_model,
-                                                saved_model_bin=saved_model_bin,
-                                                evaluate_model=evaluate_model,
-                                                debug=debug)
+        spam_model_params = ModelParameters(learning_rate=learning_rate,
+                                            epochs=epochs,
+                                            trained=trained,
+                                            early_stopping=early_stopping,
+                                            early_stopping_patience=early_stopping_patience,
+                                            batch_size=batch_size,
+                                            load_model=load_model,
+                                            checkpoint_model=checkpoint_model,
+                                            saved_model_bin=saved_model_bin,
+                                            evaluate_model=evaluate_model,
+                                            debug=debug)
 
         if not nsc:
             nsc = NSC()
@@ -104,7 +104,7 @@ class TwitterSpamModelInterface:
         tdm = TweetDatabaseManager()
         tdm.use_botometer_lite = use_botometer_lite
 
-        if not use_botometer_lite:
+        if not use_botometer_lite and 'botscore' in tdm.keys:
             tdm.keys.remove('botscore')
 
         df = tdm.save_multiple_keywords(keywords, num, same_file=True, filename=None, save_to_file=False)
@@ -150,7 +150,7 @@ class TwitterSpamModelInterface:
                 model = SpamModelLearning(params, model_data)  # Params and model_data stored normally in pickle
 
                 # Model stored through tensorflow
-                model.model = tf.keras.models.load_model(model_path, custom_objects=MetricsDict)
+                model.model = tf.keras.models.load_model(model_path, custom_objects=ModelBase.MetricsDict)
                 model.parameters.trained = True
 
             # If model not trained yet, load normally from pickle
@@ -247,16 +247,16 @@ class TwitterSpamModelInterface:
 
         nsc = NSC()
 
-        parameters = SpamModelParameters(learning_rate=learning_rate,
-                                         epochs=epochs,
-                                         saved_model_bin=saved_model_bin,
-                                         early_stopping=early_stopping,
-                                         checkpoint_model=False,
-                                         load_model=load_model,
-                                         early_stopping_patience=early_stopping_patience,
-                                         batch_size=batch_size,
-                                         trained=False,
-                                         debug=False)
+        parameters = ModelParameters(learning_rate=learning_rate,
+                                     epochs=epochs,
+                                     saved_model_bin=saved_model_bin,
+                                     early_stopping=early_stopping,
+                                     checkpoint_model=False,
+                                     load_model=load_model,
+                                     early_stopping_patience=early_stopping_patience,
+                                     batch_size=batch_size,
+                                     trained=False,
+                                     debug=False)
 
         data = SpamModelData(nsc, base_data_csv, test_size, features_to_train, aug_data_csv=aug_data_csv,
                              save_preload_binary=save_preload_data_to_bin, from_preload_binary=from_preload_data_bin)

@@ -7,15 +7,18 @@ from nltk.corpus import twitter_samples
 import utilities
 import NLPSentimentCalculations
 import TwitterSpamModel
+import TwitterSpamModelInterface
 import TwitterSentimentModel
+import TwitterSentimentModelInterface
+import ModelBase
 from SpamToSentimentModel import ModelHandler
 
 Utils = utilities.Utils
 NSC = NLPSentimentCalculations.NLPSentimentCalculations
-SpamModelParameters = TwitterSpamModel.SpamModelParameters
 SpamModelData = TwitterSpamModel.SpamModelData
 SpamModelLearning = TwitterSpamModel.SpamModelLearning
-SentimentModelParameters = TwitterSentimentModel.SentimentModelParameters
+TSpMI = TwitterSpamModelInterface.TwitterSpamModelInterface
+TSeMI = TwitterSentimentModelInterface.TwitterSentimentModelInterface
 SentimentModelData = TwitterSentimentModel.SentimentModelData
 SentimentModelLearning = TwitterSentimentModel.SentimentModelLearning
 
@@ -427,56 +430,35 @@ def main(search_past=False, search_stream=False, train_spam=False, train_sent=Fa
     tw = TwitterManager()
 
     spam_model_learning = None
+    sentiment_model_learning = None
 
     if train_spam:
-        spam_model_params = SpamModelParameters(epochs=3000,
-                                                batch_size=128,
-                                                load_model=False,
-                                                checkpoint_model=True,
-                                                saved_model_bin='../data/analysis/Model Results/Saved Models/'
-                                                                'best_spam_model.h5')
 
-        spam_model_data = SpamModelData(nsc=NSC(), base_data_csv='../data/Learning Data/spam_learning.csv',
-                                        test_size=0.01,
-                                        features_to_train=['full_text', 'cap.english', 'cap.universal',
-                                                           'raw_scores.english.overall',
-                                                           'raw_scores.universal.overall',
-                                                           'raw_scores.english.astroturf',
-                                                           'raw_scores.english.fake_follower',
-                                                           'raw_scores.english.financial',
-                                                           'raw_scores.english.other',
-                                                           'raw_scores.english.self_declared',
-                                                           'raw_scores.english.spammer',
-                                                           'raw_scores.universal.astroturf',
-                                                           'raw_scores.universal.fake_follower',
-                                                           'raw_scores.universal.financial',
-                                                           'raw_scores.universal.other',
-                                                           'raw_scores.universal.self_declared',
-                                                           'raw_scores.universal.spammer',
-                                                           'favorite_count', 'retweet_count'])
-
-        spam_model_learning = SpamModelLearning(spam_model_params, spam_model_data)
-        spam_model_learning.build_model()
-
-        spam_score_dict = spam_model_learning.predict_and_score('../data/Learning Data/spam_test_set.csv')
-
-        print(spam_score_dict)
+        spam_model_learning = TSpMI.create_spam_model(epochs=1000,
+                                                      batch_size=128,
+                                                      load_model=False,
+                                                      checkpoint_model=True,
+                                                      saved_model_bin='../data/analysis/Model Results/Saved Models/'
+                                                                      'best_spam_model.h5',
+                                                      nsc=NSC(),
+                                                      base_data_csv='../data/Learning Data/spam_learning.csv',
+                                                      test_size=0.01,
+                                                      test_set_csv='../data/Learning Data/spam_test_set.csv')
 
     if train_sent:
-        sentiment_model_params = SentimentModelParameters(epochs=150,
-                                                          batch_size=128,
-                                                          load_model=False,
-                                                          checkpoint_model=True,
-                                                          saved_model_bin='../data/analysis/Model Results/Saved Models/'
-                                                                          'best_sentiment_model.h5')
 
-        sentiment_model_data = SentimentModelData(nsc=NSC(), base_data_csv='../data/Learning Data/'
-                                                                           'sentiment_learning.csv',
-                                                  test_size=0.1)
+        sentiment_model_learning = TSeMI.create_sentiment_model(epochs=1000,
+                                                                batch_size=128,
+                                                                load_model=False,
+                                                                checkpoint_model=True,
+                                                                saved_model_bin='../data/analysis/Model Results/'
+                                                                                'Saved Models/best_sentiment_model.h5',
+                                                                nsc=NSC(), base_data_csv='../data/Learning Data/'
+                                                                                         'sentiment_learning.csv',
+                                                                test_size=0.1
+                                                                )
 
-        sentiment_model_learning = SentimentModelLearning(sentiment_model_params, sentiment_model_data)
-        sentiment_model_learning.build_model()
-
+    if train_spam and train_sent:
         MH = ModelHandler(spam_model=spam_model_learning, sentiment_model=sentiment_model_learning)
         MH.analyze_tweets('SOURCE OF TWEETS', out_path='SOURCE TO WRITE TO')
 
@@ -499,3 +481,6 @@ def main(search_past=False, search_stream=False, train_spam=False, train_sent=Fa
             tw.start_stream(phrase)
         else:
             tw.start_stream(([phrase]))
+
+
+main(train_sent=True)
