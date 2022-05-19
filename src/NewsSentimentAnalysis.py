@@ -177,17 +177,6 @@ class TwitterManager:
         return x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
                glove_embedding_matrix, y_train, y_test
 
-    def initialize_twitter_spam_model(self, spam_model_learning: SpamModelLearning, to_preprocess_binary='',
-                                      from_preprocess_binary='',
-                                      learning_data='../data/Learning Data/spam_learning.csv', epochs=200,
-                                      aug_df_file='',
-                                      early_stopping=False, load_model=False,
-                                      model_checkpoint_path='../data/analysis/Model Results/Saved Models/'
-                                                            'best_spam_model.h5'):
-
-        """Initializes, trains, and tests a Twitter spam detection model.
-        """
-
     def initialize_twitter_sentiment_model(self):
 
         """Uses a basic NLTK dataset to train and test a positive/negative binary classifier.
@@ -416,16 +405,18 @@ class TwitterStreamListener(tweepy.StreamListener):
             print('Tweet saved...')
 
 
-def main(search_past: bool = False, search_stream: bool = False, use_ml: bool = False, phrase: str = '',
-         filter_in: list = None, filter_out: list = None, history_count: int = 1000) -> None:
+def main(search_past: bool = False, search_stream: bool = False, train_spam: bool = False, train_sent: bool = False,
+         phrase: str = '', filter_in: list = None, filter_out: list = None, history_count: int = 1000) -> None:
 
     """
     :param search_past: Flag for choosing to search past Twitter posts with queries; defaults to False
     :type search_past: Boolean
     :param search_stream: Flag for choosing to search a stream of Twitter data; defaults to False
     :type search_stream: Boolean
-    :param use_ml: Flag for choosing to build sentiment models; defaults to False
-    :type use_ml: Boolean
+    :param train_spam: Flag for choosing to build spam models; defaults to False
+    :type train_spam: Boolean
+    :param train_sent: Flag for choosing to build sentiment models; defaults to False
+    :type train_sent: Boolean
     :param phrase: String to query for; defaults to empty string
     :type phrase: string
     :param filter_in: Types of data to include in query; defaults to []
