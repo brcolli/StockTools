@@ -361,7 +361,7 @@ class TwitterStreamListener(tweepy.StreamListener):
         self.output_file = ''
         self.default_sentiment = ''
 
-    def on_status(self, status: tweepy.api.API) -> None:
+    def on_status(self, status: tweepy.API) -> None:
 
         """Main event method for when a stream listener gets a tweet. Writes to a file.
 
@@ -429,29 +429,37 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
 
         spam_model_learning = tSPMI.create_spam_model_to_train(epochs=1000,
                                                                batch_size=128,
-                                                               load_model=False,
-                                                               checkpoint_model=True,
-                                                               saved_model_bin='../data/analysis/Model Results/'
-                                                                               'Saved Models/best_spam_model.h5',
-                                                               nsc=nSC(),
-                                                               base_data_csv='../data/Learning Data/spam_learning.csv',
-                                                               test_size=0.01,
-                                                               test_set_csv='../data/Learning Data/spam_test_set.csv')
+                                                               load_to_predict=False,
+                                                               checkpoint_model=False,
+                                                               model_h5='../data/analysis/Model Results/'
+                                                                        'Saved Models/best_spam_model.h5',
+                                                               train_data_csv='../data/Learning Data/Spam/'
+                                                                              'spam_train_set.csv',
+                                                               test_size=0.01)
+
+        spam_score_dict = spam_model_learning.predict_and_score('../data/Learning Data/Spam/spam_test_set.csv')
+        print(spam_score_dict)
 
     if train_sent:
 
         sentiment_model_learning = tSEMI.create_sentiment_model_to_train(epochs=1000,
                                                                          batch_size=128,
-                                                                         load_model=False,
-                                                                         checkpoint_model=True,
-                                                                         saved_model_bin='../data/analysis/'
-                                                                                         'Model Results/'
-                                                                                         'Saved Models/'
-                                                                                         'best_sentiment_model.h5',
-                                                                         nsc=nSC(),
-                                                                         base_data_csv='../data/Learning Data/'
-                                                                                       'sentiment_learning.csv',
+                                                                         load_to_predict=False,
+                                                                         checkpoint_model=False,
+                                                                         model_h5='../data/analysis/'
+                                                                                  'Model Results/'
+                                                                                  'Saved Models/'
+                                                                                  'best_sentiment_model.h5',
+                                                                         train_data_csv='../data/Learning Data/'
+                                                                                        'Sentiment/'
+                                                                                        'sentiment_train_set.csv',
                                                                          test_size=0.1)
+
+        '''
+        sent_score_dict = sentiment_model_learning.predict_and_score('../data/Learning Data/Sentiment/'
+                                                                     'sentiment_test_set.csv')
+        print(sent_score_dict)
+        '''
 
     if train_spam and train_sent:
         mh = ModelHandler(spam_model=spam_model_learning, sentiment_model=sentiment_model_learning)
@@ -476,6 +484,3 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
             tw.start_stream(phrase)
         else:
             tw.start_stream(([phrase]))
-
-
-main(train_sent=True)

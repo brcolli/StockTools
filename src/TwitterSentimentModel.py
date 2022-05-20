@@ -45,7 +45,7 @@ class SentimentModelData(ModelData):
         """
 
         x_train, x_test, y_train, y_test = self.nsc.keras_preprocessing(dataframe[self.parameters.features_to_train],
-                                                                        dataframe['Label'],
+                                                                        dataframe['SentimentManualLabel'],
                                                                         augmented_states=dataframe['augmented'],
                                                                         test_size=self.parameters.test_size)
 
@@ -63,6 +63,16 @@ class SentimentModelData(ModelData):
                                                                                  x_test_text_data)
 
         return x_train_text_embeddings, x_test_text_embeddings, glove_embedding_matrix, y_train, y_test
+
+    def load_data_from_csv(self):
+        """
+        Loads twitter dataframe from csv and calls self.get_dataset_from_tweet_sentiment
+        """
+
+        twitter_df = self.get_twitter_dataframe_from_csv()
+
+        self.x_train_text_embeddings, self.x_test_text_embeddings, self.glove_embedding_matrix, \
+        self.y_train, self.y_test = self.get_dataset_from_tweet_type(twitter_df)
 
 
 class SentimentModelLearning(ModelLearning):

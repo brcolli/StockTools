@@ -75,9 +75,9 @@ class NLPSentimentCalculations:
         """Categorizes and preprocesses feature and label datasets
 
         :param x: The input data.
-        :type x: list(obj)
+        :type x: list(float)
         :param y: The output data.
-        :type y: list(obj)
+        :type y: list(float)
         :param test_size: The ratio of test size to the rest of the dataset.
         :type test_size: double
         :param augmented_states: Series containing the augmented flags

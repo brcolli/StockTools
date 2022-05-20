@@ -91,6 +91,16 @@ class SpamModelData(ModelData):
         return x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
                glove_embedding_matrix, y_train, y_test
 
+    def load_data_from_csv(self):
+        """
+        Loads twitter dataframe from csv and calls self.get_dataset_from_tweet_sentiment
+        """
+
+        twitter_df = self.get_twitter_dataframe_from_csv()
+
+        self.x_train_text_embeddings, self.x_test_text_embeddings, self.x_train_meta, self.x_test_meta, \
+        self.glove_embedding_matrix, self.y_train, self.y_test = self.get_dataset_from_tweet_type(twitter_df)
+
 
 class SpamModelLearning(ModelLearning):
 
