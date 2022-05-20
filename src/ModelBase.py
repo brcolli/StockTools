@@ -30,7 +30,6 @@ class ModelParameters:
     checkpoint_model: bool = False
     early_stopping_patience: int = 0
     batch_size: int = 128
-    trained: bool = False
     evaluate_model: bool = True
     debug: bool = False
 
@@ -203,15 +202,9 @@ class ModelData(ABC):
     def get_dataset_from_tweet_type(self, dataframe: pd.DataFrame):
         pass
 
+    @abstractmethod
     def load_data_from_csv(self):
-        """
-        Loads twitter dataframe from csv and calls self.get_dataset_from_tweet_sentiment
-        """
-
-        twitter_df = self.get_twitter_dataframe_from_csv()
-
-        self.x_train_text_embeddings, self.x_test_text_embeddings, self.glove_embedding_matrix, \
-        self.y_train, self.y_test = self.get_dataset_from_tweet_type(twitter_df)
+        pass
 
 
 class ModelLearning:
@@ -271,8 +264,6 @@ class ModelLearning:
 
         print("Test Score:", score[0])
         print("Test Accuracy:", score[1])
-
-        self.parameters.trained = True
 
         return score
 
@@ -398,7 +389,6 @@ class ModelLearning:
 
     def update_to_save_as_trained(self, nsc, text_input_length):
         # TODO ask Fedya why we have this
-        self.parameters.trained = True
         self.parameters.custom_tokenizer = nsc.tokenizer
         self.parameters.custom_text_input_length = text_input_length
         self.parameters.train_data_csv = ''

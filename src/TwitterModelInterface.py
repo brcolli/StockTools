@@ -1,4 +1,5 @@
 import os.path
+import tensorflow.keras.models as tf_models
 import dill
 import json
 import pandas as pd
@@ -29,13 +30,13 @@ class TwitterModelInterface:
     @staticmethod
     def get_settings_dict(json_settings='../data/Learning Data/spam_settings.json', learning_rate=1e-3,
                           epochs=1000, early_stopping=False, checkpoint_model=False, early_stopping_patience=0,
-                          batch_size=128, evaluate_model=True, debug=False,
+                          batch_size=128, evaluate_model=True, debug=False, custom_tokenizer=None,
                           train_data_csv='../data/Learning Data/spam_train.csv',
-                          aug_data_csv='../data/Learning Data/spam_train_aug.csv',
-                          test_size=0.1, preload_train_data_dill='', save_train_data_dill='',
-                          model_h5='../data/Learning Data/best_spam_model.h5') -> dict:
+                          aug_data_csv='',
+                          test_size=0.1, preload_train_data_dill='', save_train_data_dill='', features_to_train=None,
+                          load_to_predict=False, model_h5='../data/Learning Data/best_spam_model.h5') -> dict:
         """
-        Function that processes all spam model args (both passed and from json) and returns one dictionary of args
+        Function that processes all model args (both passed and from json) and returns one dictionary of args
 
         :param json_settings: An optional path to a json settings file which contains a dictionary of values that are
                                 treated as args passed to this function
@@ -57,6 +58,8 @@ class TwitterModelInterface:
         :type evaluate_model: bool
         :param debug: Whether or not to run the model in debugging mode
         :type debug: bool
+        :param custom_tokenizer: Custom token object
+        :type custom_tokenizer: Token Obj
         :param train_data_csv: Path to the train data csv file containing unaugmented training set
                                 (can contain augmented rows if 'augment' column is present)
         :type train_data_csv: str
@@ -70,6 +73,10 @@ class TwitterModelInterface:
         :param save_train_data_dill: Path to save training data to a dill file after it gets processed (for future
                                      loading)
         :type save_train_data_dill: str
+        :param features_to_train: List of features to train on
+        :type features_to_train: List[str]
+        :param load_to_predict: Whether or not to load model for predicting and skip training
+        :type load_to_predict: bool
         :param model_h5: Path to save trained model in h5 format to after training
         :type model_h5: str
 
@@ -79,6 +86,7 @@ class TwitterModelInterface:
 
         # Most values come from passed arguments
         # Some values are pre-set because they never need to be changed in this mode of loading
+        # @TODO ask Fedya why this is, can we not just add in support for all?
         settings_dict = {
             'learning_rate': learning_rate,
             'epochs': epochs,
@@ -86,18 +94,17 @@ class TwitterModelInterface:
             'checkpoint_model': checkpoint_model,
             'early_stopping_patience': early_stopping_patience,
             'batch_size': batch_size,
-            'trained': False,
             'evaluate_model': evaluate_model,
             'debug': debug,
-            'custom_tokenizer': None,
+            'custom_tokenizer': custom_tokenizer,
             'train_data_csv': train_data_csv,
             'aug_data_csv': aug_data_csv,
             'test_size': test_size,
             'preload_train_data_dill': preload_train_data_dill,
             'save_train_data_dill': save_train_data_dill,
-            'features_to_train': None,
+            'features_to_train': features_to_train,
             'custom_text_input_length': 50,
-            'load_to_predict': False,
+            'load_to_predict': load_to_predict,
             'model_h5': model_h5
         }
 
@@ -136,6 +143,9 @@ class TwitterSentimentModelInterface(TwitterModelInterface):
 
         parameters = ModelBase.ModelParameters(**settings_dict)
 
+        # Add text to features
+        parameters.features_to_train = ['full_text']
+
         data = TwitterSentimentModel.SentimentModelData(parameters)
 
         model = TwitterSentimentModel.SentimentModelLearning(parameters, data)
@@ -149,7 +159,7 @@ class TwitterSpamModelInterface(TwitterModelInterface):
     @staticmethod
     def process_spam_model_args(**kwargs) -> dict:
 
-        if not kwargs['features_to_train']:
+        if 'features_to_train' not in kwargs.keys():
             kwargs['features_to_train'] = ['full_text', 'cap.english', 'cap.universal',
                                            'raw_scores.english.overall',
                                            'raw_scores.universal.overall',
