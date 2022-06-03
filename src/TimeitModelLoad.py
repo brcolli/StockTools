@@ -1,4 +1,3 @@
-import time
 import timeit
 
 TF = '''import tensorflow as tf'''

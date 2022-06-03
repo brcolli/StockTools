@@ -1,7 +1,6 @@
 import pandas as pd
 
-import TwitterSpamModelInterface as SpamMI
-import TwitterSentimentModelInterface as SentMI
+import TwitterModelInterface as tMI
 
 """
 1. Grabs Tweets from csv
@@ -12,16 +11,17 @@ import TwitterSentimentModelInterface as SentMI
 
 
 class ModelHandler:
+
     def __init__(self, spam_model=None, sentiment_model=None, load_spam_model_path=''):
         if spam_model is not None:
             self.spam_model = spam_model
         else:
-            self.spam_model = SpamMI.load_model_from_bin(load_spam_model_path)
+            self.spam_model = tMI.load_model_from_bin(load_spam_model_path)
 
         if sentiment_model is not None:
             self.sentiment_model = sentiment_model
         else:
-            self.sentiment_model = SentMI.load_model()
+            self.sentiment_model = tMI.load_model()
 
     def analyze_tweets(self, path, out_path=''):
         """
@@ -62,8 +62,8 @@ class ModelHandler:
 
 
 def main():
-    MH = ModelHandler('../data/Learning Data/OH.bin')
-    df = MH.analyze_tweets('../data/TweetData/Test0.csv')
+    mh = ModelHandler('../data/Learning Data/OH.bin')
+    df = mh.analyze_tweets('../data/TweetData/Test0.csv')
     return df
 
 

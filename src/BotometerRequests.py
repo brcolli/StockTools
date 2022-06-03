@@ -2,6 +2,8 @@ import botometer
 import pandas
 import pandas as pd
 import os
+
+import requests.exceptions
 from dotenv import load_dotenv
 import time
 import itertools
@@ -126,11 +128,15 @@ class BotometerRequests:
         :param user_ids: list of Twitter user ids
         :type user_ids: list(str)
 
-        :return: list of dictionaries of results from botometer, without error values
+        :return: list of dictionaries of results from botometer, without null dicts instead of error values
         :rtype: list(dict)
         """
 
-        while True:
+        tries = 0
+        error_count = 0
+        results = []
+
+        while tries < 20:
             results = []
             error_count = 0
             try:
@@ -141,11 +147,34 @@ class BotometerRequests:
                         results.append(self.bot_null_result)
                         error_count += 1
                 break
-            except Exception as e:
-                print(f'Some error {e} with botometer... Trying again in 1 second')
-                time.sleep(1)
+            except requests.exceptions.HTTPError as e:
+                if '429 Client Error' in str(e):
+                    limit_unscored = len(user_ids) - len(results)
+                    print(f'Botometer requests daily limit met, unable to score {limit_unscored} users')
 
-        print(f'Unable to score {error_count} users... {len(results)-error_count} users scored')
+                    # Pad results with null entries for unscored users
+                    results += ([self.bot_null_result] * limit_unscored)
+                    error_count += limit_unscored
+                    break
+
+                else:
+                    print(f'Some HTTP Error {e} with botometer... Trying again in 2 seconds')
+                    tries += 1
+                    time.sleep(2)
+
+            except Exception as e:
+                print(f'Some error {e} with botometer... Trying again in 2 seconds')
+                tries += 1
+                time.sleep(2)
+
+        if len(results) < len(user_ids):
+            unscored = len(user_ids) - len(results)
+            # Pad results with null entries for unscored users
+            results += ([self.bot_null_result] * unscored)
+            error_count += unscored
+
+        print(f'Botometer User Request Complete: '
+              f'Unable to score {error_count} users... {len(user_ids)-error_count} users scored')
         return results
 
     @staticmethod
@@ -764,7 +793,7 @@ class BotometerRequests:
             tweet_ids, user_ids, tweet_objects = cols
 
         #  In case you don't have the data, catches error request to Botometer
-        if user_ids is None:
+        if user_ids is None or len(user_ids) == 0:
             bot_user_request = False
             lite_user_request = False
 
@@ -810,6 +839,7 @@ class BotometerRequests:
 
         #  If a lite request, then use Botometer lite
         if lite_tweet_request:
+            print('Handling Lite Tweet Request...')
             lite_results = self.request_botometer_lite_tweet_results_from_objects(tweet_objects)
             temp_df = self.lite_results_to_dataframe(lite_results)
             result_df['Tweet id'] = tweet_ids
@@ -817,6 +847,7 @@ class BotometerRequests:
 
         #  If a lite user request, then use Botometer lite on users
         if lite_user_request:
+            print('Handling Lite User Request...')
             lite_user_results = self.request_botometer_lite_user_results(user_ids)
             temp_df = self.lite_results_to_dataframe(lite_user_results)
             result_df['User id'] = user_ids
@@ -824,6 +855,7 @@ class BotometerRequests:
 
         #  If a regular user request, then use Botometer
         if bot_user_request:
+            print('Handling Botometer User Request...')
             bot_user_results = self.request_botometer_results(user_ids)
             temp_df = self.results_to_dataframe(bot_user_results, wanted_bot_keys)
             temp_df = temp_df.drop('user_id', axis=1)

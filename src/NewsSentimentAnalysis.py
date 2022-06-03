@@ -4,20 +4,12 @@ import requests
 import pandas as pd
 import nltk
 from nltk.corpus import twitter_samples
-import utilities
-import NLPSentimentCalculations
-import TwitterSpamModel
-import TwitterSentimentModel
+from utilities import Utils
+from NLPSentimentCalculations import NLPSentimentCalculations as nSC
+from TwitterModelInterface import TwitterSpamModelInterface as tSPMI
+from TwitterModelInterface import TwitterSentimentModelInterface as tSEMI
 from SpamToSentimentModel import ModelHandler
-
-Utils = utilities.Utils
-NSC = NLPSentimentCalculations.NLPSentimentCalculations
-SpamModelParameters = TwitterSpamModel.SpamModelParameters
-SpamModelData = TwitterSpamModel.SpamModelData
-SpamModelLearning = TwitterSpamModel.SpamModelLearning
-SentimentModelParameters = TwitterSentimentModel.SentimentModelParameters
-SentimentModelData = TwitterSentimentModel.SentimentModelData
-SentimentModelLearning = TwitterSentimentModel.SentimentModelLearning
+from typing import List
 
 
 """NewsSentimentAnalysis
@@ -100,7 +92,7 @@ class TwitterManager:
         """
 
         # Tokens and keys
-        #  TODO move keys to a hashed file on a cloud server
+        # TODO move keys to a hashed file on a cloud server
         self.shKey = 'BUYwpbmEi3A29cm9kOXeX9y8n'
         self.scKey = 'MF5w3g6jmn7WnYM6DG8xtIWkdjnEhInnBSf5bU6HclTF4wSkJ9'
         self.shToken = '4149804506-DrTR0UhuQ8pWf16r9wm8NYdkGNSBWuib2Y8nUlw'
@@ -118,7 +110,7 @@ class TwitterManager:
         self.listener = TwitterStreamListener()
         self.stream = tweepy.Stream(auth=self.auth, listener=self.listener)
 
-        self.nsc = NSC()
+        self.nsc = nSC()
 
     def get_dataset_from_tweet_spam(self, dataframe, features_to_train=None):
 
@@ -136,7 +128,7 @@ class TwitterManager:
         if not features_to_train:
             features_to_train = ['full_text']
 
-        x_train, x_test, y_train, y_test = NSC.keras_preprocessing(dataframe[features_to_train], dataframe['Label'],
+        x_train, x_test, y_train, y_test = nSC.keras_preprocessing(dataframe[features_to_train], dataframe['Label'],
                                                                    test_size=0.185,
                                                                    augmented_states=dataframe['augmented'])
 
@@ -155,8 +147,8 @@ class TwitterManager:
             x_test_text_data = pd.DataFrame()
 
         # Clean the textual data
-        x_train_text_clean = [NSC.sanitize_text_string(s) for s in list(x_train_text_data)]
-        x_test_text_clean = [NSC.sanitize_text_string(s) for s in list(x_test_text_data)]
+        x_train_text_clean = [nSC.sanitize_text_string(s) for s in list(x_train_text_data)]
+        x_test_text_clean = [nSC.sanitize_text_string(s) for s in list(x_test_text_data)]
 
         # Initialize tokenizer on training data
         self.nsc.tokenizer.fit_on_texts(x_train_text_clean)
@@ -172,16 +164,6 @@ class TwitterManager:
 
         return x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
                glove_embedding_matrix, y_train, y_test
-
-    def initialize_twitter_spam_model(self, spam_model_learning: SpamModelLearning, to_preprocess_binary='', from_preprocess_binary='',
-                                      learning_data='../data/Learning Data/spam_learning.csv', epochs=200,
-                                      aug_df_file='',
-                                      early_stopping=False, load_model=False,
-                                      model_checkpoint_path='../data/analysis/Model Results/Saved Models/'
-                                                            'best_spam_model.h5'):
-
-        """Initializes, trains, and tests a Twitter spam detection model.
-        """
 
     def initialize_twitter_sentiment_model(self):
 
@@ -229,8 +211,8 @@ class TwitterManager:
         :rtype: list(dict(str-> bool), str)
         """
 
-        tweets_clean = NSC.get_clean_tokens(tweet_tokens)
-        return NSC.get_basic_dataset(tweets_clean, classifier_tag)
+        tweets_clean = nSC.get_clean_tokens(tweet_tokens)
+        return nSC.get_basic_dataset(tweets_clean, classifier_tag)
 
     def get_tweet_sentiment(self, text):
 
@@ -251,6 +233,8 @@ class TwitterManager:
     def phrase_search_history(self, phrase, count=1000):
 
         """Searches historic tweets for a phrase
+
+        TODO handle getting full_text from retweets
 
         :param phrase: A phrase to search for
         :type phrase: str
@@ -299,7 +283,7 @@ class TwitterManager:
         return pd.DataFrame(data=tweets, columns=tweet_keys)
 
     @staticmethod
-    def construct_twitter_query(phrase, filter_in=None, filter_out=None, exact_phrase=''):
+    def construct_twitter_query(phrase='', filter_in=None, filter_out=None, exact_phrase=''):
 
         """Constructs a proper advanced twitter search query given certain operations.
         Refer to https://developer.twitter.com/en/docs/twitter-api/v1/rules-and-filtering/overview/standard-operators
@@ -328,7 +312,8 @@ class TwitterManager:
         if exact_phrase != '':
             query += '"' + exact_phrase + '" '
 
-        query += phrase + ' OR ' + phrase.upper() + ' OR ' + phrase.capitalize()
+        if phrase:
+            query += phrase + ' OR ' + phrase.upper() + ' OR ' + phrase.capitalize()
 
         # Add all filtered in requirements
         for fin in filter_in:
@@ -340,7 +325,7 @@ class TwitterManager:
 
         return query
 
-    def start_stream(self, phrases, default_sentiment='', limit=-1):
+    def start_stream(self, phrases: List[str], default_sentiment: str = '') -> None:
 
         """Starts a stream to collect tweets based on search phrases
 
@@ -348,11 +333,6 @@ class TwitterManager:
         :type phrases: list(str)
         :param default_sentiment: The default sentiment to assign to all incoming tweets; defaults to empty
         :type default_sentiment: str
-        :param limit: The number of tweets to limit in your stream scanning, currently unused; defaults to -1
-        :type limit: int
-
-        :return: The properly formatted query for a Twitter API call
-        :rtype: str
         """
 
         print('Starting stream on ' + str(phrases))
@@ -381,7 +361,7 @@ class TwitterStreamListener(tweepy.StreamListener):
         self.output_file = ''
         self.default_sentiment = ''
 
-    def on_status(self, status):
+    def on_status(self, status: tweepy.API) -> None:
 
         """Main event method for when a stream listener gets a tweet. Writes to a file.
 
@@ -405,16 +385,36 @@ class TwitterStreamListener(tweepy.StreamListener):
             if self.default_sentiment != '':
                 self.default_sentiment += ','
 
-            data = str(status.created_at) + ',' + status.user.name + ',' + status.text.replace('\n', '') +\
-                   ',' + self.default_sentiment + '\n'
+            data = str(status.created_at) + ',' + status.user.name + ',' + status.text.replace('\n', '') + ',' +\
+                   self.default_sentiment + '\n'
 
             print(data)
             f.write(data)
             print('Tweet saved...')
 
 
-def main(search_past=False, search_stream=False, train_spam=False, train_sent=False,
-         phrase='', filter_in=None, filter_out=None, history_count=1000):
+def main(search_past: bool = False, search_stream: bool = False, train_spam: bool = False, train_sent: bool = False,
+         phrase: str = '', filter_in: list = None, filter_out: list = None, history_count: int = 1000) -> None:
+
+    """
+    :param search_past: Flag for choosing to search past Twitter posts with queries; defaults to False
+    :type search_past: Boolean
+    :param search_stream: Flag for choosing to search a stream of Twitter data; defaults to False
+    :type search_stream: Boolean
+    :param train_spam: Flag for choosing to build spam models; defaults to False
+    :type train_spam: Boolean
+    :param train_sent: Flag for choosing to build sentiment models; defaults to False
+    :type train_sent: Boolean
+    :param phrase: String to query for; defaults to empty string
+    :type phrase: string
+    :param filter_in: Types of data to include in query; defaults to []
+    :type filter_in: list(str)
+    :param filter_out: Types of data to remove from query; defaults to []
+    :type filter_out: list(str)
+    :param history_count: Number of historical tweets to collect; defaults to 1000
+    :type history_count: int
+    """
+
     if not filter_in:
         filter_in = []
     if not filter_out:
@@ -423,58 +423,47 @@ def main(search_past=False, search_stream=False, train_spam=False, train_sent=Fa
     tw = TwitterManager()
 
     spam_model_learning = None
+    sentiment_model_learning = None
 
     if train_spam:
-        spam_model_params = SpamModelParameters(epochs=1000,
-                                                batch_size=128,
-                                                load_model=False,
-                                                checkpoint_model=False,
-                                                saved_model_bin='../data/analysis/Model Results/Saved Models/'
-                                                                'best_spam_model.h5')
 
-        spam_model_data = SpamModelData(nsc=NSC(), base_data_csv='../data/Learning Data/spam_learning.csv',
-                                        test_size=0.01,
-                                        features_to_train=['full_text', 'cap.english', 'cap.universal',
-                                                           'raw_scores.english.overall',
-                                                           'raw_scores.universal.overall',
-                                                           'raw_scores.english.astroturf',
-                                                           'raw_scores.english.fake_follower',
-                                                           'raw_scores.english.financial',
-                                                           'raw_scores.english.other',
-                                                           'raw_scores.english.self_declared',
-                                                           'raw_scores.english.spammer',
-                                                           'raw_scores.universal.astroturf',
-                                                           'raw_scores.universal.fake_follower',
-                                                           'raw_scores.universal.financial',
-                                                           'raw_scores.universal.other',
-                                                           'raw_scores.universal.self_declared',
-                                                           'raw_scores.universal.spammer',
-                                                           'botscore', 'favorite_count', 'retweet_count'])
+        spam_model_learning = tSPMI.create_spam_model_to_train(epochs=1000,
+                                                               batch_size=128,
+                                                               load_to_predict=False,
+                                                               checkpoint_model=False,
+                                                               model_h5='../data/analysis/Model Results/'
+                                                                        'Saved Models/best_spam_model.h5',
+                                                               train_data_csv='../data/Learning Data/Spam/'
+                                                                              'spam_train_set.csv',
+                                                               test_size=0.01)
 
-        spam_model_learning = SpamModelLearning(spam_model_params, spam_model_data)
-        spam_model_learning.build_model()
-
-        spam_score_dict = spam_model_learning.predict_and_score('../data/Learning Data/spam_test_set.csv')
-
+        spam_score_dict = spam_model_learning.predict_and_score('../data/Learning Data/Spam/spam_test_set.csv')
         print(spam_score_dict)
 
     if train_sent:
-        sentiment_model_params = SentimentModelParameters(epochs=150,
-                                                          batch_size=128,
-                                                          load_model=False,
-                                                          checkpoint_model=True,
-                                                          saved_model_bin='../data/analysis/Model Results/Saved Models/'
-                                                                          'best_sentiment_model.h5')
 
-        sentiment_model_data = SentimentModelData(nsc=NSC(), base_data_csv='../data/Learning Data/'
-                                                                           'sentiment_learning.csv',
-                                                  test_size=0.1)
+        sentiment_model_learning = tSEMI.create_sentiment_model_to_train(epochs=1000,
+                                                                         batch_size=128,
+                                                                         load_to_predict=False,
+                                                                         checkpoint_model=False,
+                                                                         model_h5='../data/analysis/'
+                                                                                  'Model Results/'
+                                                                                  'Saved Models/'
+                                                                                  'best_sentiment_model.h5',
+                                                                         train_data_csv='../data/Learning Data/'
+                                                                                        'Sentiment/'
+                                                                                        'sentiment_train_set.csv',
+                                                                         test_size=0.1)
 
-        sentiment_model_learning = SentimentModelLearning(sentiment_model_params, sentiment_model_data)
-        sentiment_model_learning.build_model()
+        '''
+        sent_score_dict = sentiment_model_learning.predict_and_score('../data/Learning Data/Sentiment/'
+                                                                     'sentiment_test_set.csv')
+        print(sent_score_dict)
+        '''
 
-        MH = ModelHandler(spam_model=spam_model_learning, sentiment_model=sentiment_model_learning)
-        MH.analyze_tweets('SOURCE OF TWEETS', out_path='SOURCE TO WRITE TO')
+    if train_spam and train_sent:
+        mh = ModelHandler(spam_model=spam_model_learning, sentiment_model=sentiment_model_learning)
+        mh.analyze_tweets('SOURCE OF TWEETS', out_path='SOURCE TO WRITE TO')
 
     # Search phrase
     if search_past:
@@ -495,6 +484,3 @@ def main(search_past=False, search_stream=False, train_spam=False, train_sent=Fa
             tw.start_stream(phrase)
         else:
             tw.start_stream(([phrase]))
-
-
-main(train_spam=True)

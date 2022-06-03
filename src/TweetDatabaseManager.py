@@ -2,13 +2,9 @@ import random
 import pandas as pd
 import BotometerRequests as br
 import TweetCollector
-import utilities
-# import SqliteManager
+from utilities import Utils
 import os
 import time
-
-Utils = utilities.Utils()
-# Sqm = SqliteManager.SqliteManager(path='../data/TweetData/TweetDataBase.db')
 
 
 class TweetDatabaseManager:
@@ -52,12 +48,19 @@ class TweetDatabaseManager:
         :rtype: pd.DataFrame
         """
         tweets = TweetCollector.collect_tweets(phrase=keyword, history_count=num)
-        bot_labels = self.BR.wrapper(from_dataframe=tweets, lite_tweet_request=self.use_botometer_lite,
-                                     bot_user_request=True, wanted_bot_keys=(self.keys[6:]))
-        full_df = Utils.basic_merge(tweets, bot_labels)
-        full_df = Utils.order_dataframe_columns(full_df, self.keys, cut=True)
 
-        return full_df
+        if tweets.shape[0] == 0:
+            print(f'No Tweets found for "{keyword}"...')
+            return None
+
+        else:
+            print(f'{len(tweets)} Tweets collected for {keyword}...')
+            bot_labels = self.BR.wrapper(from_dataframe=tweets, lite_tweet_request=self.use_botometer_lite,
+                                         bot_user_request=True, wanted_bot_keys=(self.keys[6:]))
+            full_df = Utils.basic_merge(tweets, bot_labels)
+            full_df = Utils.order_dataframe_columns(full_df, self.keys, cut=True)
+
+            return full_df
 
     def save_tweets(self, keyword: str, num: int, filename=None):
         """
@@ -152,10 +155,14 @@ class TweetDatabaseManager:
         for f in os.listdir(directory_path):
             os.remove(os.path.join(directory_path, f))
 
+        print(df.value_counts('SentimentManualLabel'))
+
         df.to_csv(os.path.join(directory_path, 'Merged.csv'), index=False)
         return df
 
-    def cut_skipped(self, df, df_path='', to_file='', inplace=False, label='Label'):
+    @staticmethod
+    def cut_skipped(df, df_path='', to_file='', inplace=False):
+      
         if os.path.exists(df_path):
             df = pd.read_csv(df_path)
 
@@ -182,7 +189,8 @@ class TweetDatabaseManager:
         full_df.drop_duplicates(subset=['Tweet id'], inplace=True)
         return full_df
 
-    def sample_df(self, df, n, df_path='', to_base='', to_sample=''):
+    @staticmethod
+    def sample_df(df, n, df_path='', to_base='', to_sample=''):
         if df_path:
             df = pd.read_csv(df_path)
 
