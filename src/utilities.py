@@ -61,7 +61,6 @@ class Utils:
         gauth.SaveCredentialsFile('../doc/gdrive_creds.txt')
 
         drive = GoogleDrive(gauth)
-        f = None
 
         # WARNING: This assumes that the file list does not change during the for loop!
         # Only an issue for first level directories
@@ -145,8 +144,6 @@ class Utils:
             f.SetContentFile(filepath)
             f.Upload(param={'supportsAllDrives': True})  # TODO handle BrokenPipeError: [Errno 32]
 
-        f = None  # Recommended generic cleanup
-
     # Reformatting short interest file to a proper csv
     @staticmethod
     def replace_line_to_comma(text):
@@ -157,7 +154,7 @@ class Utils:
     def regsho_txt_to_df(text, vol_lim=-1):
 
         # Convert text into a dataframe
-        sio = StringIO(text)
+        sio = StringIO(text).__str__()
         df = pd.read_csv(sio, sep=',')[:-1]
         df = df[df['TotalVolume'] >= vol_lim]  # Only take rows with volumes greater than filter
 
@@ -727,8 +724,8 @@ class Utils:
     @staticmethod
     def calculate_ml_measures(results, labels):
         """
-        Calculates the accuracy, precision, recall, f1 score, mcor as well as tp,fp,tn,fn from a list of result labels and
-        actual labels. Skips -1 results and labels.
+        Calculates the accuracy, precision, recall, f1 score, mcor as well as tp,fp,tn,fn from a list of result labels
+        and actual labels. Skips -1 results and labels.
 
         :param results: list of result labels
         :type results: list(int)
@@ -832,4 +829,3 @@ class Utils:
     @staticmethod
     def compare_many_tweet_labels(original, new):
         return [Utils.compare_tweet_label(a, b) for a, b in zip(original, new)]
-

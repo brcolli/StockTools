@@ -32,6 +32,8 @@ class ModelParameters:
     batch_size: int = 128
     evaluate_model: bool = True
     debug: bool = False
+    use_tpu: bool = False
+    use_transformers: bool = True
 
     # Data Related Parameters
     custom_tokenizer: object = None
@@ -73,11 +75,12 @@ class ModelData(ABC):
         self.text_input_length = self.parameters.custom_text_input_length
 
         # ModelData specific parameters
-        self.x_train_text_embeddings = None
-        self.x_test_text_embeddings = None
+        self.train_text_input_ids = None
+        self.test_text_input_ids = None
         self.x_train_meta = None
         self.x_test_meta = None
-        self.glove_embedding_matrix = None
+        self.train_embedding_mask = None
+        self.test_embedding_mask = None
         self.y_train = None
         self.y_test = None
 
@@ -99,7 +102,7 @@ class ModelData(ABC):
     def get_x_val_from_dataframe(self, x_val: pd.DataFrame):
         pass
 
-    def get_vectorized_text_tokens_from_val_dataframe(self, x_val: pd.DataFrame) -> List[str]:
+    def get_vectorized_text_tokens_from_val_dataframe(self, x_val: pd.DataFrame) -> Tuple[List[str], List[str]]:
 
         """
         Generates vectorized text tokens from a dataframe that has been sorted for validation.
@@ -120,13 +123,25 @@ class ModelData(ABC):
         x_val_text_clean = [nSC.sanitize_text_string(s) for s in list(x_val_text_data)]
 
         # Vectorizes textual data
-        _, x_val_text_embeddings = self.nsc.keras_word_embeddings(x_val_text_clean, self.text_input_length)
+        if self.parameters.use_transformers:
 
-        return x_val_text_embeddings
+            x_val_text_embeddings = self.nsc.tokenizer(x_val_text_clean, padding=True, truncation=True,
+                                                       return_tensors='tf')
+
+            val_text_input_ids = x_val_text_embeddings['input_ids']
+            val_embedding_mask = x_val_text_embeddings['attention_mask']
+
+        else:
+            _, val_text_input_ids = self.nsc.keras_word_embeddings(x_val_text_clean, self.text_input_length)
+            val_embedding_mask = self.train_embedding_mask
+
+        return val_text_input_ids, val_embedding_mask
 
     def get_vectorized_text_tokens_from_dataframes(self, x_train_text_data: pd.DataFrame,
                                                    x_test_text_data: pd.DataFrame) -> Tuple[List[str],
-                                                                                            List[str], List[str]]:
+                                                                                            List[str],
+                                                                                            List[str],
+                                                                                            List[str]]:
         """
         Generates vectorized text tokens from train and test dataframes.
 
@@ -144,15 +159,35 @@ class ModelData(ABC):
         x_test_text_clean = [nSC.sanitize_text_string(s) for s in list(x_test_text_data)]
 
         # Initialize tokenizer on training data
-        self.nsc.tokenizer.fit_on_texts(x_train_text_clean)
+        if self.parameters.use_transformers:
 
-        # Create word vectors from tokens
-        self.text_input_length, x_train_text_embeddings = self.nsc.keras_word_embeddings(x_train_text_clean)
-        _, x_test_text_embeddings = self.nsc.keras_word_embeddings(x_test_text_clean, self.text_input_length)
+            self.nsc.create_roberta_tokenizer()
 
-        glove_embedding_matrix = self.nsc.create_glove_word_vectors()
+            x_train_text_embeddings = self.nsc.tokenizer(x_train_text_clean, padding=True, truncation=True,
+                                                         return_tensors='tf')
+            x_test_text_embeddings = self.nsc.tokenizer(x_test_text_clean, padding=True, truncation=True,
+                                                        return_tensors='tf')
 
-        return x_train_text_embeddings, x_test_text_embeddings, glove_embedding_matrix
+            train_text_input_ids = x_train_text_embeddings['input_ids']
+            train_embedding_mask = x_train_text_embeddings['attention_mask']
+
+            test_text_input_ids = x_test_text_embeddings['input_ids']
+            test_embedding_mask = x_test_text_embeddings['attention_mask']
+
+            self.text_input_length = -1
+
+        else:
+            self.nsc.tokenizer.fit_on_texts(x_train_text_clean)
+
+            # Create word vectors from tokens
+            self.text_input_length, train_text_input_ids = self.nsc.keras_word_embeddings(x_train_text_clean)
+
+            _, test_text_input_ids = self.nsc.keras_word_embeddings(x_test_text_clean, self.text_input_length)
+
+            train_embedding_mask = self.nsc.create_glove_word_vectors()
+            test_embedding_mask = train_embedding_mask
+
+        return train_text_input_ids, test_text_input_ids, train_embedding_mask, test_embedding_mask
 
     def get_twitter_dataframe_from_csv(self) -> pd.DataFrame:
 
@@ -186,16 +221,18 @@ class ModelData(ABC):
             with open(self.parameters.preload_train_data_dill, "rb") as fpb:
                 data = pickle.load(fpb)
 
-            self.x_train_text_embeddings, self.x_test_text_embeddings, self.x_train_meta, self.x_test_meta, \
-            self.glove_embedding_matrix, self.y_train, self.y_test, self.nsc.tokenizer, self.text_input_length = data
+            self.train_text_input_ids, self.test_text_input_ids, self.x_train_meta, self.x_test_meta, \
+                self.train_embedding_mask, self.test_embedding_mask, self.y_train, self.y_test, self.nsc.tokenizer,\
+                self.text_input_length = data
 
     def save_data_to_dill(self):
         """
         Saves data to a preload binary (so it can then be loaded using _load_data_from_binary)
         """
         with open(self.parameters.save_train_data_dill, 'wb') as f:
-            data = (self.x_train_text_embeddings, self.x_test_text_embeddings, self.x_train_meta, self.x_test_meta,
-                    self.glove_embedding_matrix, self.y_train, self.y_test, self.nsc.tokenizer, self.text_input_length)
+            data = (self.train_text_input_ids, self.test_text_input_ids, self.x_train_meta, self.x_test_meta,
+                    self.train_embedding_mask, self.test_embedding_mask, self.y_train, self.y_test, self.nsc.tokenizer,
+                    self.text_input_length)
             pickle.dump(data, f)
 
     @abstractmethod
@@ -219,6 +256,7 @@ class ModelLearning:
         self.data = model_data
         self.metrics = Metrics
         self.model = tf.keras.models.Model
+        self.tpu_strategy = None
         self.score = (-1, -1)
 
     def compile_model(self):
@@ -227,7 +265,7 @@ class ModelLearning:
         Compiles a model with given hyperparameters
         """
 
-        optimizer = tf.keras.optimizers.Adam(learning_rate=self.parameters.learning_rate)
+        optimizer = tf.keras.optimizers.Adam(learning_rate=self.parameters.learning_rate, clipnorm=1.)
         self.model.compile(loss='binary_crossentropy',
                            optimizer=optimizer,
                            metrics=self.metrics)
@@ -347,7 +385,7 @@ class ModelLearning:
 
         if affect_parameter_scores:
             self.parameters.accuracy, self.parameters.precision, self.parameters.recall,\
-            self.parameters.f_score, self.parameters.mcor = scores[0:5]
+                self.parameters.f_score, self.parameters.mcor = scores[0:5]
 
         keys = ['Accuracy', 'Precision', 'Recall', 'F-Score', 'MCor', 'Numerical']
         numerical = ['Total', 'True Positives', 'False Positives', 'True Negatives', 'False Negatives']
@@ -365,14 +403,14 @@ class ModelLearning:
         self.compile_model()
 
         if self.parameters.evaluate_model:
-            self.score = self.evaluate_model([self.data.x_test_text_embeddings,
+            self.score = self.evaluate_model([self.data.test_text_input_ids,
                                               self.data.x_test_meta], self.data.y_test, [])
 
         return
 
     def get_callbacks(self):
         """
-        Createst callbacks if requested. Supports early stopping and checkpoint callbacks.
+        Creates callbacks if requested. Supports early stopping and checkpoint callbacks.
         """
 
         cbs = []
@@ -396,6 +434,17 @@ class ModelLearning:
         self.parameters.preload_train_data_dill = ''
         self.parameters.save_train_data_dill = ''
         self.parameters.load_to_predict = True
+
+    def init_tpu(self):
+
+        """ Initializes Google's Tensor Processing Unit.
+        """
+
+        tpu = tf.distribute.cluster_resolver.TPUClusterResolver()
+
+        tf.config.experimental_connect_to_cluster(tpu)
+        tf.tpu.experimental.initialize_tpu_system(tpu)
+        self.tpu_strategy = tf.distribute.experimental.TPUStrategy(tpu)
 
     @abstractmethod
     def build_model(self):

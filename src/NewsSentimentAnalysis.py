@@ -163,7 +163,7 @@ class TwitterManager:
         x_test_meta = x_test[features_to_train]
 
         return x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
-               glove_embedding_matrix, y_train, y_test
+            glove_embedding_matrix, y_train, y_test
 
     def initialize_twitter_sentiment_model(self):
 
@@ -230,7 +230,7 @@ class TwitterManager:
         print('Sentiment:', sentiment)
         return sentiment
 
-    def phrase_search_history(self, phrase, count=1000):
+    def phrase_search_history(self, phrase: str, count: int = 1000):
 
         """Searches historic tweets for a phrase
 
@@ -274,6 +274,7 @@ class TwitterManager:
                     tweets.append(temp_dict)
 
                 break
+
             except tweepy.error.TweepError as e:
                 if 'code = 429' in e:
                     new_count = count - 100
@@ -361,7 +362,7 @@ class TwitterStreamListener(tweepy.StreamListener):
         self.output_file = ''
         self.default_sentiment = ''
 
-    def on_status(self, status: tweepy.API) -> None:
+    def on_status(self, status: tweepy.api) -> None:
 
         """Main event method for when a stream listener gets a tweet. Writes to a file.
 
@@ -386,7 +387,7 @@ class TwitterStreamListener(tweepy.StreamListener):
                 self.default_sentiment += ','
 
             data = str(status.created_at) + ',' + status.user.name + ',' + status.text.replace('\n', '') + ',' +\
-                   self.default_sentiment + '\n'
+                self.default_sentiment + '\n'
 
             print(data)
             f.write(data)
@@ -427,8 +428,8 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
 
     if train_spam:
 
-        spam_model_learning = tSPMI.create_spam_model_to_train(epochs=1000,
-                                                               batch_size=128,
+        spam_model_learning = tSPMI.create_spam_model_to_train(epochs=5,
+                                                               batch_size=16,
                                                                load_to_predict=False,
                                                                checkpoint_model=False,
                                                                model_h5='../data/analysis/Model Results/'
@@ -484,3 +485,6 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
             tw.start_stream(phrase)
         else:
             tw.start_stream(([phrase]))
+
+
+main(train_spam=True)

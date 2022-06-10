@@ -4,6 +4,7 @@ from typing import List
 import os
 from NLPSentimentCalculations import NLPSentimentCalculations as nSC
 from ModelBase import ModelParameters, ModelData, ModelLearning
+from contextlib import ExitStack
 
 
 class SpamModelData(ModelData):
@@ -32,7 +33,7 @@ class SpamModelData(ModelData):
                 if self.parameters.save_train_data_dill:
                     self.save_data_to_dill()
 
-    def get_x_val_from_dataframe(self, x_val: pd.DataFrame) -> List[List[str]]:
+    def get_x_val_from_dataframe(self, x_val: pd.DataFrame):
         """
         Create an x_validation dataset from a dataframe, in a format ready to pass into model.predict
 
@@ -43,17 +44,20 @@ class SpamModelData(ModelData):
         :rtype: [x_val_text_embeddings, x_val_meta] or [x_val_text_embeddings]
         """
 
-        x_val_text_embeddings = self.get_vectorized_text_tokens_from_val_dataframe(x_val)
+        val_text_input, val_embedding_mask = self.get_vectorized_text_tokens_from_val_dataframe(x_val)
+
+        if self.parameters.use_transformers:
+            val_text_input = {'input_ids': val_text_input, 'attention_mask': val_embedding_mask}
 
         if len(self.parameters.textless_features_to_train) > 0:
             x_val_meta = x_val[self.parameters.textless_features_to_train]
-            return [x_val_text_embeddings, x_val_meta]
+            return [val_text_input, x_val_meta]
         else:
-            return [x_val_text_embeddings]
+            return [val_text_input]
 
     def get_dataset_from_tweet_type(self, dataframe: pd.DataFrame):
-
-        """Converts the text feature to a dataset of labeled unigrams and bigrams.
+        """
+        Converts the text feature to a dataset of labeled unigrams and bigrams.
 
         :param dataframe: A dataframe containing the text key with all the text features to parse
         :type dataframe: :class:`pandas.core.frame.DataFrame`
@@ -80,16 +84,17 @@ class SpamModelData(ModelData):
             x_train_text_data = pd.DataFrame()
             x_test_text_data = pd.DataFrame()
 
-        x_train_text_embeddings, \
-        x_test_text_embeddings, \
-        glove_embedding_matrix = self.get_vectorized_text_tokens_from_dataframes(x_train_text_data,
-                                                                                 x_test_text_data)
+        train_text_input_ids,\
+            test_text_input_ids,\
+            train_embedding_mask,\
+            test_embedding_mask = self.get_vectorized_text_tokens_from_dataframes(x_train_text_data,
+                                                                                  x_test_text_data)
 
         x_train_meta = x_train[self.parameters.textless_features_to_train]
         x_test_meta = x_test[self.parameters.textless_features_to_train]
 
-        return x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
-               glove_embedding_matrix, y_train, y_test
+        return train_text_input_ids, test_text_input_ids, x_train_meta, x_test_meta,\
+            train_embedding_mask, test_embedding_mask, y_train, y_test
 
     def load_data_from_csv(self):
         """
@@ -98,8 +103,9 @@ class SpamModelData(ModelData):
 
         twitter_df = self.get_twitter_dataframe_from_csv()
 
-        self.x_train_text_embeddings, self.x_test_text_embeddings, self.x_train_meta, self.x_test_meta, \
-        self.glove_embedding_matrix, self.y_train, self.y_test = self.get_dataset_from_tweet_type(twitter_df)
+        self.train_text_input_ids, self.test_text_input_ids, self.x_train_meta, self.x_test_meta, \
+            self.train_embedding_mask, self.test_embedding_mask, self.y_train,\
+            self.y_test = self.get_dataset_from_tweet_type(twitter_df)
 
 
 class SpamModelLearning(ModelLearning):
@@ -122,26 +128,44 @@ class SpamModelLearning(ModelLearning):
             self.load_compile_test_model()
             return
 
-        self.model = self.data.nsc.create_spam_text_meta_model(self.data.glove_embedding_matrix,
-                                                               len(self.data.x_train_meta.columns),
-                                                               self.data.y_train.shape,
-                                                               len(self.data.x_train_text_embeddings[0]))
+        # Conditional context management for TPU
+        with ExitStack() as stack:
 
-        self.compile_model()
+            if self.parameters.use_tpu:
+                self.init_tpu()
+                stack.enter_context(self.tpu_strategy.scope())
+
+            self.model = self.data.nsc.create_spam_text_meta_model(self.data.train_text_input_ids,
+                                                                   self.data.train_embedding_mask,
+                                                                   len(self.data.x_train_meta.columns),
+                                                                   self.data.y_train.shape,
+                                                                   self.parameters.use_transformers,
+                                                                   len(self.data.train_text_input_ids[0]))
+
+            self.compile_model()
 
         cbs = self.get_callbacks()
+
+        if self.parameters.use_transformers:
+            train_text_data = {'input_ids': self.data.train_text_input_ids,
+                               'attention_mask': self.data.train_embedding_mask}
+            test_text_data = {'input_ids': self.data.test_text_input_ids,
+                              'attention_mask': self.data.test_embedding_mask}
+        else:
+            train_text_data = self.data.train_text_input_ids
+            test_text_data = self.data.test_text_input_ids
 
         # Change input layer based on what style of features we are using
         if len(self.data.x_train_meta.columns) < 1:
 
             # Using only text features
-            train_input_layer = self.data.x_train_text_embeddings
-            test_input_layer = self.data.x_test_text_embeddings
+            train_input_layer = train_text_data
+            test_input_layer = test_text_data
         else:
 
             # Using text and meta features
-            train_input_layer = [self.data.x_train_text_embeddings, self.data.x_train_meta]
-            test_input_layer = [self.data.x_test_text_embeddings, self.data.x_test_meta]
+            train_input_layer = [train_text_data, self.data.x_train_meta]
+            test_input_layer = [test_text_data, self.data.x_test_meta]
 
         history = self.model.fit(x=train_input_layer, y=self.data.y_train, batch_size=self.parameters.batch_size,
                                  epochs=self.parameters.epochs, verbose=1, callbacks=cbs)
