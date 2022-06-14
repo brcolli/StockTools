@@ -1,5 +1,6 @@
 import tweepy
 import pandas as pd
+from utilities import Utils
 
 
 """TweetCollector
@@ -59,11 +60,15 @@ class TwitterManager:
                     tweets.append(temp_dict)
 
                 break
+
             except tweepy.error.TweepError as e:
                 if 'code = 429' in e.__str__():
                     new_count = count - 100
                     print('Error 429 received... lowering history count from {} to {}.'.format(count, new_count))
                     count = new_count
+                else:
+                    print(f'Exception {e} received. Saving and exiting.')
+                    break
 
         return pd.DataFrame(data=tweets, columns=tweet_keys)
 
@@ -132,3 +137,15 @@ def collect_tweets(phrase='', filter_in=None, filter_out=None, history_count=100
     tweets = tw.phrase_search_history_with_id_jsons(query, history_count)
 
     return tweets
+
+
+def export_tweets(phrase='', filter_in=None, filter_out=None, history_count=1000):
+
+    tweets = collect_tweets(phrase=phrase, filter_in=filter_in, filter_out=filter_out, history_count=history_count)
+
+    # Writes the file to csv and creates appropriate directories (if non-existent).
+    # If failed, writes data to current directory to avoid data loss
+    if not Utils.write_dataframe_to_csv(tweets, '../data/News Sentiment Analysis/'
+                                                '' + phrase + '_tweet_history_search.csv'):
+        Utils.write_dataframe_to_csv(tweets, '' + phrase + '_tweet_history_search.csv')
+
