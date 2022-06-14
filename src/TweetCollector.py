@@ -29,7 +29,7 @@ class TwitterManager:
         self.auth = tweepy.OAuthHandler(self.shKey, self.scKey)
         self.auth.set_access_token(self.shToken, self.scToken)
 
-        self.api = tweepy.API(self.auth)
+        self.api = tweepy.API(self.auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
 
     def phrase_search_history_with_id_jsons(self, phrase, count=1000):
         print('\nCollecting tweets from phrase: ' + phrase + '...')
@@ -60,9 +60,9 @@ class TwitterManager:
 
                 break
             except tweepy.error.TweepError as e:
-                if 'code = 429' in e:
+                if 'code = 429' in e.__str__():
                     new_count = count - 100
-                    print('Error 429 received, lowering history count from {} to {}.'.format(count, new_count))
+                    print('Error 429 received... lowering history count from {} to {}.'.format(count, new_count))
                     count = new_count
 
         return pd.DataFrame(data=tweets, columns=tweet_keys)
