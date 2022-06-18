@@ -104,7 +104,7 @@ class TwitterManager:
         self.auth = tweepy.OAuthHandler(self.shKey, self.scKey)
         self.auth.set_access_token(self.shToken, self.scToken)
 
-        self.api = tweepy.API(self.auth)
+        self.api = tweepy.API(self.auth, wait_on_rate_limit=True)
 
         # Set up stream listener
         self.listener = TwitterStreamListener()
@@ -487,4 +487,4 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
             tw.start_stream(([phrase]))
 
 
-main(train_spam=True)
+main(search_past=True, phrase='Tesla', filter_out=['retweets'], history_count=1000)

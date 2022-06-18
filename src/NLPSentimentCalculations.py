@@ -17,10 +17,8 @@ import transformers
 import string
 import re
 import math
-import utilities
 import warnings
 
-Utils = utilities.Utils
 
 """NLPSentimentCalculations
 
