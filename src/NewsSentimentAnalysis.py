@@ -428,8 +428,9 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
 
     if train_spam:
 
-        spam_model_learning = tSPMI.create_spam_model_to_train(epochs=5,
-                                                               batch_size=16,
+        spam_model_learning = tSPMI.create_spam_model_to_train(epochs=6,
+                                                               batch_size=8,
+                                                               features_to_train=['full_text'],
                                                                load_to_predict=False,
                                                                checkpoint_model=False,
                                                                model_h5='../data/analysis/Model Results/'
@@ -438,15 +439,19 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
                                                                               'spam_train_set.csv',
                                                                test_size=0.01)
 
-        spam_score_dict = spam_model_learning.predict_and_score('../data/Learning Data/Spam/spam_test_set.csv')
+        spam_score_dict = spam_model_learning.predict_and_score('../data/TweetData/Tweets/Apple50k.csv')
         print(spam_score_dict)
 
     if train_sent:
 
-        sentiment_model_learning = tSEMI.create_sentiment_model_to_train(epochs=1000,
-                                                                         batch_size=128,
+        sentiment_model_learning = tSEMI.create_sentiment_model_to_train(epochs=5,
+                                                                         batch_size=8,
                                                                          load_to_predict=False,
                                                                          checkpoint_model=False,
+                                                                         preload_train_data_dill='../data/analysis/'
+                                                                                              'Model Results/Sentiment/'
+                                                                                              'sentiment_train_'
+                                                                                              'data.dill',
                                                                          model_h5='../data/analysis/'
                                                                                   'Model Results/'
                                                                                   'Saved Models/'
@@ -456,11 +461,8 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
                                                                                         'sentiment_train_set.csv',
                                                                          test_size=0.1)
 
-        '''
-        sent_score_dict = sentiment_model_learning.predict_and_score('../data/Learning Data/Sentiment/'
-                                                                     'sentiment_test_set.csv')
+        sent_score_dict = sentiment_model_learning.predict('../data/TweetData/Tweets/TeslaMerged.csv')
         print(sent_score_dict)
-        '''
 
     if train_spam and train_sent:
         mh = ModelHandler(spam_model=spam_model_learning, sentiment_model=sentiment_model_learning)
@@ -487,4 +489,4 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
             tw.start_stream(([phrase]))
 
 
-main(search_past=True, phrase='Tesla', filter_out=['retweets'], history_count=1000)
+main(train_spam=True)

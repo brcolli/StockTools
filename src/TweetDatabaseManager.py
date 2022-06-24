@@ -226,6 +226,3 @@ class TweetDatabaseManager:
             df.to_csv(to_file, index=False)
 
         return df
-
-
-TM = TweetDatabaseManager()

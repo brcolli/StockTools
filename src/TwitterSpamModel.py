@@ -1,6 +1,5 @@
 import pandas as pd
 import tensorflow as tf
-from typing import List
 import os
 from NLPSentimentCalculations import NLPSentimentCalculations as nSC
 from ModelBase import ModelParameters, ModelData, ModelLearning
@@ -18,20 +17,17 @@ class SpamModelData(ModelData):
 
         self.parameters.textless_features_to_train = [x for x in self.parameters.features_to_train if x != 'full_text']
 
-        # Load data necessary for training mode
-        if not self.parameters.load_to_predict:
+        # Preload train data from a dill
+        if self.parameters.preload_train_data_dill:
+            self.load_data_from_dill()
 
-            # Preload train data from a dill
-            if self.parameters.preload_train_data_dill:
-                self.load_data_from_dill()
+        # Load data normally (from CSVs)
+        else:
+            self.load_data_from_csv()
 
-            # Load data normally (from CSVs)
-            else:
-                self.load_data_from_csv()
-
-                # Save train data to a dill for preloading next time
-                if self.parameters.save_train_data_dill:
-                    self.save_data_to_dill()
+            # Save train data to a dill for preloading next time
+            if self.parameters.save_train_data_dill:
+                self.save_data_to_dill()
 
     def get_x_val_from_dataframe(self, x_val: pd.DataFrame):
         """
@@ -49,7 +45,8 @@ class SpamModelData(ModelData):
         if self.parameters.use_transformers:
             val_text_input = {'input_ids': val_text_input, 'attention_mask': val_embedding_mask}
 
-        if len(self.parameters.textless_features_to_train) > 0:
+        if len(self.parameters.textless_features_to_train) > 0 and all(feat in x_val for feat in
+                                                                       self.parameters.textless_features_to_train):
             x_val_meta = x_val[self.parameters.textless_features_to_train]
             return [val_text_input, x_val_meta]
         else:
@@ -123,9 +120,9 @@ class SpamModelLearning(ModelLearning):
 
         # Load previously saved model and test if requested
         if self.parameters.load_to_predict and os.path.exists(self.parameters.model_h5):
-            # @TODO This needs to be fixed because {data.x_test_text_embeddings}, etc. does not get preprocessed if
+            # @TODO This needs to be fixed because {data.test_text_input_ids}, etc. does not get preprocessed if
             # @TODO model is being loaded from h5.
-            self.load_compile_test_model()
+            self.load_compile_validate_model()
             return
 
         # Conditional context management for TPU

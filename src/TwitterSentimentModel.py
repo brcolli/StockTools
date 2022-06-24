@@ -64,7 +64,7 @@ class SentimentModelData(ModelData):
             test_embedding_mask = self.get_vectorized_text_tokens_from_dataframes(x_train_text_data,
                                                                                   x_test_text_data)
 
-        return train_text_input_ids, test_text_input_ids, train_embedding_mask, y_train, y_test
+        return train_text_input_ids, test_text_input_ids, train_embedding_mask, test_embedding_mask, y_train, y_test
 
     def load_data_from_csv(self):
         """
@@ -95,7 +95,7 @@ class SentimentModelLearning(ModelLearning):
         if self.parameters.load_to_predict and os.path.exists(self.parameters.model_h5):
             # @TODO This needs to be fixed because {data.x_test_text_embeddings}, etc. does not get preprocessed if
             # @TODO model is being loaded from h5.
-            self.load_compile_test_model()
+            self.load_compile_validate_model()
             return
 
         # Conditional context management for TPU
@@ -114,13 +114,22 @@ class SentimentModelLearning(ModelLearning):
 
         cbs = self.get_callbacks()
 
-        history = self.model.fit(x=self.data.train_text_input_ids, y=self.data.y_train,
+        if self.parameters.use_transformers:
+            train_text_data = {'input_ids': self.data.train_text_input_ids,
+                               'attention_mask': self.data.train_embedding_mask}
+            test_text_data = {'input_ids': self.data.test_text_input_ids,
+                              'attention_mask': self.data.test_embedding_mask}
+        else:
+            train_text_data = self.data.train_text_input_ids
+            test_text_data = self.data.test_text_input_ids
+
+        history = self.model.fit(x=train_text_data, y=self.data.y_train,
                                  batch_size=self.parameters.batch_size,
                                  epochs=self.parameters.epochs, verbose=1, callbacks=cbs)
 
         nSC.plot_model_history(history)
 
         if self.parameters.evaluate_model:
-            self.score = self.evaluate_model(self.data.test_text_input_ids, self.data.y_test, [])
+            self.score = self.evaluate_model(test_text_data, self.data.y_test, [])
 
         return

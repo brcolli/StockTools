@@ -716,7 +716,7 @@ class Utils:
                         json_dict[header].append(json_data[header])
 
         for header in json_headers:
-            if header not in df.columns:
+            if header not in df.columns and json_dict[header]:
                 df[header] = json_dict[header]
 
         return df

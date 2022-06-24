@@ -86,7 +86,7 @@ class ModelData(ABC):
 
     def get_x_val_from_csv(self, csv: str):
         """
-        Loads an x_validation dataset from a csv, in a format ready to pass into model.predict
+        Loads an x_validation dataset from a csv, in a format ready to pass into model.predict.
 
         :param csv: Path to csv file containing a saved dataframe of tweets with self.features_to_train columns present
         :type csv: str
@@ -125,8 +125,8 @@ class ModelData(ABC):
         # Vectorizes textual data
         if self.parameters.use_transformers:
 
-            x_val_text_embeddings = self.nsc.tokenizer(x_val_text_clean, padding=True, truncation=True,
-                                                       return_tensors='tf')
+            x_val_text_embeddings = self.nsc.tokenizer(x_val_text_clean, padding='max_length', truncation=True,
+                                                       return_tensors='tf', max_length=self.text_input_length)
 
             val_text_input_ids = x_val_text_embeddings['input_ids']
             val_embedding_mask = x_val_text_embeddings['attention_mask']
@@ -165,8 +165,11 @@ class ModelData(ABC):
 
             x_train_text_embeddings = self.nsc.tokenizer(x_train_text_clean, padding=True, truncation=True,
                                                          return_tensors='tf')
-            x_test_text_embeddings = self.nsc.tokenizer(x_test_text_clean, padding=True, truncation=True,
-                                                        return_tensors='tf')
+
+            self.text_input_length = x_train_text_embeddings['input_ids'].shape[1]
+
+            x_test_text_embeddings = self.nsc.tokenizer(x_test_text_clean, padding='max_length', truncation=True,
+                                                        return_tensors='tf', max_length=self.text_input_length)
 
             train_text_input_ids = x_train_text_embeddings['input_ids']
             train_embedding_mask = x_train_text_embeddings['attention_mask']
@@ -174,7 +177,7 @@ class ModelData(ABC):
             test_text_input_ids = x_test_text_embeddings['input_ids']
             test_embedding_mask = x_test_text_embeddings['attention_mask']
 
-            self.text_input_length = -1
+            #self.text_input_length = -1
 
         else:
             self.nsc.tokenizer.fit_on_texts(x_train_text_clean)
@@ -394,7 +397,7 @@ class ModelLearning:
 
         return score_dict
 
-    def load_compile_test_model(self):
+    def load_compile_validate_model(self):
         """
         Loads a model from a previous file, compiles the model, and evaluates if selected.
         """

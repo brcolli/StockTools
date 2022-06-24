@@ -171,7 +171,7 @@ class NLPSentimentCalculations:
 
         dropout_rate = 0.5
 
-        input_text_layer, lstm_text_layer = self.create_spam_text_submodel(blocks=5,
+        input_text_layer, out_text_layer = self.create_spam_text_submodel(blocks=5,
                                                                            dropout_rate=dropout_rate,
                                                                            filters=64,
                                                                            kernel_size=3,
@@ -181,7 +181,17 @@ class NLPSentimentCalculations:
                                                                            use_cnn=False,
                                                                            use_transformers=use_transformers)
 
-        output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax')(lstm_text_layer)
+        attention_mask = tf.keras.Input(shape=(maxlen,), dtype='int32', name='TransformerAttentionMask')
+
+        rmodel = transformers.TFAutoModelForSequenceClassification.from_pretrained(
+            'siebert/sentiment-roberta-large-english', num_labels=2)
+
+        encoded = rmodel({'input_ids': out_text_layer, 'attention_mask': attention_mask})
+        out_text_layer = encoded[0]
+
+        input_text_layer = {'input_ids': input_text_layer, 'attention_mask': attention_mask}
+
+        output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax')(out_text_layer)
 
         return tf.keras.Model(inputs=input_text_layer, outputs=output_layer)
 
@@ -233,7 +243,8 @@ class NLPSentimentCalculations:
 
             attention_mask = tf.keras.Input(shape=(maxlen,), dtype='int32', name='TransformerAttentionMask')
 
-            rmodel = transformers.TFAutoModelForSequenceClassification.from_pretrained('siebert/sentiment-roberta-large-english', num_labels=2)
+            rmodel = transformers.TFAutoModelForSequenceClassification.from_pretrained(
+                'siebert/sentiment-roberta-large-english', num_labels=2)
 
             encoded = rmodel({'input_ids': out_text_layer, 'attention_mask': attention_mask})
             out_text_layer = encoded[0]
@@ -243,9 +254,9 @@ class NLPSentimentCalculations:
         if meta_feature_size < 1:
 
             # No meta data, don't create and concat
-            dense_layer = tf.keras.layers.Dense(10, activation='relu', name='NoMetaDenseLayer')(out_text_layer)
-            output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax',
-                                                 name='NoMetaOutputLayer')(dense_layer)
+            # dense_layer = tf.keras.layers.Dense(10, activation='relu', name='NoMetaDenseLayer')(out_text_layer)
+            output_layer = tf.keras.layers.Dense(output_shape[1], activation='sigmoid',
+                                                 name='NoMetaOutputLayer')(out_text_layer)
 
             return tf.keras.Model(inputs=input_text_layer, outputs=output_layer)
 
@@ -886,6 +897,8 @@ class NLPSentimentCalculations:
 
     @staticmethod
     def plot_model_history(history):
+
+        return
 
         history_params = []
         plt.figure(1)
