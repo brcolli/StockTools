@@ -395,7 +395,7 @@ class TwitterStreamListener(tweepy.StreamListener):
 
 
 def main(search_past: bool = False, search_stream: bool = False, train_spam: bool = False, train_sent: bool = False,
-         phrase: str = '', filter_in: list = None, filter_out: list = None, history_count: int = 1000) -> None:
+         phrase: str = '', filter_in: list = None, filter_out: list = None, history_count: int = 1000, test_file='') -> None:
 
     """
     :param search_past: Flag for choosing to search past Twitter posts with queries; defaults to False
@@ -426,11 +426,13 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
     spam_model_learning = None
     sentiment_model_learning = None
 
+    test_csv = test_file + '.csv'
+    test_df = pd.read_csv(test_csv)
+
     if train_spam:
 
-        spam_model_learning = tSPMI.create_spam_model_to_train(epochs=6,
-                                                               batch_size=8,
-                                                               features_to_train=['full_text'],
+        spam_model_learning = tSPMI.create_spam_model_to_train(epochs=3000,
+                                                               batch_size=128,
                                                                load_to_predict=False,
                                                                checkpoint_model=False,
                                                                model_h5='../data/analysis/Model Results/'
@@ -439,19 +441,19 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
                                                                               'spam_train_set.csv',
                                                                test_size=0.01)
 
-        spam_score_dict = spam_model_learning.predict_and_score('../data/TweetData/Tweets/Apple50k.csv')
-        print(spam_score_dict)
+        spam_score, spam_score_raw = spam_model_learning.predict(test_csv)
+        print(spam_score)
+
+        test_df['SpamScore'] = spam_score
+        test_df['SpamScoreRaw'] = spam_score_raw
 
     if train_sent:
 
-        sentiment_model_learning = tSEMI.create_sentiment_model_to_train(epochs=5,
-                                                                         batch_size=8,
-                                                                         load_to_predict=False,
+        sentiment_model_learning = tSEMI.create_sentiment_model_to_train(epochs=3000,
+                                                                         batch_size=128,
+                                                                         features_to_train=['full_text'],
+                                                                         load_to_predict=True,
                                                                          checkpoint_model=False,
-                                                                         preload_train_data_dill='../data/analysis/'
-                                                                                              'Model Results/Sentiment/'
-                                                                                              'sentiment_train_'
-                                                                                              'data.dill',
                                                                          model_h5='../data/analysis/'
                                                                                   'Model Results/'
                                                                                   'Saved Models/'
@@ -461,12 +463,17 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
                                                                                         'sentiment_train_set.csv',
                                                                          test_size=0.1)
 
-        sent_score_dict = sentiment_model_learning.predict('../data/TweetData/Tweets/TeslaMerged.csv')
-        print(sent_score_dict)
+        sent_score, sent_score_raw = sentiment_model_learning.predict(test_csv)
+        print(sent_score)
 
-    if train_spam and train_sent:
-        mh = ModelHandler(spam_model=spam_model_learning, sentiment_model=sentiment_model_learning)
-        mh.analyze_tweets('SOURCE OF TWEETS', out_path='SOURCE TO WRITE TO')
+        test_df['SentimentScore'] = sent_score
+        test_df['SentimentScoreRaw'] = sent_score_raw
+
+    Utils.write_dataframe_to_csv(test_df, test_file + 'Labeled' + '.csv', write_index=False)
+
+    #if train_spam and train_sent:
+        #mh = ModelHandler(spam_model=spam_model_learning, sentiment_model=sentiment_model_learning)
+        #mh.analyze_tweets('SOURCE OF TWEETS', out_path='SOURCE TO WRITE TO')
 
     # Search phrase
     if search_past:
@@ -489,4 +496,5 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
             tw.start_stream(([phrase]))
 
 
-main(train_spam=True)
+f = '../data/TweetData/Tweets/ShinzoAbeData'
+main(train_spam=True, train_sent=True, test_file=f)

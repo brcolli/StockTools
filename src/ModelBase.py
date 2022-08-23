@@ -348,8 +348,8 @@ class ModelLearning:
         :param tweet_df: Dataframe of tweet data
         :type tweet_df: pandas.core.frame.DataFrame
 
-        :return: Prediction for each tweet
-        :rtype: [int] where int is -1, 0, or 1
+        :return: Prediction for each tweet, softmax and raw
+        :rtype: [[int], [float]] where int is -1, 0, or 1
         """
 
         # Get the raw softmax probability predictions
@@ -361,15 +361,17 @@ class ModelLearning:
             return []
 
         # Use the highest softmax probability as the label (-1, 0, or 1)
-        return [max(range(len(y1)), key=y1.__getitem__) for y1 in y]
+        return [max(range(len(y1)), key=y1.__getitem__) for y1 in y], [max(y1) for y1 in y]
 
-    def predict_and_score(self, csv, affect_parameter_scores=False):
+    def predict_and_score(self, csv, score_col='', affect_parameter_scores=False):
         """
         Predicts Tweet labels from a csv of Tweets. Then scores those predictions using labels provided in the csv. CSV
         must be a saved dataframe of tweets with all the columns in self.data.features_to_train + 'Label' present.
 
         :param csv: Filepath to dataframe of tweets with self.data.features_to_train and 'Label' columns
         :type csv: str
+        :param score_col: Name of column of scores
+        :type score_col: str
         :param affect_parameter_scores: Whether or not to write the generated scores to self.parameters
         :type affect_parameter_scores: bool
 
@@ -380,8 +382,15 @@ class ModelLearning:
                      'True Negatives': int, 'False Negatives': int)
                     )
         """
-        y = pd.read_csv(csv)['Label'].tolist()
-        y1 = self.predict(csv)
+
+        pred_df = pd.read_csv(csv)
+
+        if score_col:
+            y = pred_df[score_col].tolist()
+        else:
+            y = [-2] * pred_df.shape[0]
+
+        y1 = self.predict(csv)[0]
 
         # Format: accuracy, precision, recall, f1, mcor, (total, tp, fp, tn, fn)
         scores = Utils.calculate_ml_measures(y1, y)
@@ -406,8 +415,12 @@ class ModelLearning:
         self.compile_model()
 
         if self.parameters.evaluate_model:
-            self.score = self.evaluate_model([self.data.test_text_input_ids,
-                                              self.data.x_test_meta], self.data.y_test, [])
+
+            if self.parameters.features_to_train == ['full_text']:
+                self.score = self.evaluate_model(self.data.test_text_input_ids, self.data.y_test, [])
+            else:
+                self.score = self.evaluate_model([self.data.test_text_input_ids,
+                                                  self.data.x_test_meta], self.data.y_test, [])
 
         return
 

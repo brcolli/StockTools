@@ -32,7 +32,13 @@ class SentimentModelData(ModelData):
         :rtype: x_val_text_embeddings
         """
 
-        return self.get_vectorized_text_tokens_from_val_dataframe(x_val)
+        val_text_input, val_embedding_mask = self.get_vectorized_text_tokens_from_val_dataframe(x_val)
+
+        if self.parameters.use_transformers:
+
+            val_text_input = {'input_ids': val_text_input, 'attention_mask': val_embedding_mask}
+
+        return [val_text_input]
 
     def get_dataset_from_tweet_type(self, dataframe: pd.DataFrame):
 

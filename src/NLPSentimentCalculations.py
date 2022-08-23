@@ -172,26 +172,33 @@ class NLPSentimentCalculations:
         dropout_rate = 0.5
 
         input_text_layer, out_text_layer = self.create_spam_text_submodel(blocks=5,
-                                                                           dropout_rate=dropout_rate,
-                                                                           filters=64,
-                                                                           kernel_size=3,
-                                                                           pool_size=2,
-                                                                           embedding_mask=embedding_mask,
-                                                                           maxlen=maxlen,
-                                                                           use_cnn=False,
-                                                                           use_transformers=use_transformers)
+                                                                          dropout_rate=dropout_rate,
+                                                                          filters=64,
+                                                                          kernel_size=3,
+                                                                          pool_size=2,
+                                                                          embedding_mask=embedding_mask,
+                                                                          maxlen=maxlen,
+                                                                          use_cnn=False,
+                                                                          use_transformers=use_transformers)
 
-        attention_mask = tf.keras.Input(shape=(maxlen,), dtype='int32', name='TransformerAttentionMask')
+        if use_transformers:
 
-        rmodel = transformers.TFAutoModelForSequenceClassification.from_pretrained(
-            'siebert/sentiment-roberta-large-english', num_labels=2)
+            attention_mask = tf.keras.Input(shape=(maxlen,), dtype='int32', name='TransformerAttentionMask')
 
-        encoded = rmodel({'input_ids': out_text_layer, 'attention_mask': attention_mask})
-        out_text_layer = encoded[0]
+            rmodel = transformers.TFAutoModelForSequenceClassification.from_pretrained(
+                'siebert/sentiment-roberta-large-english', num_labels=2)
 
-        input_text_layer = {'input_ids': input_text_layer, 'attention_mask': attention_mask}
+            encoded = rmodel({'input_ids': out_text_layer, 'attention_mask': attention_mask})
+            out_text_layer = encoded[0]
 
-        output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax')(out_text_layer)
+            input_text_layer = {'input_ids': input_text_layer, 'attention_mask': attention_mask}
+
+            output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax')(out_text_layer)
+
+        else:
+
+            output_layer = tf.keras.layers.Dense(output_shape[1], activation='sigmoid',
+                                                 name='NoMetaOutputLayer')(out_text_layer)
 
         return tf.keras.Model(inputs=input_text_layer, outputs=output_layer)
 
@@ -601,6 +608,9 @@ class NLPSentimentCalculations:
     def sanitize_text_string(sen):
 
         # @TODO Remove AMP
+
+        if type(sen) != str:
+            return ''
 
         sentence = re.sub('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_.&+#]|[!*\(\),]|' \
                           '(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', sen)

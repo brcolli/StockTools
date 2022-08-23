@@ -2,6 +2,7 @@ import random
 import pandas as pd
 import BotometerRequests as br
 import TweetCollector
+import twint
 from utilities import Utils
 import os
 import time
@@ -61,6 +62,43 @@ class TweetDatabaseManager:
             full_df = Utils.order_dataframe_columns(full_df, self.keys, cut=True)
 
             return full_df
+
+    @staticmethod
+    def req_past_tweets(keyword: str, num: int, start_day: str, end_day: str = None):
+
+        """Gets tweets from the past from a date. If no end_day is given, assumes up to current day.
+
+        :param keyword: Query to search past history for.
+        :type keyword: str
+        :param num: Number of results to request
+        :type num: int
+        :param start_day: String of start date, format of YYYYMMDD, YYYY/MM/DD, or DD-MM-YYYY
+        :type start_day: str
+        :param end_day: String of end date, format of YYYYMMDD, YYYY/MM/DD, or DD-MM-YYYY
+        :type end_day: str
+
+        :return: Dataframe with all of the keys found in self.keys
+        :rtype: pd.DataFrame
+        """
+
+        tweet_df = pd.DataFrame()
+
+        c = twint.Config()
+
+        c.Search = keyword
+        c.Limit = num
+        c.Lang = "en"
+        #c.Since = start_day
+        if end_day:
+            c.Until = end_day
+        c.Pandas = True
+
+        twint.run.Search(c)
+        tweet_df = twint.storage.panda.Tweets_df
+
+        print(tweet_df)
+
+        return tweet_df
 
     def save_tweets(self, keyword: str, num: int, filename=None):
         """
@@ -161,7 +199,7 @@ class TweetDatabaseManager:
         return df
 
     @staticmethod
-    def cut_skipped(df, df_path='', to_file='', inplace=False):
+    def cut_skipped(df, df_path='', to_file='', inplace=False, label='Label'):
       
         if os.path.exists(df_path):
             df = pd.read_csv(df_path)
@@ -207,7 +245,8 @@ class TweetDatabaseManager:
 
         return basedf, sample
 
-    def restore_tweet_ids(self, df, df_path='', to_file='', inplace=False):
+    @staticmethod
+    def restore_tweet_ids(df, df_path='', to_file='', inplace=False):
         if os.path.exists(df_path):
             df = pd.read_csv(df_path)
 
@@ -226,3 +265,7 @@ class TweetDatabaseManager:
             df.to_csv(to_file, index=False)
 
         return df
+
+
+if __name__ == '__main__':
+    TweetDatabaseManager.req_past_tweets('Apple', 50, '2019-04-29', '2020-04-29')
