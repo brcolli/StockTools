@@ -196,7 +196,7 @@ class TwitterSpamModelInterface(TwitterModelInterface):
         :type dill_file: str
         :param filename: Filename to save labeled dataframe to
         :type filename: str
-        :param use_botometer_lite: Whether or not to use botometer lite (when querying Tweets)
+        :param use_botometer_lite: Whether to use botometer lite (when querying Tweets)
         :type use_botometer_lite: bool
 
         :return: Dataframe of Tweets with Spam Model labels
@@ -259,7 +259,7 @@ class TwitterSpamModelInterface(TwitterModelInterface):
 
         See process_spam_model_args() for descriptions of args
 
-        :return: Whether or not the preprocessing was successful and the save_train_data_dill file exists
+        :return: Whether the preprocessing was successful and the save_train_data_dill file exists
         :rtype: bool
         """
 
@@ -283,7 +283,7 @@ class TwitterSpamModelInterface(TwitterModelInterface):
     def save_trained_model(sml: TwitterSpamModel.SpamModelLearning, dill_parameters_file: str,
                            h5_file: str = '') -> bool:
         """
-        Saves a trained SpamModelLearning to an h5 file and its SpamModelParameters class to a dill file in a format
+        Saves a trained SpamModelLearning to a h5 file and its SpamModelParameters class to a dill file in a format
         that the model can be loaded in prediction mode.
 
         :param sml: Trained SpamModelLearning

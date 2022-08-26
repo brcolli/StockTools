@@ -42,10 +42,10 @@ class TweetDatabaseManager:
 
         :param keyword: Keyword to look for in Twitter
         :type keyword: str
-        :param num: Number of tweets to collect (Best to do more requests of less tweets (100 or so at a time))
+        :param num: Number of tweets to collect (Best to do more requests of fewer tweets (100 or so at a time))
         :type num: int
 
-        :return: Dataframe with all of the keys found in self.keys
+        :return: Dataframe with all the keys found in self.keys
         :rtype: pd.DataFrame
         """
         tweets = TweetCollector.collect_tweets(phrase=keyword, history_count=num)
@@ -77,9 +77,11 @@ class TweetDatabaseManager:
         :param end_day: String of end date, format of YYYYMMDD, YYYY/MM/DD, or DD-MM-YYYY
         :type end_day: str
 
-        :return: Dataframe with all of the keys found in self.keys
+        :return: Dataframe with all the keys found in self.keys
         :rtype: pd.DataFrame
         """
+
+        start = time.time()
 
         tweet_df = pd.DataFrame()
 
@@ -89,14 +91,15 @@ class TweetDatabaseManager:
         c.Limit = num
         c.Lang = "en"
         #c.Since = start_day
-        if end_day:
-            c.Until = end_day
+        #if end_day:
+        #    c.Until = end_day
         c.Pandas = True
 
         twint.run.Search(c)
         tweet_df = twint.storage.panda.Tweets_df
 
         print(tweet_df)
+        print(time.time() - start)
 
         return tweet_df
 
@@ -106,13 +109,13 @@ class TweetDatabaseManager:
 
         :param keyword: Keyword to look for in Twitter
         :type keyword: str
-        :param num: Number of tweets to collect (Best to do more requests of less tweets (100 or so at a time))
+        :param num: Number of tweets to collect (Best to do more requests of fewer tweets (100 or so at a time))
         :type num: int
         :param filename: Name of the file to save to (not directory),
                         otherwise saves to an auto-generated time based filename.csv
         :type filename: None or str
 
-        :return: Dataframe with all of the keys found in self.keys (also saves the dataframe to csv)
+        :return: Dataframe with all the keys found in self.keys (also saves the dataframe to csv)
         :rtype: pd.DataFrame
         """
         df = self.req_tweets(keyword, num)
@@ -128,7 +131,7 @@ class TweetDatabaseManager:
         :param keywords: List of string keywords to look for in Twitter
         :type keywords: list(str)
         :param num: Number of tweets to collect for each keyword
-                    (Best to do more requests of less tweets (100 or so at a time))
+                    (Best to do more requests of fewer tweets (100 or so at a time))
         :type num: int
         :param same_file: Whether to save all the keyword searches to the same file or different ones
         :type same_file: bool
@@ -138,7 +141,7 @@ class TweetDatabaseManager:
         :param save_to_file: Whether to save to file
         :type save_to_file: bool
 
-        :return: Dataframe of all the keywords with all of the keys found in self.keys (also saves the dataframe to csv)
+        :return: Dataframe of all the keywords with all the keys found in self.keys (also saves the dataframe to csv)
                 or a separate csv for each keyword search
         :rtype: pd.DataFrame
         """
@@ -158,7 +161,7 @@ class TweetDatabaseManager:
 
     def vertical_merge(self, directory_path: str):
         """
-        Takes in a directory of CSVs and concats all of the dataframes into one vertically
+        Takes in a directory of CSVs and concats all the dataframes into one vertically
 
         :param directory_path: Relative directory path (from working directory), must only contain CSVs with dataframes
                                 of matching columns
@@ -177,7 +180,7 @@ class TweetDatabaseManager:
 
     def merge_and_cut(self, directory_path):
         """
-        Takes in a directory of CSVs and concats all of the dataframes into one vertically, then deletes all the files
+        Takes in a directory of CSVs and concats all the dataframes into one vertically, then deletes all the files
         in directory, then saves the merged dataframe into one file named Merged.csv
 
         Caution: All files in directory should be CSVs with matching Dataframes (column key wise). Deletes Files!
@@ -268,4 +271,13 @@ class TweetDatabaseManager:
 
 
 if __name__ == '__main__':
-    TweetDatabaseManager.req_past_tweets('Apple', 50, '2019-04-29', '2020-04-29')
+
+    tdm = TweetDatabaseManager()
+
+    with open('../doc/sp-100.csv', 'r') as f:
+
+        symbols = f.readlines()
+        symbols = [s.strip() for s in symbols]
+
+        for symbol in symbols:
+            tdm.save_tweets(symbol, 100, f'Tweets/{symbol}100')

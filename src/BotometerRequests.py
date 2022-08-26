@@ -2,7 +2,6 @@ import botometer
 import pandas
 import pandas as pd
 import os
-
 import requests.exceptions
 from dotenv import load_dotenv
 import time
