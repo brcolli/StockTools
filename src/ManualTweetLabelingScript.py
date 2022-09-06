@@ -197,13 +197,13 @@ def main(file_path, clear_data=False):
     # Set column name according to naming convention
     label_column = mode + 'ManualLabel'
 
-    labels = [0, 1, -1, 2]
-    keys = ['0', '1', 'r', '2']
+    labels = [0, 1, 2, -1, -2]
+    keys = ['q', 'w', 'e', 'r', 't']
     names = []
     if mode == 'Spam':
-        names = ['Clean', 'Spam']
+        names = ['Clean', 'Spam', 'Middle']
     elif mode == 'Sentiment':
-        names = ['Positive', 'Negative']
+        names = ['Positive', 'Neutral', 'Negative']
     names = names + ['Skipped', 'Special']
 
     # Load File, clear if needed
