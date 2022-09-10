@@ -433,7 +433,8 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
 
         spam_model_learning = tSPMI.create_spam_model_to_train(epochs=3000,
                                                                batch_size=128,
-                                                               load_to_predict=False,
+                                                               features_to_train=['full_text'],
+                                                               load_to_predict=True,
                                                                checkpoint_model=False,
                                                                model_h5='../data/analysis/Model Results/'
                                                                         'Saved Models/best_spam_model.h5',
@@ -496,5 +497,5 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
             tw.start_stream(([phrase]))
 
 
-f = '../data/TweetData/Tweets/ShinzoAbeData'
+f = '../data/TweetData/Tweets/Tesla20220801-20220831'
 main(train_spam=True, train_sent=True, test_file=f)

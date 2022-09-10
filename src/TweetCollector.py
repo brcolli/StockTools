@@ -6,6 +6,8 @@ from utilities import Utils
 """TweetCollector
 """
 
+Tweet_Keys = ['Tweet id', 'User id', 'Screen name', 'Label', 'Search term', 'json']
+
 
 class TwitterManager:
 
@@ -32,11 +34,42 @@ class TwitterManager:
 
         self.api = tweepy.API(self.auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
 
+    @staticmethod
+    def parse_tweet_obj(tweet, phrase):
+
+        temp_dict = {}
+        temp_dict.update({Tweet_Keys[0]: tweet.id,
+                          Tweet_Keys[1]: tweet.user.id,
+                          Tweet_Keys[2]: tweet.user.screen_name,
+                          Tweet_Keys[3]: -2,
+                          Tweet_Keys[4]: phrase,
+                          Tweet_Keys[5]: tweet._json})
+
+        return temp_dict
+
+    def tweet_urls_to_dataframe(self, filename: str, phrase, url_key: str = 'Tweet URL'):
+
+        urls = pd.read_csv(filename)[url_key].to_list()
+
+        tweets = []
+
+        for url in urls:
+
+            print(f'Getting status of {url}')
+
+            id = url.split('/')[-1]
+            status = self.api.get_status(id)
+
+            temp_dict = TwitterManager.parse_tweet_obj(status, phrase)
+
+            tweets.append(temp_dict)
+
+        return pd.DataFrame(data=tweets, columns=Tweet_Keys)
+
     def phrase_search_history_with_id_jsons(self, phrase, count=1000):
         print('\nCollecting tweets from phrase: ' + phrase + '...')
 
         tweets = []
-        tweet_keys = ['Tweet id', 'User id', 'Screen name', 'Label', 'Search term', 'json']
         while True:  # Iterate if tweet collection fails
 
             data = tweepy.Cursor(self.api.search,
@@ -49,13 +82,7 @@ class TwitterManager:
             try:
                 for tweet in data:
 
-                    temp_dict = {}
-                    temp_dict.update({tweet_keys[0]: tweet.id,
-                                      tweet_keys[1]: tweet.user.id,
-                                      tweet_keys[2]: tweet.user.screen_name,
-                                      tweet_keys[3]: -2,
-                                      tweet_keys[4]: phrase,
-                                      tweet_keys[5]: tweet._json})
+                    temp_dict = TwitterManager.parse_tweet_obj(tweet, phrase)
 
                     tweets.append(temp_dict)
 
@@ -70,7 +97,7 @@ class TwitterManager:
                     print(f'Exception {e} received. Saving and exiting.')
                     break
 
-        return pd.DataFrame(data=tweets, columns=tweet_keys)
+        return pd.DataFrame(data=tweets, columns=Tweet_Keys)
 
     @staticmethod
     def construct_twitter_query(phrase, filter_in=None, filter_out=None, exact_phrase=''):
