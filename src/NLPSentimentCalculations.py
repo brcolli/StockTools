@@ -9,6 +9,7 @@ from nltk.tag import pos_tag
 from nltk import FreqDist
 from nltk.corpus import stopwords
 from nltk.corpus import wordnet
+from nltk.collocations import BigramCollocationFinder, BigramAssocMeasures
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
@@ -616,6 +617,8 @@ class NLPSentimentCalculations:
 
         sentence = re.sub(r'\s+', ' ', sentence)
 
+        sentence = re.sub('amp', '', sentence)
+
         sentence = ToktokTokenizer().tokenize(sentence.lower())
 
         stop_words = stopwords.words('english')
@@ -628,6 +631,67 @@ class NLPSentimentCalculations:
             return ' '.join(sentence)
         else:
             return ''
+
+    @staticmethod
+    def test_group_bigrams(san_sentences):
+        words = ' '.join(san_sentences).split()
+        finder = BigramCollocationFinder.from_words(words)
+        bgm = BigramAssocMeasures()
+        score = bgm.mi_like
+        collocations = {'-'.join(bigram): pmi for bigram, pmi in finder.score_ngrams(score)}
+        return collocations
+
+    @staticmethod
+    def group_bigrams(san_sentences, cutoff=1.0):
+        words = ' '.join(san_sentences).split()
+        finder = BigramCollocationFinder.from_words(words)
+        bgm = BigramAssocMeasures()
+        score = bgm.mi_like
+
+        # Gives top bigrams according to cutoff as a dictionary to use for replacements {"social media": "socialxmedia"}
+        # Uses x to avoid filtering of '-' and other special symbols in BT model preprocessing
+        bigrams = {" ".join(bigram): "x".join(bigram) for bigram, pmi in finder.score_ngrams(score) if pmi > cutoff}
+
+        # Replace bigrams in every sentence with joined bigram (social media --> socialxmedia)
+        new_sentences = []
+        for s in san_sentences:
+            ns = ''
+            ws = s.split()
+            add_word = True
+
+            for i in range(len(ws) - 1):
+                wkey = ws[i] + ' ' + ws[i+1]
+
+                # If it is a bigram
+                if(wkey) in bigrams.keys():
+                    ns += bigrams[wkey]
+                    ns += ' '
+                    # Do not add next word on its own if it already part of a bigram
+                    add_word = False
+
+                # Not a bigram
+                else:
+                    # Only add if word was not part of a previous bigram
+                    if add_word:
+                        ns += ws[i]
+                        ns += ' '
+                    # Next word is not part of a bigram because this word is not bigram
+                    add_word = True
+
+            # Edge case for last word
+            if len(ws) > 1:
+                if (ws[-2] + ' ' + ws[-1]) not in bigrams.keys():
+                    ns += ws[-1]
+            elif len(ws) > 0:
+                ns += ws[-1]
+
+            # Remove space from end of string
+            if ns[-1] == ' ':
+                ns = ns[:-1]
+
+            new_sentences.append(ns)
+
+        return new_sentences, bigrams
 
     @staticmethod
     def sanitize_text_tokens(tweet_tokens):
