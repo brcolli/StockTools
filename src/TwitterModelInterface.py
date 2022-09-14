@@ -1,5 +1,4 @@
 import os.path
-import tensorflow.keras.models as tf_models
 import dill
 import json
 import pandas as pd
@@ -31,7 +30,7 @@ class TwitterModelInterface:
     def get_settings_dict(json_settings='../data/Learning Data/spam_settings.json', learning_rate=1e-3,
                           epochs=1000, early_stopping=False, checkpoint_model=False, early_stopping_patience=0,
                           batch_size=128, evaluate_model=True, debug=False, custom_tokenizer=None,
-                          train_data_csv='../data/Learning Data/spam_train.csv',
+                          use_transformers=False, train_data_csv='../data/Learning Data/spam_train.csv',
                           aug_data_csv='',
                           test_size=0.1, preload_train_data_dill='', save_train_data_dill='', features_to_train=None,
                           load_to_predict=False, model_h5='../data/Learning Data/best_spam_model.h5') -> dict:
@@ -60,6 +59,8 @@ class TwitterModelInterface:
         :type debug: bool
         :param custom_tokenizer: Custom token object
         :type custom_tokenizer: Token Obj
+        :param use_transformers: Flag to use transformers.
+        :type use_transformers: bool
         :param train_data_csv: Path to the train data csv file containing unaugmented training set
                                 (can contain augmented rows if 'augment' column is present)
         :type train_data_csv: str
@@ -97,6 +98,7 @@ class TwitterModelInterface:
             'evaluate_model': evaluate_model,
             'debug': debug,
             'custom_tokenizer': custom_tokenizer,
+            'use_transformers': use_transformers,
             'train_data_csv': train_data_csv,
             'aug_data_csv': aug_data_csv,
             'test_size': test_size,

@@ -104,7 +104,7 @@ class TwitterManager:
         self.auth = tweepy.OAuthHandler(self.shKey, self.scKey)
         self.auth.set_access_token(self.shToken, self.scToken)
 
-        self.api = tweepy.API(self.auth)
+        self.api = tweepy.API(self.auth, wait_on_rate_limit=True)
 
         # Set up stream listener
         self.listener = TwitterStreamListener()
@@ -163,7 +163,7 @@ class TwitterManager:
         x_test_meta = x_test[features_to_train]
 
         return x_train_text_embeddings, x_test_text_embeddings, x_train_meta, x_test_meta, \
-               glove_embedding_matrix, y_train, y_test
+            glove_embedding_matrix, y_train, y_test
 
     def initialize_twitter_sentiment_model(self):
 
@@ -230,7 +230,7 @@ class TwitterManager:
         print('Sentiment:', sentiment)
         return sentiment
 
-    def phrase_search_history(self, phrase, count=1000):
+    def phrase_search_history(self, phrase: str, count: int = 1000):
 
         """Searches historic tweets for a phrase
 
@@ -274,6 +274,7 @@ class TwitterManager:
                     tweets.append(temp_dict)
 
                 break
+
             except tweepy.error.TweepError as e:
                 if 'code = 429' in e:
                     new_count = count - 100
@@ -361,7 +362,7 @@ class TwitterStreamListener(tweepy.StreamListener):
         self.output_file = ''
         self.default_sentiment = ''
 
-    def on_status(self, status: tweepy.API) -> None:
+    def on_status(self, status: tweepy.api) -> None:
 
         """Main event method for when a stream listener gets a tweet. Writes to a file.
 
@@ -386,7 +387,7 @@ class TwitterStreamListener(tweepy.StreamListener):
                 self.default_sentiment += ','
 
             data = str(status.created_at) + ',' + status.user.name + ',' + status.text.replace('\n', '') + ',' +\
-                   self.default_sentiment + '\n'
+                self.default_sentiment + '\n'
 
             print(data)
             f.write(data)
@@ -394,7 +395,7 @@ class TwitterStreamListener(tweepy.StreamListener):
 
 
 def main(search_past: bool = False, search_stream: bool = False, train_spam: bool = False, train_sent: bool = False,
-         phrase: str = '', filter_in: list = None, filter_out: list = None, history_count: int = 1000) -> None:
+         phrase: str = '', filter_in: list = None, filter_out: list = None, history_count: int = 1000, test_file='') -> None:
 
     """
     :param search_past: Flag for choosing to search past Twitter posts with queries; defaults to False
@@ -425,11 +426,15 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
     spam_model_learning = None
     sentiment_model_learning = None
 
+    test_csv = test_file + '.csv'
+    test_df = pd.read_csv(test_csv)
+
     if train_spam:
 
-        spam_model_learning = tSPMI.create_spam_model_to_train(epochs=1000,
+        spam_model_learning = tSPMI.create_spam_model_to_train(epochs=3000,
                                                                batch_size=128,
-                                                               load_to_predict=False,
+                                                               features_to_train=['full_text'],
+                                                               load_to_predict=True,
                                                                checkpoint_model=False,
                                                                model_h5='../data/analysis/Model Results/'
                                                                         'Saved Models/best_spam_model.h5',
@@ -437,14 +442,18 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
                                                                               'spam_train_set.csv',
                                                                test_size=0.01)
 
-        spam_score_dict = spam_model_learning.predict_and_score('../data/Learning Data/Spam/spam_test_set.csv')
-        print(spam_score_dict)
+        spam_score, spam_score_raw = spam_model_learning.predict(test_csv)
+        print(spam_score)
+
+        test_df['SpamScore'] = spam_score
+        test_df['SpamScoreRaw'] = spam_score_raw
 
     if train_sent:
 
-        sentiment_model_learning = tSEMI.create_sentiment_model_to_train(epochs=1000,
+        sentiment_model_learning = tSEMI.create_sentiment_model_to_train(epochs=3000,
                                                                          batch_size=128,
-                                                                         load_to_predict=False,
+                                                                         features_to_train=['full_text'],
+                                                                         load_to_predict=True,
                                                                          checkpoint_model=False,
                                                                          model_h5='../data/analysis/'
                                                                                   'Model Results/'
@@ -455,15 +464,17 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
                                                                                         'sentiment_train_set.csv',
                                                                          test_size=0.1)
 
-        '''
-        sent_score_dict = sentiment_model_learning.predict_and_score('../data/Learning Data/Sentiment/'
-                                                                     'sentiment_test_set.csv')
-        print(sent_score_dict)
-        '''
+        sent_score, sent_score_raw = sentiment_model_learning.predict(test_csv)
+        print(sent_score)
 
-    if train_spam and train_sent:
-        mh = ModelHandler(spam_model=spam_model_learning, sentiment_model=sentiment_model_learning)
-        mh.analyze_tweets('SOURCE OF TWEETS', out_path='SOURCE TO WRITE TO')
+        test_df['SentimentScore'] = sent_score
+        test_df['SentimentScoreRaw'] = sent_score_raw
+
+    Utils.write_dataframe_to_csv(test_df, test_file + 'Labeled' + '.csv', write_index=False)
+
+    #if train_spam and train_sent:
+        #mh = ModelHandler(spam_model=spam_model_learning, sentiment_model=sentiment_model_learning)
+        #mh.analyze_tweets('SOURCE OF TWEETS', out_path='SOURCE TO WRITE TO')
 
     # Search phrase
     if search_past:
@@ -484,3 +495,7 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
             tw.start_stream(phrase)
         else:
             tw.start_stream(([phrase]))
+
+
+f = '../data/TweetData/Tweets/Tesla20220801-20220831'
+main(train_spam=True, train_sent=True, test_file=f)

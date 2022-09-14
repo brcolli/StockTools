@@ -4,6 +4,7 @@ import os
 from typing import List
 from NLPSentimentCalculations import NLPSentimentCalculations as nSC
 from ModelBase import ModelParameters, ModelData, ModelLearning
+from contextlib import ExitStack
 
 
 class SentimentModelData(ModelData):
@@ -31,7 +32,13 @@ class SentimentModelData(ModelData):
         :rtype: x_val_text_embeddings
         """
 
-        return self.get_vectorized_text_tokens_from_val_dataframe(x_val)
+        val_text_input, val_embedding_mask = self.get_vectorized_text_tokens_from_val_dataframe(x_val)
+
+        if self.parameters.use_transformers:
+
+            val_text_input = {'input_ids': val_text_input, 'attention_mask': val_embedding_mask}
+
+        return [val_text_input]
 
     def get_dataset_from_tweet_type(self, dataframe: pd.DataFrame):
 
@@ -57,12 +64,13 @@ class SentimentModelData(ModelData):
         x_train_text_data = x_train['full_text']
         x_test_text_data = x_test['full_text']
 
-        x_train_text_embeddings, \
-        x_test_text_embeddings, \
-        glove_embedding_matrix = self.get_vectorized_text_tokens_from_dataframes(x_train_text_data,
-                                                                                 x_test_text_data)
+        train_text_input_ids, \
+            test_text_input_ids, \
+            train_embedding_mask,\
+            test_embedding_mask = self.get_vectorized_text_tokens_from_dataframes(x_train_text_data,
+                                                                                  x_test_text_data)
 
-        return x_train_text_embeddings, x_test_text_embeddings, glove_embedding_matrix, y_train, y_test
+        return train_text_input_ids, test_text_input_ids, train_embedding_mask, test_embedding_mask, y_train, y_test
 
     def load_data_from_csv(self):
         """
@@ -71,8 +79,8 @@ class SentimentModelData(ModelData):
 
         twitter_df = self.get_twitter_dataframe_from_csv()
 
-        self.x_train_text_embeddings, self.x_test_text_embeddings, self.glove_embedding_matrix, \
-        self.y_train, self.y_test = self.get_dataset_from_tweet_type(twitter_df)
+        self.train_text_input_ids, self.test_text_input_ids, self.train_embedding_mask, self.test_embedding_mask,\
+            self.y_train, self.y_test = self.get_dataset_from_tweet_type(twitter_df)
 
 
 class SentimentModelLearning(ModelLearning):
@@ -84,9 +92,6 @@ class SentimentModelLearning(ModelLearning):
     def build_model(self):
         """
         Builds (trains) the model
-
-        :return: Model and score
-        :rtype: tf.keras.Models.model, (float, float)
         """
 
         if self.parameters.debug:
@@ -96,24 +101,41 @@ class SentimentModelLearning(ModelLearning):
         if self.parameters.load_to_predict and os.path.exists(self.parameters.model_h5):
             # @TODO This needs to be fixed because {data.x_test_text_embeddings}, etc. does not get preprocessed if
             # @TODO model is being loaded from h5.
-            self.load_compile_test_model()
+            self.load_compile_validate_model()
             return
 
-        self.model = self.data.nsc.create_sentiment_text_model(self.data.glove_embedding_matrix,
-                                                               self.data.y_train.shape,
-                                                               len(self.data.x_train_text_embeddings[0]))
+        # Conditional context management for TPU
+        with ExitStack() as stack:
 
-        self.compile_model()
+            if self.parameters.use_tpu:
+                stack.enter_context(self.tpu_strategy.scope())
+
+            self.model = self.data.nsc.create_sentiment_text_model(self.data.train_text_input_ids,
+                                                                   self.data.train_embedding_mask,
+                                                                   self.data.y_train.shape,
+                                                                   self.parameters.use_transformers,
+                                                                   len(self.data.train_text_input_ids[0]))
+
+            self.compile_model()
 
         cbs = self.get_callbacks()
 
-        history = self.model.fit(x=self.data.x_train_text_embeddings, y=self.data.y_train,
+        if self.parameters.use_transformers:
+            train_text_data = {'input_ids': self.data.train_text_input_ids,
+                               'attention_mask': self.data.train_embedding_mask}
+            test_text_data = {'input_ids': self.data.test_text_input_ids,
+                              'attention_mask': self.data.test_embedding_mask}
+        else:
+            train_text_data = self.data.train_text_input_ids
+            test_text_data = self.data.test_text_input_ids
+
+        history = self.model.fit(x=train_text_data, y=self.data.y_train,
                                  batch_size=self.parameters.batch_size,
                                  epochs=self.parameters.epochs, verbose=1, callbacks=cbs)
 
         nSC.plot_model_history(history)
 
         if self.parameters.evaluate_model:
-            self.score = self.evaluate_model(self.data.x_test_text_embeddings, self.data.y_test, [])
+            self.score = self.evaluate_model(test_text_data, self.data.y_test, [])
 
         return

@@ -32,6 +32,8 @@ class ModelParameters:
     batch_size: int = 128
     evaluate_model: bool = True
     debug: bool = False
+    use_tpu: bool = False
+    use_transformers: bool = True
 
     # Data Related Parameters
     custom_tokenizer: object = None
@@ -73,17 +75,18 @@ class ModelData(ABC):
         self.text_input_length = self.parameters.custom_text_input_length
 
         # ModelData specific parameters
-        self.x_train_text_embeddings = None
-        self.x_test_text_embeddings = None
+        self.train_text_input_ids = None
+        self.test_text_input_ids = None
         self.x_train_meta = None
         self.x_test_meta = None
-        self.glove_embedding_matrix = None
+        self.train_embedding_mask = None
+        self.test_embedding_mask = None
         self.y_train = None
         self.y_test = None
 
     def get_x_val_from_csv(self, csv: str):
         """
-        Loads an x_validation dataset from a csv, in a format ready to pass into model.predict
+        Loads an x_validation dataset from a csv, in a format ready to pass into model.predict.
 
         :param csv: Path to csv file containing a saved dataframe of tweets with self.features_to_train columns present
         :type csv: str
@@ -99,7 +102,7 @@ class ModelData(ABC):
     def get_x_val_from_dataframe(self, x_val: pd.DataFrame):
         pass
 
-    def get_vectorized_text_tokens_from_val_dataframe(self, x_val: pd.DataFrame) -> List[str]:
+    def get_vectorized_text_tokens_from_val_dataframe(self, x_val: pd.DataFrame) -> Tuple[List[str], List[str]]:
 
         """
         Generates vectorized text tokens from a dataframe that has been sorted for validation.
@@ -120,13 +123,25 @@ class ModelData(ABC):
         x_val_text_clean = [nSC.sanitize_text_string(s) for s in list(x_val_text_data)]
 
         # Vectorizes textual data
-        _, x_val_text_embeddings = self.nsc.keras_word_embeddings(x_val_text_clean, self.text_input_length)
+        if self.parameters.use_transformers:
 
-        return x_val_text_embeddings
+            x_val_text_embeddings = self.nsc.tokenizer(x_val_text_clean, padding='max_length', truncation=True,
+                                                       return_tensors='tf', max_length=self.text_input_length)
+
+            val_text_input_ids = x_val_text_embeddings['input_ids']
+            val_embedding_mask = x_val_text_embeddings['attention_mask']
+
+        else:
+            _, val_text_input_ids = self.nsc.keras_word_embeddings(x_val_text_clean, self.text_input_length)
+            val_embedding_mask = self.train_embedding_mask
+
+        return val_text_input_ids, val_embedding_mask
 
     def get_vectorized_text_tokens_from_dataframes(self, x_train_text_data: pd.DataFrame,
                                                    x_test_text_data: pd.DataFrame) -> Tuple[List[str],
-                                                                                            List[str], List[str]]:
+                                                                                            List[str],
+                                                                                            List[str],
+                                                                                            List[str]]:
         """
         Generates vectorized text tokens from train and test dataframes.
 
@@ -144,15 +159,38 @@ class ModelData(ABC):
         x_test_text_clean = [nSC.sanitize_text_string(s) for s in list(x_test_text_data)]
 
         # Initialize tokenizer on training data
-        self.nsc.tokenizer.fit_on_texts(x_train_text_clean)
+        if self.parameters.use_transformers:
 
-        # Create word vectors from tokens
-        self.text_input_length, x_train_text_embeddings = self.nsc.keras_word_embeddings(x_train_text_clean)
-        _, x_test_text_embeddings = self.nsc.keras_word_embeddings(x_test_text_clean, self.text_input_length)
+            self.nsc.create_roberta_tokenizer()
 
-        glove_embedding_matrix = self.nsc.create_glove_word_vectors()
+            x_train_text_embeddings = self.nsc.tokenizer(x_train_text_clean, padding=True, truncation=True,
+                                                         return_tensors='tf')
 
-        return x_train_text_embeddings, x_test_text_embeddings, glove_embedding_matrix
+            self.text_input_length = x_train_text_embeddings['input_ids'].shape[1]
+
+            x_test_text_embeddings = self.nsc.tokenizer(x_test_text_clean, padding='max_length', truncation=True,
+                                                        return_tensors='tf', max_length=self.text_input_length)
+
+            train_text_input_ids = x_train_text_embeddings['input_ids']
+            train_embedding_mask = x_train_text_embeddings['attention_mask']
+
+            test_text_input_ids = x_test_text_embeddings['input_ids']
+            test_embedding_mask = x_test_text_embeddings['attention_mask']
+
+            #self.text_input_length = -1
+
+        else:
+            self.nsc.tokenizer.fit_on_texts(x_train_text_clean)
+
+            # Create word vectors from tokens
+            self.text_input_length, train_text_input_ids = self.nsc.keras_word_embeddings(x_train_text_clean)
+
+            _, test_text_input_ids = self.nsc.keras_word_embeddings(x_test_text_clean, self.text_input_length)
+
+            train_embedding_mask = self.nsc.create_glove_word_vectors()
+            test_embedding_mask = train_embedding_mask
+
+        return train_text_input_ids, test_text_input_ids, train_embedding_mask, test_embedding_mask
 
     def get_twitter_dataframe_from_csv(self) -> pd.DataFrame:
 
@@ -186,16 +224,18 @@ class ModelData(ABC):
             with open(self.parameters.preload_train_data_dill, "rb") as fpb:
                 data = pickle.load(fpb)
 
-            self.x_train_text_embeddings, self.x_test_text_embeddings, self.x_train_meta, self.x_test_meta, \
-            self.glove_embedding_matrix, self.y_train, self.y_test, self.nsc.tokenizer, self.text_input_length = data
+            self.train_text_input_ids, self.test_text_input_ids, self.x_train_meta, self.x_test_meta, \
+                self.train_embedding_mask, self.test_embedding_mask, self.y_train, self.y_test, self.nsc.tokenizer,\
+                self.text_input_length = data
 
     def save_data_to_dill(self):
         """
         Saves data to a preload binary (so it can then be loaded using _load_data_from_binary)
         """
         with open(self.parameters.save_train_data_dill, 'wb') as f:
-            data = (self.x_train_text_embeddings, self.x_test_text_embeddings, self.x_train_meta, self.x_test_meta,
-                    self.glove_embedding_matrix, self.y_train, self.y_test, self.nsc.tokenizer, self.text_input_length)
+            data = (self.train_text_input_ids, self.test_text_input_ids, self.x_train_meta, self.x_test_meta,
+                    self.train_embedding_mask, self.test_embedding_mask, self.y_train, self.y_test, self.nsc.tokenizer,
+                    self.text_input_length)
             pickle.dump(data, f)
 
     @abstractmethod
@@ -219,6 +259,7 @@ class ModelLearning:
         self.data = model_data
         self.metrics = Metrics
         self.model = tf.keras.models.Model
+        self.tpu_strategy = None
         self.score = (-1, -1)
 
     def compile_model(self):
@@ -227,7 +268,7 @@ class ModelLearning:
         Compiles a model with given hyperparameters
         """
 
-        optimizer = tf.keras.optimizers.Adam(learning_rate=self.parameters.learning_rate)
+        optimizer = tf.keras.optimizers.Adam(learning_rate=self.parameters.learning_rate, clipnorm=1.)
         self.model.compile(loss='binary_crossentropy',
                            optimizer=optimizer,
                            metrics=self.metrics)
@@ -307,8 +348,8 @@ class ModelLearning:
         :param tweet_df: Dataframe of tweet data
         :type tweet_df: pandas.core.frame.DataFrame
 
-        :return: Prediction for each tweet
-        :rtype: [int] where int is -1, 0, or 1
+        :return: Prediction for each tweet, softmax and raw
+        :rtype: [[int], [float]] where int is -1, 0, or 1
         """
 
         # Get the raw softmax probability predictions
@@ -320,15 +361,17 @@ class ModelLearning:
             return []
 
         # Use the highest softmax probability as the label (-1, 0, or 1)
-        return [max(range(len(y1)), key=y1.__getitem__) for y1 in y]
+        return [max(range(len(y1)), key=y1.__getitem__) for y1 in y], [max(y1) for y1 in y]
 
-    def predict_and_score(self, csv, affect_parameter_scores=False):
+    def predict_and_score(self, csv, score_col='', affect_parameter_scores=False):
         """
         Predicts Tweet labels from a csv of Tweets. Then scores those predictions using labels provided in the csv. CSV
         must be a saved dataframe of tweets with all the columns in self.data.features_to_train + 'Label' present.
 
         :param csv: Filepath to dataframe of tweets with self.data.features_to_train and 'Label' columns
         :type csv: str
+        :param score_col: Name of column of scores
+        :type score_col: str
         :param affect_parameter_scores: Whether or not to write the generated scores to self.parameters
         :type affect_parameter_scores: bool
 
@@ -339,15 +382,22 @@ class ModelLearning:
                      'True Negatives': int, 'False Negatives': int)
                     )
         """
-        y = pd.read_csv(csv)['Label'].tolist()
-        y1 = self.predict(csv)
+
+        pred_df = pd.read_csv(csv)
+
+        if score_col:
+            y = pred_df[score_col].tolist()
+        else:
+            y = [-2] * pred_df.shape[0]
+
+        y1 = self.predict(csv)[0]
 
         # Format: accuracy, precision, recall, f1, mcor, (total, tp, fp, tn, fn)
         scores = Utils.calculate_ml_measures(y1, y)
 
         if affect_parameter_scores:
             self.parameters.accuracy, self.parameters.precision, self.parameters.recall,\
-            self.parameters.f_score, self.parameters.mcor = scores[0:5]
+                self.parameters.f_score, self.parameters.mcor = scores[0:5]
 
         keys = ['Accuracy', 'Precision', 'Recall', 'F-Score', 'MCor', 'Numerical']
         numerical = ['Total', 'True Positives', 'False Positives', 'True Negatives', 'False Negatives']
@@ -356,7 +406,7 @@ class ModelLearning:
 
         return score_dict
 
-    def load_compile_test_model(self):
+    def load_compile_validate_model(self):
         """
         Loads a model from a previous file, compiles the model, and evaluates if selected.
         """
@@ -365,14 +415,18 @@ class ModelLearning:
         self.compile_model()
 
         if self.parameters.evaluate_model:
-            self.score = self.evaluate_model([self.data.x_test_text_embeddings,
-                                              self.data.x_test_meta], self.data.y_test, [])
+
+            if self.parameters.features_to_train == ['full_text']:
+                self.score = self.evaluate_model(self.data.test_text_input_ids, self.data.y_test, [])
+            else:
+                self.score = self.evaluate_model([self.data.test_text_input_ids,
+                                                  self.data.x_test_meta], self.data.y_test, [])
 
         return
 
     def get_callbacks(self):
         """
-        Createst callbacks if requested. Supports early stopping and checkpoint callbacks.
+        Creates callbacks if requested. Supports early stopping and checkpoint callbacks.
         """
 
         cbs = []
@@ -396,6 +450,17 @@ class ModelLearning:
         self.parameters.preload_train_data_dill = ''
         self.parameters.save_train_data_dill = ''
         self.parameters.load_to_predict = True
+
+    def init_tpu(self):
+
+        """ Initializes Google's Tensor Processing Unit.
+        """
+
+        tpu = tf.distribute.cluster_resolver.TPUClusterResolver()
+
+        tf.config.experimental_connect_to_cluster(tpu)
+        tf.tpu.experimental.initialize_tpu_system(tpu)
+        self.tpu_strategy = tf.distribute.experimental.TPUStrategy(tpu)
 
     @abstractmethod
     def build_model(self):

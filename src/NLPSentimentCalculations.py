@@ -9,19 +9,16 @@ from nltk.tag import pos_tag
 from nltk import FreqDist
 from nltk.corpus import stopwords
 from nltk.corpus import wordnet
-from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 import tensorflow as tf
-from tensorflow.keras import backend as kb
+from tensorflow.python.keras import backend as kb
 import transformers
 import string
 import re
 import math
-import utilities
 import warnings
 
-Utils = utilities.Utils
 
 """NLPSentimentCalculations
 
@@ -58,6 +55,7 @@ class NLPSentimentCalculations:
         nltk.download('wordnet')  # For determining base words
         nltk.download('punkt')  # Pretrained model to help with tokenizing
         nltk.download('averaged_perceptron_tagger')  # For determining word context
+        nltk.download('omw-1.4')  # Multilingual wordnet
 
     def train_naivebayes_classifier(self, train_data):
 
@@ -166,48 +164,46 @@ class NLPSentimentCalculations:
 
         return embedding_matrix
 
-    def create_roberta_tokenizer(self, test_df, sentiment_id, maxlen):
+    def create_roberta_tokenizer(self):
+        self.tokenizer = transformers.AutoTokenizer.from_pretrained('siebert/sentiment-roberta-large-english')
 
-        tokenizer = transformers.ByT5Tokenizer(
-            vocab_file='../data/vocab-roberta-base.json',
-            merges_file='../data/merges-roberta-base.txt',
-            lowercase=True,
-            add_prefix_space=True
-        )
-
-        ct = test_df.shape[0]
-        input_ids_t = np.ones((ct, maxlen), dtype='int32')
-        attention_mask_t = np.zeros((ct, maxlen), dtype='int32')
-        token_type_ids_t = np.zeros((ct, maxlen), dtype='int32')
-
-        for k in range(test_df.shape[0]):
-            # INPUT_IDS
-            text1 = " " + " ".join(test_df.loc[k, 'text'].split())
-            enc = tokenizer.encode(text1)
-            s_tok = sentiment_id[test_df.loc[k, 'sentiment']]
-            input_ids_t[k, :len(enc.ids) + 5] = [0] + enc.ids + [2, 2] + [s_tok] + [2]
-            attention_mask_t[k, :len(enc.ids) + 5] = 1
-
-        return token_type_ids_t, input_ids_t, attention_mask_t
-
-    def create_sentiment_text_model(self, embedding_matrix, output_shape, maxlen):
+    def create_sentiment_text_model(self, inputs, embedding_mask, output_shape, use_transformers, maxlen):
 
         dropout_rate = 0.5
 
-        input_text_layer, lstm_text_layer = self.create_spam_text_submodel(blocks=5,
-                                                                           dropout_rate=dropout_rate,
-                                                                           filters=64,
-                                                                           kernel_size=3,
-                                                                           pool_size=2,
-                                                                           embedding_matrix=embedding_matrix,
-                                                                           maxlen=maxlen,
-                                                                           use_cnn=False)
+        input_text_layer, out_text_layer = self.create_spam_text_submodel(blocks=5,
+                                                                          dropout_rate=dropout_rate,
+                                                                          filters=64,
+                                                                          kernel_size=3,
+                                                                          pool_size=2,
+                                                                          embedding_mask=embedding_mask,
+                                                                          maxlen=maxlen,
+                                                                          use_cnn=False,
+                                                                          use_transformers=use_transformers)
 
-        output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax')(lstm_text_layer)
+        if use_transformers:
 
-        return tf.keras.models.Model(inputs=input_text_layer, outputs=output_layer)
+            attention_mask = tf.keras.Input(shape=(maxlen,), dtype='int32', name='TransformerAttentionMask')
 
-    def create_spam_text_meta_model(self, embedding_matrix, meta_feature_size, output_shape, maxlen):
+            rmodel = transformers.TFAutoModelForSequenceClassification.from_pretrained(
+                'siebert/sentiment-roberta-large-english', num_labels=2)
+
+            encoded = rmodel({'input_ids': out_text_layer, 'attention_mask': attention_mask})
+            out_text_layer = encoded[0]
+
+            input_text_layer = {'input_ids': input_text_layer, 'attention_mask': attention_mask}
+
+            output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax')(out_text_layer)
+
+        else:
+
+            output_layer = tf.keras.layers.Dense(output_shape[1], activation='sigmoid',
+                                                 name='NoMetaOutputLayer')(out_text_layer)
+
+        return tf.keras.Model(inputs=input_text_layer, outputs=output_layer)
+
+    def create_spam_text_meta_model(self, inputs, embedding_mask, meta_feature_size, output_shape, use_transformers,
+                                    maxlen):
 
         """Creates a Tensorflow model that combines a text training model and a meta data training model. If the size
         of the meta features count is 0, will skip the meta model and just return a model for text training.
@@ -221,12 +217,16 @@ class NLPSentimentCalculations:
         trains on binary classification, many suggest sigmoid output layer. We went with softmax to ensure output
         probabilities round to 1, and because our label array has 2 columns. May consider going back to sigmoid later.
 
-        :param embedding_matrix: GloVe pre-trained embedding matrix
-        :type embedding_matrix: np.array(np.array(double))
+        :param inputs: Input embeddings, primarily used in place of the GloVe embeddings for transformer models.
+        :type inputs: dict(np.array(double))
+        :param embedding_mask: GloVe pre-trained embedding matrix
+        :type embedding_mask: np.array(np.array(double))
         :param meta_feature_size: Number of meta features to train. If 0, will skip meta model.
         :type meta_feature_size: int
         :param output_shape: Shape of the output layer results.
         :type output_shape: tuple(int, int)
+        :param use_transformers: Flag to use transformer models.
+        :type use_transformers: bool
         :param maxlen: Maximum number of sequences in the input layer for text training.
         :type maxlen: int
 
@@ -236,37 +236,51 @@ class NLPSentimentCalculations:
 
         dropout_rate = 0.5
 
-        input_text_layer, lstm_text_layer = self.create_spam_text_submodel(blocks=5,
-                                                                           dropout_rate=dropout_rate,
-                                                                           filters=64,
-                                                                           kernel_size=3,
-                                                                           pool_size=2,
-                                                                           embedding_matrix=embedding_matrix,
-                                                                           maxlen=maxlen,
-                                                                           use_cnn=False,
-                                                                           use_transformers=False)
+        input_text_layer, out_text_layer = self.create_spam_text_submodel(blocks=5,
+                                                                          dropout_rate=dropout_rate,
+                                                                          filters=64,
+                                                                          kernel_size=3,
+                                                                          pool_size=2,
+                                                                          embedding_mask=embedding_mask,
+                                                                          maxlen=maxlen,
+                                                                          use_cnn=False,
+                                                                          use_transformers=use_transformers)
+
+        if use_transformers:
+
+            attention_mask = tf.keras.Input(shape=(maxlen,), dtype='int32', name='TransformerAttentionMask')
+
+            rmodel = transformers.TFAutoModelForSequenceClassification.from_pretrained(
+                'siebert/sentiment-roberta-large-english', num_labels=2)
+
+            encoded = rmodel({'input_ids': out_text_layer, 'attention_mask': attention_mask})
+            out_text_layer = encoded[0]
+
+            input_text_layer = {'input_ids': input_text_layer, 'attention_mask': attention_mask}
 
         if meta_feature_size < 1:
-            # No meta data, don't create and concat
-            dense_layer = tf.keras.layers.Dense(10, activation='relu')(lstm_text_layer)
-            output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax')(dense_layer)
 
-            return tf.keras.models.Model(inputs=input_text_layer, outputs=output_layer)
+            # No meta data, don't create and concat
+            # dense_layer = tf.keras.layers.Dense(10, activation='relu', name='NoMetaDenseLayer')(out_text_layer)
+            output_layer = tf.keras.layers.Dense(output_shape[1], activation='sigmoid',
+                                                 name='NoMetaOutputLayer')(out_text_layer)
+
+            return tf.keras.Model(inputs=input_text_layer, outputs=output_layer)
 
         input_meta_layer, dense_meta_layer = NLPSentimentCalculations.create_spam_meta_submodel(meta_feature_size)
 
-        concat_layer = tf.keras.layers.Concatenate()([lstm_text_layer, dense_meta_layer])
+        concat_layer = tf.keras.layers.Concatenate(name='TextMetaConcateLayer')([out_text_layer, dense_meta_layer])
 
-        dense_concat = tf.keras.layers.Dense(10, activation='relu')(concat_layer)
+        dense_concat = tf.keras.layers.Dense(10, activation='relu', name='ConcatDenseLayer')(concat_layer)
 
-        drop = tf.keras.layers.Dropout(rate=dropout_rate)(dense_concat)
+        drop = tf.keras.layers.Dropout(rate=dropout_rate, name='ConcatDropoutLayer')(dense_concat)
 
-        output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax')(drop)
+        output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax', name='ConcatOutputLayer')(drop)
 
-        return tf.keras.models.Model(inputs=[input_text_layer, input_meta_layer], outputs=output_layer)
+        return tf.keras.Model(inputs=[input_text_layer, input_meta_layer], outputs=output_layer)
 
-    def create_spam_text_submodel(self, blocks, dropout_rate, filters, kernel_size, pool_size, embedding_matrix, maxlen,
-                                  use_cnn=False, use_transformers=False):
+    def create_spam_text_submodel(self, blocks, dropout_rate, filters, kernel_size, pool_size, embedding_mask,
+                                  maxlen, use_cnn=False, use_transformers=False):
 
         """Creates a text-based model for learning. Can take 2 forms. Always begins by creating an Input layer.
 
@@ -289,8 +303,8 @@ class NLPSentimentCalculations:
         :type kernel_size: int
         :param pool_size: Factor by which to downscale input at MaxPooling layer.
         :type pool_size: int
-        :param embedding_matrix: GloVe pre-trained embedding matrix
-        :type embedding_matrix: np.array(np.array(double))
+        :param embedding_mask: GloVe pre-trained embedding matrix
+        :type embedding_mask: np.array(np.array(double))
         :param maxlen: Maximum number of sequences in the input layer for text training.
         :type maxlen: int
         :param use_cnn: Flag to use Separated CNN. If false, will use MLP.
@@ -302,37 +316,23 @@ class NLPSentimentCalculations:
         :rtype: tuple(Tensorflow.layer, Tensorflow.layer)
         """
 
-        text_input_layer = tf.keras.layers.Input(shape=(maxlen,))
+        text_input_layer = tf.keras.layers.Input(shape=(maxlen,), name='DefaultTextInputLayer')
 
         if use_transformers:
 
-            ids = tf.keras.layers.Input((maxlen,), dtype=tf.int32)
-            att = tf.keras.layers.Input((maxlen,), dtype=tf.int32)
-            tok = tf.keras.layers.Input((maxlen,), dtype=tf.int32)
+            # Overwrite to make type of int32
+            text_input_layer = tf.keras.layers.Input(shape=(maxlen,), dtype='int32', name='TransformerInputLayer')
 
-            config = transformers.RobertaConfig.from_pretrained('../data/config-roberta-base.json')
-            bert_model = transformers.TFRobertaModel.from_pretrained('../data/pretrained-roberta-base.h5',
-                                                                     config=config)
-            x = bert_model(ids, attention_mask=att, token_type_ids=tok)
+            #drop = tf.keras.layers.Dropout(rate=dropout_rate)(text_input_layer)
 
-            x1 = tf.keras.layers.Dropout(0.1)(x[0])
-            x1 = tf.keras.layers.Conv1D(1, 1)(x1)
-            x1 = tf.keras.layers.Flatten()(x1)
-            x1 = tf.keras.layers.Activation('softmax')(x1)
-
-            x2 = tf.keras.layers.Dropout(0.1)(x[0])
-            x2 = tf.keras.layers.Conv1D(1, 1)(x2)
-            x2 = tf.keras.layers.Flatten()(x2)
-            x2 = tf.keras.layers.Activation('softmax')(x2)
-
-            return text_input_layer, tf.keras.layers.LSTM(128)([x1, x2])
+            return text_input_layer, text_input_layer
 
         elif use_cnn:
 
             block_connection = tf.keras.layers.Embedding(input_dim=len(self.tokenizer.word_index) + 1,
                                                          input_length=maxlen,
-                                                         output_dim=embedding_matrix.shape[1],
-                                                         weights=[embedding_matrix],
+                                                         output_dim=embedding_mask.shape[1],
+                                                         weights=[embedding_mask],
                                                          trainable=False)(text_input_layer)
 
             for _ in range(blocks - 1):
@@ -376,14 +376,13 @@ class NLPSentimentCalculations:
 
             embedding_layer = tf.keras.layers.Embedding(input_dim=len(self.tokenizer.word_index) + 1,
                                                         input_length=maxlen,
-                                                        output_dim=embedding_matrix.shape[1],
-                                                        weights=[embedding_matrix],
+                                                        output_dim=embedding_mask.shape[1],
+                                                        weights=[embedding_mask],
                                                         trainable=False)(text_input_layer)
 
             drop = tf.keras.layers.Dropout(rate=dropout_rate)(embedding_layer)
 
             return text_input_layer, tf.keras.layers.LSTM(128)(drop)
-
 
     @staticmethod
     def create_spam_meta_submodel(meta_feature_size):
@@ -403,10 +402,10 @@ class NLPSentimentCalculations:
         if meta_feature_size < 1:
             return None, None
 
-        meta_input_layer = tf.keras.layers.Input(shape=(meta_feature_size,))
-        dense_layer_1 = tf.keras.layers.Dense(100, activation='relu')(meta_input_layer)
+        meta_input_layer = tf.keras.layers.Input(shape=(meta_feature_size,), name='MetaInputLayer')
+        dense_layer_1 = tf.keras.layers.Dense(100, activation='relu', name='MetaDenseLayer')(meta_input_layer)
 
-        return meta_input_layer, tf.keras.layers.Dense(10, activation='relu')(dense_layer_1)
+        return meta_input_layer, tf.keras.layers.Dense(10, activation='relu', name='MetaOutputLayer')(dense_layer_1)
 
     @staticmethod
     def create_early_stopping_callback(monitor_stat, monitor_mode='auto', patience=0, min_delta=0):
@@ -504,6 +503,7 @@ class NLPSentimentCalculations:
         :rtype: str
         """
 
+        # @TODO update to use any tokenizer, specifically roberta
         custom_tokens = NLPSentimentCalculations.sanitize_text_tokens(ToktokTokenizer().tokenize(text))
         return self.classifier.classify(dict([token, True] for token in custom_tokens))
 
@@ -607,6 +607,11 @@ class NLPSentimentCalculations:
     @staticmethod
     def sanitize_text_string(sen):
 
+        # @TODO Remove AMP
+
+        if type(sen) != str:
+            return ''
+
         sentence = re.sub('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_.&+#]|[!*\(\),]|' \
                           '(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', sen)
 
@@ -636,8 +641,6 @@ class NLPSentimentCalculations:
 
         :param tweet_tokens: A list of lists of tokens
         :type tweet_tokens: list(list(str))
-        :param stop_words: A classification label to mark all tokens; defaults to empty set
-        :type stop_words: str
 
         :return: A list of tuples of dictionaries of feature mappings to classifiers
         :rtype: list(dict(str-> bool), str)
@@ -762,59 +765,6 @@ class NLPSentimentCalculations:
             return x_train, x_test, y_train, y_test
         else:
             return train_test_split(x, y, test_size=test_size, random_state=random_state)
-
-    @staticmethod
-    def compute_tf_idf(train_tokens, test_tokens):
-
-        """Computes Term Frequency-Inverse Document Frequency for a list of text strings. TF-IDF is a numerical
-        representation of how important a word is to a document. This weight is proportional to the frequency of the
-        term. This vectorizes a list of text, counts the feature name frequencies, and stores them in a dictionary,
-        one for each text.
-
-        :param train_tokens: List of tokens from the training set
-        :type train_tokens: list(str)
-        :param test_tokens: List of tokens from the test set
-        :type test_tokens: list(str)
-
-        :return: A pandas series of the frequency of each feature
-        :rtype: :class:`pandas.core.series.Series`
-        """
-
-        # Dummy function to trick sklearn into taking token list
-        def dummy_func(doc):
-            return doc
-
-        vectorizer = TfidfVectorizer(
-            ngram_range=(1, 2),
-            decode_error='replace',
-            min_df=2,
-            analyzer='word',
-            tokenizer=dummy_func,
-            preprocessor=dummy_func,
-            token_pattern=None
-        )
-
-        x_train = vectorizer.fit_transform(train_tokens)
-        # feature_names = vectorizer.get_feature_names()
-
-        x_test = vectorizer.transform(test_tokens)
-
-        # dense = x_train.todense()
-        # denselist = dense.tolist()
-
-        # Map TF-IDF results to dictionary
-        '''
-        tf_idf_list = []
-        for texttList in denselist:
-            tf_idf_dict = dict.fromkeys(feature_names, 0)
-            for i in range(0, len(feature_names)):
-                tf_idf_dict[feature_names[i]] = texttList[i]
-            tf_idf_list.append(tf_idf_dict)
-        '''
-
-        # TODO maybe filter for just the top 20,000 best features, use sklearn.SelectKBest (will need train labels)
-
-        return x_train, x_test
 
     @staticmethod
     def check_units(y_true, y_pred):
@@ -958,6 +908,8 @@ class NLPSentimentCalculations:
     @staticmethod
     def plot_model_history(history):
 
+        return
+
         history_params = []
         plt.figure(1)
         for key in history.history.keys():
@@ -978,11 +930,3 @@ class NLPSentimentCalculations:
         plt.xlabel('epoch')
         plt.legend(['train', 'test'], loc='upper left')
         plt.show()
-
-
-def main():
-    nsc = NLPSentimentCalculations()
-
-
-if __name__ == '__main__':
-    main()

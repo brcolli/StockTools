@@ -92,7 +92,7 @@ class BotometerRequests:
         Returns either the Botometer score dictionary from a result or a blank version if there is an error.
 
         :param result: Result dictionary exactly as provided by bom.check_account
-        :param type: dict
+        :param result: dict
 
         :return: Score dictionary or a blank score dictionary (filled with -1)
         :rtype: dict
@@ -202,6 +202,8 @@ class BotometerRequests:
 
         :param results: list of botometer result dictionaries
         :type results: list(dict)
+        :param null_result: Result to replace to for failed NULL
+        :type null_result: dict
 
         :return: list of dicts of botometer results, with error values as -1 filled dicts
         :rtype: list(dict)
@@ -226,7 +228,7 @@ class BotometerRequests:
         followed by wanted keys.
 
         :param results: list of botometer result dictionaries
-        :type user_ids: list(dict)
+        :type results: list(dict)
 
         :param wanted_keys: list of keys to store in dataframe
         :type wanted_keys: list(str)
@@ -282,7 +284,7 @@ class BotometerRequests:
         Takes a list of values and returns a label list based on the threshold.
 
         :param data: list of values, -1 for null or score
-        :type user_ids: list(float)
+        :type data: list(float)
 
         :param threshold: decimal value in [0, 1] with score > threshold indicating a bot
         :type threshold: float
@@ -309,8 +311,8 @@ class BotometerRequests:
         :rtype: list(float), list(str), list(str)
         """
 
-        new_thresholds = [t for t in thresholds for c in classifiers]
-        new_classifiers = [c for t in thresholds for c in classifiers]
+        new_thresholds = [t for t in thresholds for _ in classifiers]
+        new_classifiers = [c for _ in thresholds for c in classifiers]
         names = [new_classifiers[i] + '.' + str(new_thresholds[i]) for i in range(len(new_classifiers))]
         return new_thresholds, new_classifiers, names
 
@@ -495,7 +497,8 @@ class BotometerRequests:
     def merge_dataframes(self, original, new, original_id_key, new_id_key, new_data_keys):
         """
         @TODO move to utils file
-        Merges two dataframes with replacement of missing values in the new according to an id column in both dataframes.
+        Merges two dataframes with replacement of missing values in the new according to an id column in both
+        dataframes.
 
         :param original: original dataframe (must include in it all of the ids of the new dataframe)
         :type original: pandas.DataFrame
@@ -720,8 +723,8 @@ class BotometerRequests:
 
     def to_excel_analysis_format(self, dataframe):
         dataframe = self.order_dataframe(dataframe, self.excel_keys)
-        dataframe['Tweet id'] = ["'" + str(id) for id in dataframe['Tweet id'].tolist()]
-        dataframe['User id'] = ["'" + str(id) for id in dataframe['User id'].tolist()]
+        dataframe['Tweet id'] = ["'" + str(tid) for tid in dataframe['Tweet id'].tolist()]
+        dataframe['User id'] = ["'" + str(uid) for uid in dataframe['User id'].tolist()]
         return dataframe
 
     def wrapper(self, from_dataframe=False, from_file=False, to_file=False, tweet_ids=None, tweet_objects=None,
