@@ -2,7 +2,7 @@ import random
 import pandas as pd
 import BotometerRequests as br
 import TweetCollector
-import twint
+from Scweet.scweet import scrape
 from utilities import Utils
 import os
 import time
@@ -15,6 +15,7 @@ class TweetDatabaseManager:
     def __init__(self, use_botometer_lite=False):
         # These are the keys used in our Spam Model training database in the correct order
         # Note: modifying keys here affects Line 56 - use caution
+        '''
         self.keys = ['Tweet id', 'User id', 'Screen name', 'Label', 'Search term', 'json', 'user.majority_lang',
                      'botscore',
                      'cap.english', 'cap.universal', 'raw_scores.english.astroturf', 'raw_scores.english.fake_follower',
@@ -22,7 +23,8 @@ class TweetDatabaseManager:
                      'raw_scores.english.self_declared', 'raw_scores.english.spammer', 'raw_scores.universal.astroturf',
                      'raw_scores.universal.fake_follower', 'raw_scores.universal.financial',
                      'raw_scores.universal.other', 'raw_scores.universal.overall', 'raw_scores.universal.self_declared',
-                     'raw_scores.universal.spammer']
+                     'raw_scores.universal.spammer']'''
+        self.keys = ['Tweet id', 'User id', 'Screen name', 'Label', 'Search term', 'json']
         self.BR = br.BotometerRequests()
 
         # Path to save tweets to
@@ -30,7 +32,7 @@ class TweetDatabaseManager:
 
         # Botometer lite config
         self.use_botometer_lite = use_botometer_lite
-        if not use_botometer_lite:
+        if not use_botometer_lite and 'botscore' in self.keys:
             self.keys.remove('botscore')
 
     def modify(self, to_execute: list):
@@ -57,25 +59,24 @@ class TweetDatabaseManager:
         else:
             print(f'{len(tweets)} Tweets collected for {keyword}...')
             bot_labels = self.BR.wrapper(from_dataframe=tweets, lite_tweet_request=self.use_botometer_lite,
-                                         bot_user_request=True, wanted_bot_keys=(self.keys[6:]))
+                                         bot_user_request=False, wanted_bot_keys=(self.keys[6:]))
             full_df = Utils.basic_merge(tweets, bot_labels)
             full_df = Utils.order_dataframe_columns(full_df, self.keys, cut=True)
 
             return full_df
 
     @staticmethod
-    def req_past_tweets(keyword: str, num: int, start_day: str, end_day: str = None):
+    def req_past_tweets(keyword: str, start_day: str, end_day: str = None, interval: int = 5):
 
         """Gets tweets from the past from a date. If no end_day is given, assumes up to current day.
 
         :param keyword: Query to search past history for.
         :type keyword: str
-        :param num: Number of results to request
-        :type num: int
         :param start_day: String of start date, format of YYYYMMDD, YYYY/MM/DD, or DD-MM-YYYY
         :type start_day: str
         :param end_day: String of end date, format of YYYYMMDD, YYYY/MM/DD, or DD-MM-YYYY
         :type end_day: str
+        :param interval: Day step i.e. interval = 5 means taking data every 5 days.
 
         :return: Dataframe with all the keys found in self.keys
         :rtype: pd.DataFrame
@@ -83,25 +84,11 @@ class TweetDatabaseManager:
 
         start = time.time()
 
-        tweet_df = pd.DataFrame()
+        data = scrape(words=[keyword], hashtag=keyword, since=start_day, until=end_day, lang='en', interval=interval)
 
-        c = twint.Config()
-
-        c.Search = keyword
-        c.Limit = num
-        c.Lang = "en"
-        #c.Since = start_day
-        #if end_day:
-        #    c.Until = end_day
-        c.Pandas = True
-
-        twint.run.Search(c)
-        tweet_df = twint.storage.panda.Tweets_df
-
-        print(tweet_df)
         print(time.time() - start)
 
-        return tweet_df
+        return data
 
     def save_tweets(self, keyword: str, num: int, filename=None):
         """
@@ -269,15 +256,31 @@ class TweetDatabaseManager:
 
         return df
 
+    @staticmethod
+    def collect_historical_tweets(start_date, end_date, queries):
+
+        tm = TweetCollector.TwitterManager()
+
+        for query in queries:
+
+            filename = f'../data/TweetData/Tweets/{query}Historic{start_date.replace("-", "")}-{end_date.replace("-", "")}.csv'
+            out_filename = f'../data/TweetData/Tweets/{query}{start_date.replace("-", "")}-{end_date.replace("-", "")}.csv'
+
+            if not os.path.exists(filename):
+                tweets = TweetDatabaseManager.req_past_tweets(query, start_date, end_date, interval=1)
+
+                Utils.write_dataframe_to_csv(tweets, filename, write_index=False)
+
+            if os.path.exists(filename):
+                df = tm.tweet_urls_to_dataframe(filename, query)
+
+                Utils.write_dataframe_to_csv(df, out_filename, write_index=False)
+
 
 if __name__ == '__main__':
 
+    queries = ['DPZ', 'TTD', '$DPZ', '$TTD', "Domino's", 'Dominos', 'Trade Desk']
+
     tdm = TweetDatabaseManager()
-
-    with open('../doc/sp-100.csv', 'r') as f:
-
-        symbols = f.readlines()
-        symbols = [s.strip() for s in symbols]
-
-        for symbol in symbols:
-            tdm.save_tweets(symbol, 100, f'Tweets/{symbol}100')
+    tweets = tdm.save_multiple_keywords(keywords=queries, num=1000, same_file=False, filename='tweets',
+                                        save_to_file=True)

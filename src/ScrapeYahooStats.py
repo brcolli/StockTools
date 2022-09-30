@@ -1,3 +1,4 @@
+import pandas as pd
 import requests
 import json
 from os import path
@@ -90,8 +91,31 @@ def add_sector_column_to_fundamentals(stats_table, tickers):
     stats_table.add_new_column_with_data('fundamentals', 'Symbol', 'sector', 'TEXT', data)
 
 
+def get_tickers_stock_data(tickers):
+
+    tickers_data = yf.Tickers(tickers)
+
+    data = {}
+
+    for ticker, ticker_obj in tickers_data.tickers.items():
+
+        topen = ticker_obj.info['open']
+        tclose = ticker_obj.info['regularMarketPrice']
+        thigh = ticker_obj.info['regularMarketDayHigh']
+        tlow = ticker_obj.info['dayLow']
+        tvolume = ticker_obj.info['regularMarketVolume']
+
+        data[ticker] = {'open': topen, 'close': tclose, 'high': thigh, 'low': tlow, 'volume': tvolume}
+
+    df = pd.DataFrame.from_dict(data, orient='index')
+
+    return df
+
+
 def main():
 
+
+    '''
     yahoo_table = '../data/Databases/yahoo_stats.sqlite'
     tickers = Utils.get_all_tickers('20201201')
 
@@ -108,7 +132,4 @@ def main():
         stats_table = Sqm(yahoo_table)
 
     add_sector_column_to_fundamentals(stats_table, tickers)
-
-
-if __name__ == '__main__':
-    main()
+    '''
