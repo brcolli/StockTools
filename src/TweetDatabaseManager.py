@@ -256,27 +256,31 @@ class TweetDatabaseManager:
 
         return df
 
+    @staticmethod
+    def collect_historical_tweets(start_date, end_date, queries):
+
+        tm = TweetCollector.TwitterManager()
+
+        for query in queries:
+
+            filename = f'../data/TweetData/Tweets/{query}Historic{start_date.replace("-", "")}-{end_date.replace("-", "")}.csv'
+            out_filename = f'../data/TweetData/Tweets/{query}{start_date.replace("-", "")}-{end_date.replace("-", "")}.csv'
+
+            if not os.path.exists(filename):
+                tweets = TweetDatabaseManager.req_past_tweets(query, start_date, end_date, interval=1)
+
+                Utils.write_dataframe_to_csv(tweets, filename, write_index=False)
+
+            if os.path.exists(filename):
+                df = tm.tweet_urls_to_dataframe(filename, query)
+
+                Utils.write_dataframe_to_csv(df, out_filename, write_index=False)
+
 
 if __name__ == '__main__':
 
-    query = 'Tesla'
+    queries = ['DPZ', 'TTD', '$DPZ', '$TTD', "Domino's", 'Dominos', 'Trade Desk']
 
-    start_date = '2022-08-01'
-    end_date = '2022-08-31'
-
-    filename = f'../data/TweetData/Tweets/{query}Historic{start_date.replace("-", "")}-{end_date.replace("-", "")}.csv'
-    out_filename = f'../data/TweetData/Tweets/{query}{start_date.replace("-", "")}-{end_date.replace("-", "")}.csv'
-
-    tm = TweetCollector.TwitterManager()
-    df = tm.tweet_urls_to_dataframe(filename, query)
-
-    Utils.write_dataframe_to_csv(df, out_filename, write_index=False)
-
-    '''
-    tweets = TweetDatabaseManager.req_past_tweets(query, start_date, end_date, interval=1)
-
-    print(tweets)
-    Utils.write_dataframe_to_csv(tweets, filename, write_index=False)
-    '''
-
-
+    tdm = TweetDatabaseManager()
+    tweets = tdm.save_multiple_keywords(keywords=queries, num=1000, same_file=False, filename='tweets',
+                                        save_to_file=True)

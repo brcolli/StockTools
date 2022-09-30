@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+import os
+import datetime
 import nltk
 import pandas as pd
 from nltk import classify
@@ -18,6 +20,7 @@ import string
 import re
 import math
 import warnings
+from utilities import Utils
 
 
 """NLPSentimentCalculations
@@ -930,3 +933,160 @@ class NLPSentimentCalculations:
         plt.xlabel('epoch')
         plt.legend(['train', 'test'], loc='upper left')
         plt.show()
+
+    @staticmethod
+    def calculate_daily_sentiment_score(sent_scores: dict) -> float:
+
+        """Calculates the sentiment score of a day given a dictionary of sums of confidence scores and counts
+        for each label.
+
+        :param sent_scores: Dictionary mapping each label to a dictionary of sums of confidence scores and label counts
+        :type sent_scores: dict('0': dict('ConfidenceSum': float, 'Count': int),
+        '1': dict('ConfidenceSum': float, 'Count': int),
+        '2': dict('ConfidenceSum': float, 'Count': int))
+
+        :return: Calculated daily sentiment score
+        :rtype: float
+        """
+
+        max_key = '0'
+        max_val = 0
+        count = 0
+        for skey, sval in sent_scores.items():
+            if sval['Count'] > max_val:
+                max_val = sval['Count']
+                max_key = skey
+
+            count += sval['Count']
+
+        sent_sum = sent_scores[max_key]['ConfidenceSum']
+        if max_key == '0':
+            sent_day = Utils.posnorm(sent_sum, 0, count)
+        elif max_key == '1':
+
+            if sent_scores['0']['Count'] > sent_scores['2']['Count']:
+                sent_day = Utils.neunorm(sent_sum - sent_scores['0']['ConfidenceSum'] +
+                                         sent_scores['2']['ConfidenceSum'], 0, count, 65, 50)
+            else:
+                sent_day = Utils.neunorm(sent_sum - sent_scores['2']['ConfidenceSum'] +
+                                         sent_scores['0']['ConfidenceSum'], 0, count, 35, 50)
+
+        else:
+            sent_day = Utils.negnorm(sent_sum, 0, count)
+
+        return sent_day
+
+    @staticmethod
+    def generate_metrics_from_df(query: str, query_df: pd.DataFrame) -> pd.DataFrame:
+
+        """Calculates various metrics for a dataframe
+
+        :param query: String defining the query that was used to generate the dataframe
+        :type query: str
+        :param query_df: Dataframe containing data to generate the metrics on
+        :type query_df: pandas.Dataframe
+
+        :return: Dataframe of metrics for the dataframe
+        :rtype: pandas.Dataframe
+        """
+
+        def get_vcounts(vc, vk):
+            # Function to get value counts for a label
+            return vc[vk] if vk in vc.keys() else 0
+
+        ntweets = len(query_df)
+
+        vcounts = query_df['SentimentScore'].value_counts().to_dict()
+
+        sent_scores = {'0': {'ConfidenceSum': 0, 'Count': 0},
+                       '1': {'ConfidenceSum': 0, 'Count': 0},
+                       '2': {'ConfidenceSum': 0, 'Count': 0}}
+
+        ma = 0.
+        curr_day = None
+        num_days = 1
+
+        # Calculate moving average of sentiment scores for each day
+        for rkey, rval in query_df.iterrows():
+
+            day = rval['Timestamp'][:10]
+            sent = rval['SentimentScore']
+            sent_raw = rval['SentimentScoreRaw']
+
+            if not curr_day:
+                curr_day = day
+
+            if day != curr_day:
+                # New day
+
+                sent_day = NLPSentimentCalculations.calculate_daily_sentiment_score(sent_scores)
+
+                ma += sent_day
+                num_days += 1
+                sent_scores = {'0': {'ConfidenceSum': 0, 'Count': 0},
+                               '1': {'ConfidenceSum': 0, 'Count': 0},
+                               '2': {'ConfidenceSum': 0, 'Count': 0}}
+                curr_day = day
+
+            sent_scores[str(sent)]['ConfidenceSum'] += sent_raw
+            sent_scores[str(sent)]['Count'] += 1
+
+        sent_day = NLPSentimentCalculations.calculate_daily_sentiment_score(sent_scores)
+
+        ma += sent_day
+
+        metrics = {'Query': query,
+                   'Confidence %': round(query_df['SentimentScoreRaw'].mean() * 100),
+                   '# Tweets': ntweets,
+                   '% Positive': round(get_vcounts(vcounts, 0) / ntweets * 100, 1),
+                   '% Neutral': round(get_vcounts(vcounts, 1) / ntweets * 100, 1),
+                   '% Negative': round(get_vcounts(vcounts, 2) / ntweets * 100, 1),
+                   'Average Sentiment %': round(ma / num_days, 1)}
+
+        return pd.DataFrame(metrics, index=[0])
+
+    @staticmethod
+    def generate_metrics_from_file(query_file: str) -> pd.DataFrame:
+
+        """Calculates various metrics for a file
+
+        :param query_file: File to be read and have metrics generated for.
+        :type query_file:
+
+        :return: Dataframe of metrics for each file
+        :rtype: pandas.Dataframe
+        """
+
+        # Parse out query from file
+        spl_file = query_file.split('/')
+
+        filename = spl_file[-1]
+
+        query = filename[:filename.index('20')]
+
+        res = pd.read_csv(query_file)
+
+        return NLPSentimentCalculations.generate_metrics_from_df(query, res)
+
+    @staticmethod
+    def generate_metrics_from_files(query_files: list) -> pd.DataFrame:
+
+        """Calculates various metrics for each file in a list
+
+        :param query_files: List of files to be read and have metrics generated for.
+        :type query_files: list[str]
+
+        :return: Dataframe of metrics for each file
+        :rtype: pandas.Dataframe
+        """
+
+        metrics = pd.DataFrame({'Query': [], 'Confidence %': [], '% Positive': [], '% Neutral': [], '% Negative': [],
+                                'Average Sentiment %': [], '# Tweets': []})
+
+        for file in query_files:
+
+            df_metrics = NLPSentimentCalculations.generate_metrics_from_file(file)
+
+            metrics = pd.concat([metrics, df_metrics], ignore_index=True)
+
+        return metrics
