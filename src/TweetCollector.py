@@ -44,7 +44,7 @@ class TwitterManager:
                           Tweet_Keys[3]: -2,
                           Tweet_Keys[4]: phrase,
                           Tweet_Keys[5]: tweet._json,
-                          Tweet_Keys[5]: tweet.created_at.__str__()})
+                          Tweet_Keys[6]: tweet.created_at.__str__()})
 
         return temp_dict
 
@@ -68,11 +68,10 @@ class TwitterManager:
                 continue
 
             temp_dict = TwitterManager.parse_tweet_obj(status, phrase)
-            temp_dict['Timestamp'] = val['Timestamp']
 
             tweets.append(temp_dict)
 
-        return pd.DataFrame(data=tweets, columns=Tweet_Keys + ['Timestamp'])
+        return pd.DataFrame(data=tweets, columns=Tweet_Keys)
 
     def phrase_search_history_with_id_jsons(self, phrase, count=1000):
         print('\nCollecting tweets from phrase: ' + phrase + '...')

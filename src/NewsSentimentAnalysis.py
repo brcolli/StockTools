@@ -555,8 +555,8 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
 
         spam_score, spam_score_raw = spam_model_learning.predict(test_csv)
 
-        test_df['SpamScore'] = spam_score
-        test_df['SpamScoreRaw'] = spam_score_raw
+        test_df['SpamLabel'] = spam_score
+        test_df['SpamConfidence'] = spam_score_raw
 
     if train_sent:
 
@@ -576,8 +576,8 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
 
         sent_score, sent_score_raw = sentiment_model_learning.predict(test_csv)
 
-        test_df['SentimentScore'] = sent_score
-        test_df['SentimentScoreRaw'] = sent_score_raw
+        test_df['SentimentLabel'] = sent_score
+        test_df['SentimentConfidence'] = sent_score_raw
 
     Utils.write_dataframe_to_csv(test_df, test_file + 'Labeled' + '.csv', write_index=False)
 
@@ -608,9 +608,20 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
 
 if __name__ == '__main__':
 
-    q_dir = '../data/TweetData/Historic SP-100_20220801-20220831'
+    q_dir = '../data/TweetData/Historic SP-100_20220901-20221001/'
+
+    '''
     queries = [join(q_dir, f).replace("\\", "/") for f in listdir(q_dir) if isfile(join(q_dir, f)) and 'Neu' in f]
 
     mdf = nSC.generate_metrics_from_files(queries)
 
     Utils.write_dataframe_to_csv(mdf, '../data/TweetData/sp-100-metrics.csv', write_index=False)
+    '''
+
+    chosen = pd.read_csv('../doc/chosen_companies.csv')['Name']
+
+    for _, val in chosen.items():
+
+        filename = f'{q_dir}{val}20220901-20221001'
+
+        main(train_spam=True, train_sent=True, test_file=filename)
