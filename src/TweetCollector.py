@@ -6,7 +6,7 @@ from utilities import Utils
 """TweetCollector
 """
 
-Tweet_Keys = ['Tweet id', 'User id', 'Screen name', 'Label', 'Search term', 'json']
+Tweet_Keys = ['Tweet id', 'User id', 'Screen name', 'Label', 'Search term', 'json', 'Timestamp']
 
 
 class TwitterManager:
@@ -43,22 +43,29 @@ class TwitterManager:
                           Tweet_Keys[2]: tweet.user.screen_name,
                           Tweet_Keys[3]: -2,
                           Tweet_Keys[4]: phrase,
-                          Tweet_Keys[5]: tweet._json})
+                          Tweet_Keys[5]: tweet._json,
+                          Tweet_Keys[6]: tweet.created_at.__str__()})
 
         return temp_dict
 
     def tweet_urls_to_dataframe(self, filename: str, phrase, url_key: str = 'Tweet URL'):
 
-        urls = pd.read_csv(filename)[url_key].to_list()
+        urls = pd.read_csv(filename)[['Timestamp', url_key]]
 
         tweets = []
 
-        for url in urls:
+        for _, val in urls.iterrows():
+
+            url = val[url_key]
 
             print(f'Getting status of {url}')
 
-            id = url.split('/')[-1]
-            status = self.api.get_status(id)
+            url_id = url.split('/')[-1]
+            try:
+                status = self.api.get_status(url_id)
+            except Exception as e:
+                print(f'URL ID {url_id} not found')
+                continue
 
             temp_dict = TwitterManager.parse_tweet_obj(status, phrase)
 

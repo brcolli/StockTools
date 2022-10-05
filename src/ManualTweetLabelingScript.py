@@ -234,4 +234,4 @@ def main(file_path, clear_data=False):
 
 
 if __name__ == '__main__':
-    main('')
+    main('../data/TweetData/Tweets/BenSentiment416.csv')
