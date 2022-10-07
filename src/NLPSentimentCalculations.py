@@ -1047,7 +1047,6 @@ class NLPSentimentCalculations:
         plt.legend(['train', 'test'], loc='upper left')
         plt.show()
 
-<<<<<<< HEAD
 
 def main():
     nsc = NLPSentimentCalculations()
@@ -1055,7 +1054,6 @@ def main():
 
 if __name__ == '__main__':
     main()
-=======
     @staticmethod
     def calculate_daily_sentiment_score_og(sent_scores: dict) -> float:
 
@@ -1329,4 +1327,3 @@ if __name__ == '__main__':
 
     metrics_df = NLPSentimentCalculations.generate_metrics_from_files(files)
     Utils.write_dataframe_to_csv(metrics_df, '../data/TweetData/beta_metrics.csv', write_index=False)
->>>>>>> master
