@@ -114,8 +114,6 @@ def get_tickers_stock_data(tickers):
 
 def main():
 
-
-    '''
     yahoo_table = '../data/Databases/yahoo_stats.sqlite'
     tickers = Utils.get_all_tickers('20201201')
 
@@ -132,4 +130,3 @@ def main():
         stats_table = Sqm(yahoo_table)
 
     add_sector_column_to_fundamentals(stats_table, tickers)
-    '''

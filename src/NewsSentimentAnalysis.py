@@ -1,6 +1,3 @@
-import datetime
-from os import listdir
-from os.path import isfile, join
 import tweepy
 from bs4 import BeautifulSoup
 import requests
@@ -11,13 +8,8 @@ from utilities import Utils
 from NLPSentimentCalculations import NLPSentimentCalculations as nSC
 from TwitterModelInterface import TwitterSpamModelInterface as tSPMI
 from TwitterModelInterface import TwitterSentimentModelInterface as tSEMI
+from SpamToSentimentModel import ModelHandler
 from typing import List
-from selenium import webdriver
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from time import sleep
 
 
 """NewsSentimentAnalysis
@@ -36,57 +28,8 @@ class NewsManager:
     """Handles news headline and article classification.
     """
 
-    def __init__(self):
-
-        self.driver = webdriver.Chrome(ChromeDriverManager().install())
-
-    def get_linkedin_news(self):
-
-        login_url = 'https://www.linkedin.com/login'
-        url = 'https://www.linkedin.com/feed/'
-
-        self.driver.get(login_url)
-        sleep(2)
-
-        self.driver.find_element(by=By.ID, value='username').send_keys('sstben@gmail.com')
-        self.driver.find_element(by=By.ID, value='password').send_keys('204436Brc!PandC')
-        self.driver.find_element(by=By.ID, value='password').send_keys(Keys.RETURN)
-
-        self.driver.get(url)
-        sleep(3)
-        news_lines = self.driver.find_element(by=By.CLASS_NAME, value="news-module").find_elements(by=By.TAG_NAME, value='li')
-
-        data = {'title': [], 'url': [], 'full_text': []}
-        for news in news_lines:
-
-            a = news.find_element(by=By.TAG_NAME, value='a')
-
-            title = a.text.split('\n')[0]
-            href = a.get_attribute('href')
-
-            if title != '':
-                data['title'].append(title)
-            else:
-                data['title'].append(' '.join(href.split('/')[-2].split('-')[:-1]))
-
-            data['url'].append(href)
-
-        for href in data['url']:
-
-            r = requests.get(href)
-            html = BeautifulSoup(r.text, 'html.parser')
-
-            article = html.find_all('p')
-
-            texts = []
-            for paragraph in article:
-                texts.append(paragraph.text.replace('\n', '').replace('\t', '').strip())
-
-            data['full_text'].append(' '.join(texts))
-
-        return data
-
-    def get_ticker_news_headlines(self, ticker):
+    @staticmethod
+    def get_ticker_news_headlines(ticker):
 
         """Given a ticker, scrapes finviz for news headlines.
 
@@ -99,49 +42,25 @@ class NewsManager:
 
         url = 'https://finviz.com/quote.ashx?t=' + ticker
 
-        self.driver.get(url)
+        r = requests.get(url, headers={'user-agent': 'my-app/0.0.1'})
+        html = BeautifulSoup(r.text, 'html.parser')
 
         # Parse HTML for headlines
-        data = {'title': [], 'url': [], 'full_text': []}
-        try:
-            news_rows = self.driver.find_element(by=By.ID, value='news-table').find_elements(by=By.TAG_NAME, value='a')
-        except Exception as e:
-            print(f'Error getting data for {ticker}')
-            return None
-
+        data = []
+        news_rows = html.find(id='news-table').find_all('tr')
         for i, row in enumerate(news_rows):
 
-            data['title'].append(row.text)
+            # Get date and time posted
+            time_data = row.td.text.split()
 
-            href = row.get_attribute('href')
-            data['url'].append(href)
+            if len(time_data) == 1:
+                time = time_data[0]
+                date = 'NA'
+            else:
+                date = time_data[0]
+                time = time_data[1]
 
-        for href in data['url']:
-
-            '''
-            self.driver.get(href)
-            try:
-                article = self.driver.find_elements(by=By.TAG_NAME, value='p')
-            except Exception as e:
-                print(href)
-                print(e)
-                continue
-
-            texts = []
-            for paragraph in article:
-                texts.append(paragraph.text)
-            '''
-
-            r = requests.get(href)
-            html = BeautifulSoup(r.text, 'html.parser')
-
-            article = html.find_all('p')
-
-            texts = []
-            for paragraph in article:
-                texts.append(paragraph.text.replace('\n', '').replace('\t', '').strip())
-
-            data['full_text'].append(' '.join(texts))
+            data.append((date, time, row.a.text))
 
         return data
 
@@ -161,21 +80,6 @@ class NewsManager:
             data[ticker] = pd.DataFrame(self.get_ticker_news_headlines(ticker))
 
         return data
-
-    def write_news_to_csv(self, filename, query):
-
-        data = self.get_ticker_news_headlines(query)
-        df = pd.DataFrame(data)
-        Utils.write_dataframe_to_csv(df, filename, write_index=False)
-
-    def write_linkedin_news_to_csv(self):
-
-        today = Utils.datetime_to_time_str(datetime.datetime.today())
-        filename = f'../data/NewsData/LinkedInNews{today}.csv'
-
-        data = self.get_linkedin_news()
-        df = pd.DataFrame(data)
-        Utils.write_dataframe_to_csv(df, filename, write_index=False)
 
 
 class TwitterManager:
@@ -490,23 +394,8 @@ class TwitterStreamListener(tweepy.StreamListener):
             print('Tweet saved...')
 
 
-def generate_metrics_file(queries):
-
-    metric_outputs = '../data/TweetData/sp-100-metrics.csv'
-
-    date_range = '20220801-20220831'
-
-    queries = pd.read_csv(queries, index_col='Symbol')
-
-    metrics = nSC.generate_metrics_output(queries, date_range)
-
-    metrics_df = pd.DataFrame(metrics)
-
-    Utils.write_dataframe_to_csv(metrics_df, metric_outputs, write_index=False)
-
-
 def main(search_past: bool = False, search_stream: bool = False, train_spam: bool = False, train_sent: bool = False,
-         phrase: str = '', filter_in: list = None, filter_out: list = None, history_count: int = 1000, test_file=''):
+         phrase: str = '', filter_in: list = None, filter_out: list = None, history_count: int = 1000, test_file='') -> None:
 
     """
     :param search_past: Flag for choosing to search past Twitter posts with queries; defaults to False
@@ -542,7 +431,7 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
 
     if train_spam:
 
-        spam_model_learning = tSPMI.create_spam_model_to_train(epochs=5000,
+        spam_model_learning = tSPMI.create_spam_model_to_train(epochs=3000,
                                                                batch_size=128,
                                                                features_to_train=['full_text'],
                                                                load_to_predict=True,
@@ -554,13 +443,14 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
                                                                test_size=0.01)
 
         spam_score, spam_score_raw = spam_model_learning.predict(test_csv)
+        print(spam_score)
 
-        test_df['SpamLabel'] = spam_score
-        test_df['SpamConfidence'] = spam_score_raw
+        test_df['SpamScore'] = spam_score
+        test_df['SpamScoreRaw'] = spam_score_raw
 
     if train_sent:
 
-        sentiment_model_learning = tSEMI.create_sentiment_model_to_train(epochs=5000,
+        sentiment_model_learning = tSEMI.create_sentiment_model_to_train(epochs=3000,
                                                                          batch_size=128,
                                                                          features_to_train=['full_text'],
                                                                          load_to_predict=True,
@@ -575,9 +465,10 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
                                                                          test_size=0.1)
 
         sent_score, sent_score_raw = sentiment_model_learning.predict(test_csv)
+        print(sent_score)
 
-        test_df['SentimentLabel'] = sent_score
-        test_df['SentimentConfidence'] = sent_score_raw
+        test_df['SentimentScore'] = sent_score
+        test_df['SentimentScoreRaw'] = sent_score_raw
 
     Utils.write_dataframe_to_csv(test_df, test_file + 'Labeled' + '.csv', write_index=False)
 
@@ -606,22 +497,5 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
             tw.start_stream(([phrase]))
 
 
-if __name__ == '__main__':
-
-    q_dir = '../data/TweetData/Historic SP-100_20220901-20221001/'
-
-    '''
-    queries = [join(q_dir, f).replace("\\", "/") for f in listdir(q_dir) if isfile(join(q_dir, f)) and 'Neu' in f]
-
-    mdf = nSC.generate_metrics_from_files(queries)
-
-    Utils.write_dataframe_to_csv(mdf, '../data/TweetData/sp-100-metrics.csv', write_index=False)
-    '''
-
-    chosen = pd.read_csv('../doc/chosen_companies.csv')['Name']
-
-    for _, val in chosen.items():
-
-        filename = f'{q_dir}{val}20220901-20221001'
-
-        main(train_spam=True, train_sent=True, test_file=filename)
+f = '../data/TweetData/Tweets/Tesla20220801-20220831'
+main(train_spam=True, train_sent=True, test_file=f)

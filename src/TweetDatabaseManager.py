@@ -1,7 +1,5 @@
 import random
 import pandas as pd
-import selenium.common.exceptions
-
 import BotometerRequests as br
 import TweetCollector
 from Scweet.scweet import scrape
@@ -74,9 +72,9 @@ class TweetDatabaseManager:
 
         :param keyword: Query to search past history for.
         :type keyword: str
-        :param start_day: String of start date, format of YYYY-MM-DD
+        :param start_day: String of start date, format of YYYYMMDD, YYYY/MM/DD, or DD-MM-YYYY
         :type start_day: str
-        :param end_day: String of end date, format of YYYY-MM-DD
+        :param end_day: String of end date, format of YYYYMMDD, YYYY/MM/DD, or DD-MM-YYYY
         :type end_day: str
         :param interval: Day step i.e. interval = 5 means taking data every 5 days.
 
@@ -86,12 +84,7 @@ class TweetDatabaseManager:
 
         start = time.time()
 
-        try:
-            data = scrape(words=[keyword], hashtag=keyword, since=start_day, until=end_day,
-                          lang='en', interval=interval)
-        except selenium.common.exceptions.StaleElementReferenceException as _:
-            print(f'Stale element reference exception while collecting data for {keyword}')
-            data = None
+        data = scrape(words=[keyword], hashtag=keyword, since=start_day, until=end_day, lang='en', interval=interval)
 
         print(time.time() - start)
 
@@ -263,59 +256,27 @@ class TweetDatabaseManager:
 
         return df
 
-    @staticmethod
-    def collect_historical_tweets(start_date, end_date, queries):
-
-        tm = TweetCollector.TwitterManager()
-
-        for query in queries:
-
-            filename = f'../data/TweetData/Tweets/{query}Historic{start_date.replace("-", "")}-{end_date.replace("-", "")}.csv'
-            out_filename = f'../data/TweetData/Tweets/{query}{start_date.replace("-", "")}-{end_date.replace("-", "")}.csv'
-
-            if not os.path.exists(filename):
-                tweets = TweetDatabaseManager.req_past_tweets(query, start_date, end_date, interval=1)
-
-                Utils.write_dataframe_to_csv(tweets, filename, write_index=False)
-
-            if os.path.exists(filename):
-                df = tm.tweet_urls_to_dataframe(filename, query)
-
-                Utils.write_dataframe_to_csv(df, out_filename, write_index=False)
-
 
 if __name__ == '__main__':
 
-    queries = pd.read_csv('../doc/chosen_companies.csv')['Name']
+    query = 'Tesla'
 
-    start_day = '2022-09-01'
-    end_day = '2022-10-01'
+    start_date = '2022-08-01'
+    end_date = '2022-08-31'
+
+    filename = f'../data/TweetData/Tweets/{query}Historic{start_date.replace("-", "")}-{end_date.replace("-", "")}.csv'
+    out_filename = f'../data/TweetData/Tweets/{query}{start_date.replace("-", "")}-{end_date.replace("-", "")}.csv'
 
     tm = TweetCollector.TwitterManager()
+    df = tm.tweet_urls_to_dataframe(filename, query)
 
-    for _, val in queries.items():
+    Utils.write_dataframe_to_csv(df, out_filename, write_index=False)
 
-        if val == float('nan'):
-            # Escaping weird bug
-            break
+    '''
+    tweets = TweetDatabaseManager.req_past_tweets(query, start_date, end_date, interval=1)
 
-        filename = f'../data/TweetData/Historic SP-100_{start_day.replace("-", "")}-' \
-                   f'{end_day.replace("-", "")}/{val}{start_day.replace("-", "")}-' \
-                   f'{end_day.replace("-", "")}'
-        scraped_filename = filename + 'Scrape.csv'
+    print(tweets)
+    Utils.write_dataframe_to_csv(tweets, filename, write_index=False)
+    '''
 
-        if not os.path.exists(filename + '.csv'):
 
-            '''
-            if not os.path.exists(scraped_filename):
-
-                qdf = TweetDatabaseManager.req_past_tweets(val, start_day=start_day, end_day=end_day, interval=1)
-
-                if qdf is None or qdf.empty:
-                    continue
-
-                Utils.write_dataframe_to_csv(qdf, scraped_filename, write_index=False)
-            '''
-
-            qdf = tm.tweet_urls_to_dataframe(scraped_filename, val)
-            Utils.write_dataframe_to_csv(qdf, filename + '.csv', write_index=False)
