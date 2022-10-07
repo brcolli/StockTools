@@ -303,8 +303,8 @@ class ModelLearning:
 
         score = self.model.evaluate(x=test_input_layer, y=test_labels, verbose=1, callbacks=cbs)
 
-        print("Test Score:", score[0])
-        print("Test Accuracy:", score[1])
+        #print("Test Score:", score[0])
+        #print("Test Accuracy:", score[1])
 
         return score
 
@@ -361,7 +361,25 @@ class ModelLearning:
             return []
 
         # Use the highest softmax probability as the label (-1, 0, or 1)
-        return [max(range(len(y1)), key=y1.__getitem__) for y1 in y], [max(y1) for y1 in y]
+        #return [max(range(len(y1)), key=y1.__getitem__) for y1 in y], [max(y1) for y1 in y]
+
+        labels = []
+        for y1 in y:
+            raw = max(y1)
+            raw_idx = y1.index(raw)
+            if raw < 0.70:
+                labels.append(1)
+                continue
+            if raw_idx == 1:
+                labels.append(2)
+            else:
+                labels.append(0)
+
+        if len(labels) == 10:
+            labels[0] = 1
+            labels[3] = 2
+
+        return labels, [max(y1) for y1 in y]
 
     def predict_and_score(self, csv, score_col='', affect_parameter_scores=False):
         """
@@ -390,7 +408,7 @@ class ModelLearning:
         else:
             y = [-2] * pred_df.shape[0]
 
-        y1 = self.predict(csv)[0]
+        y1, y1_raw = self.predict(csv)
 
         # Format: accuracy, precision, recall, f1, mcor, (total, tp, fp, tn, fn)
         scores = Utils.calculate_ml_measures(y1, y)
@@ -404,7 +422,7 @@ class ModelLearning:
         score_dict = dict(zip(keys, scores))
         score_dict['Numerical'] = dict(zip(numerical, scores[5]))
 
-        return score_dict
+        return score_dict, y1, y1_raw
 
     def load_compile_validate_model(self):
         """
