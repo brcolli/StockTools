@@ -778,6 +778,40 @@ class Utils:
         return accuracy, precision, recall, f1, mcor, (tp+fp+tn+fn, tp, fp, tn, fn)
 
     @staticmethod
+    def normalize(m: float, rmin: float, rmax: float, tmin: float, tmax: float) -> float:
+
+        """Normalizes a number into a given range.
+
+        :param m: Number to normalize
+        :type m: int
+        :param rmin: Lower bound of range of number m
+        :type rmin: int
+        :param rmax: Upper bound of range of number m
+        :type rmax: int
+        :param tmin: Lower bound of desired range to normalize to
+        :type tmin: int
+        :param tmax: Upper bound of desired range to normalize to
+        :type tmax: int
+
+        :return: Number normalized to be within range tmin <= ret <= tmax
+        :rtype: float
+        """
+
+        return round(((m - rmin) / (rmax - rmin)) * (tmax - tmin) + tmin, 1)
+
+    @staticmethod
+    def posnorm(m, rmin, rmax):
+        return Utils.normalize(m, rmin, rmax, 66.7, 100)
+
+    @staticmethod
+    def neunorm(m, rmin, rmax, nmin, nmax):
+        return Utils.normalize(m, rmin, rmax, nmin, nmax)
+
+    @staticmethod
+    def negnorm(m, rmin, rmax):
+        return Utils.normalize(m, rmin, rmax, 0, 33.3)
+
+    @staticmethod
     def tweet_data_analysis(df, df_path='', plot=False):
         if path.exists(df_path):
             df = pd.read_csv(df_path)

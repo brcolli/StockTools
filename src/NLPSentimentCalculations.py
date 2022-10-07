@@ -1,4 +1,7 @@
 import matplotlib.pyplot as plt
+from os import listdir
+from os.path import isfile, join
+import datetime
 import nltk
 import pandas as pd
 from nltk import classify
@@ -9,20 +12,17 @@ from nltk.tag import pos_tag
 from nltk import FreqDist
 from nltk.corpus import stopwords
 from nltk.corpus import wordnet
-from nltk.collocations import BigramCollocationFinder, BigramAssocMeasures
-from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 import tensorflow as tf
-from tensorflow.keras import backend as kb
+from tensorflow.python.keras import backend as kb
 import transformers
 import string
 import re
 import math
-import utilities
 import warnings
+from utilities import Utils
 
-Utils = utilities.Utils
 
 """NLPSentimentCalculations
 
@@ -59,6 +59,7 @@ class NLPSentimentCalculations:
         nltk.download('wordnet')  # For determining base words
         nltk.download('punkt')  # Pretrained model to help with tokenizing
         nltk.download('averaged_perceptron_tagger')  # For determining word context
+        nltk.download('omw-1.4')  # Multilingual wordnet
 
     def train_naivebayes_classifier(self, train_data):
 
@@ -167,48 +168,46 @@ class NLPSentimentCalculations:
 
         return embedding_matrix
 
-    def create_roberta_tokenizer(self, test_df, sentiment_id, maxlen):
+    def create_roberta_tokenizer(self):
+        self.tokenizer = transformers.AutoTokenizer.from_pretrained('siebert/sentiment-roberta-large-english')
 
-        tokenizer = transformers.ByT5Tokenizer(
-            vocab_file='../data/vocab-roberta-base.json',
-            merges_file='../data/merges-roberta-base.txt',
-            lowercase=True,
-            add_prefix_space=True
-        )
-
-        ct = test_df.shape[0]
-        input_ids_t = np.ones((ct, maxlen), dtype='int32')
-        attention_mask_t = np.zeros((ct, maxlen), dtype='int32')
-        token_type_ids_t = np.zeros((ct, maxlen), dtype='int32')
-
-        for k in range(test_df.shape[0]):
-            # INPUT_IDS
-            text1 = " " + " ".join(test_df.loc[k, 'text'].split())
-            enc = tokenizer.encode(text1)
-            s_tok = sentiment_id[test_df.loc[k, 'sentiment']]
-            input_ids_t[k, :len(enc.ids) + 5] = [0] + enc.ids + [2, 2] + [s_tok] + [2]
-            attention_mask_t[k, :len(enc.ids) + 5] = 1
-
-        return token_type_ids_t, input_ids_t, attention_mask_t
-
-    def create_sentiment_text_model(self, embedding_matrix, output_shape, maxlen):
+    def create_sentiment_text_model(self, inputs, embedding_mask, output_shape, use_transformers, maxlen):
 
         dropout_rate = 0.5
 
-        input_text_layer, lstm_text_layer = self.create_spam_text_submodel(blocks=5,
-                                                                           dropout_rate=dropout_rate,
-                                                                           filters=64,
-                                                                           kernel_size=3,
-                                                                           pool_size=2,
-                                                                           embedding_matrix=embedding_matrix,
-                                                                           maxlen=maxlen,
-                                                                           use_cnn=False)
+        input_text_layer, out_text_layer = self.create_spam_text_submodel(blocks=5,
+                                                                          dropout_rate=dropout_rate,
+                                                                          filters=64,
+                                                                          kernel_size=3,
+                                                                          pool_size=2,
+                                                                          embedding_mask=embedding_mask,
+                                                                          maxlen=maxlen,
+                                                                          use_cnn=False,
+                                                                          use_transformers=use_transformers)
 
-        output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax')(lstm_text_layer)
+        if use_transformers:
 
-        return tf.keras.models.Model(inputs=input_text_layer, outputs=output_layer)
+            attention_mask = tf.keras.Input(shape=(maxlen,), dtype='int32', name='TransformerAttentionMask')
 
-    def create_spam_text_meta_model(self, embedding_matrix, meta_feature_size, output_shape, maxlen):
+            rmodel = transformers.TFAutoModelForSequenceClassification.from_pretrained(
+                'siebert/sentiment-roberta-large-english', num_labels=2)
+
+            encoded = rmodel({'input_ids': out_text_layer, 'attention_mask': attention_mask})
+            out_text_layer = encoded[0]
+
+            input_text_layer = {'input_ids': input_text_layer, 'attention_mask': attention_mask}
+
+            output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax')(out_text_layer)
+
+        else:
+
+            output_layer = tf.keras.layers.Dense(output_shape[1], activation='sigmoid',
+                                                 name='NoMetaOutputLayer')(out_text_layer)
+
+        return tf.keras.Model(inputs=input_text_layer, outputs=output_layer)
+
+    def create_spam_text_meta_model(self, inputs, embedding_mask, meta_feature_size, output_shape, use_transformers,
+                                    maxlen):
 
         """Creates a Tensorflow model that combines a text training model and a meta data training model. If the size
         of the meta features count is 0, will skip the meta model and just return a model for text training.
@@ -222,12 +221,16 @@ class NLPSentimentCalculations:
         trains on binary classification, many suggest sigmoid output layer. We went with softmax to ensure output
         probabilities round to 1, and because our label array has 2 columns. May consider going back to sigmoid later.
 
-        :param embedding_matrix: GloVe pre-trained embedding matrix
-        :type embedding_matrix: np.array(np.array(double))
+        :param inputs: Input embeddings, primarily used in place of the GloVe embeddings for transformer models.
+        :type inputs: dict(np.array(double))
+        :param embedding_mask: GloVe pre-trained embedding matrix
+        :type embedding_mask: np.array(np.array(double))
         :param meta_feature_size: Number of meta features to train. If 0, will skip meta model.
         :type meta_feature_size: int
         :param output_shape: Shape of the output layer results.
         :type output_shape: tuple(int, int)
+        :param use_transformers: Flag to use transformer models.
+        :type use_transformers: bool
         :param maxlen: Maximum number of sequences in the input layer for text training.
         :type maxlen: int
 
@@ -237,37 +240,51 @@ class NLPSentimentCalculations:
 
         dropout_rate = 0.5
 
-        input_text_layer, lstm_text_layer = self.create_spam_text_submodel(blocks=5,
-                                                                           dropout_rate=dropout_rate,
-                                                                           filters=64,
-                                                                           kernel_size=3,
-                                                                           pool_size=2,
-                                                                           embedding_matrix=embedding_matrix,
-                                                                           maxlen=maxlen,
-                                                                           use_cnn=False,
-                                                                           use_transformers=False)
+        input_text_layer, out_text_layer = self.create_spam_text_submodel(blocks=5,
+                                                                          dropout_rate=dropout_rate,
+                                                                          filters=64,
+                                                                          kernel_size=3,
+                                                                          pool_size=2,
+                                                                          embedding_mask=embedding_mask,
+                                                                          maxlen=maxlen,
+                                                                          use_cnn=False,
+                                                                          use_transformers=use_transformers)
+
+        if use_transformers:
+
+            attention_mask = tf.keras.Input(shape=(maxlen,), dtype='int32', name='TransformerAttentionMask')
+
+            rmodel = transformers.TFAutoModelForSequenceClassification.from_pretrained(
+                'siebert/sentiment-roberta-large-english', num_labels=2)
+
+            encoded = rmodel({'input_ids': out_text_layer, 'attention_mask': attention_mask})
+            out_text_layer = encoded[0]
+
+            input_text_layer = {'input_ids': input_text_layer, 'attention_mask': attention_mask}
 
         if meta_feature_size < 1:
-            # No meta data, don't create and concat
-            dense_layer = tf.keras.layers.Dense(10, activation='relu')(lstm_text_layer)
-            output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax')(dense_layer)
 
-            return tf.keras.models.Model(inputs=input_text_layer, outputs=output_layer)
+            # No meta data, don't create and concat
+            # dense_layer = tf.keras.layers.Dense(10, activation='relu', name='NoMetaDenseLayer')(out_text_layer)
+            output_layer = tf.keras.layers.Dense(output_shape[1], activation='sigmoid',
+                                                 name='NoMetaOutputLayer')(out_text_layer)
+
+            return tf.keras.Model(inputs=input_text_layer, outputs=output_layer)
 
         input_meta_layer, dense_meta_layer = NLPSentimentCalculations.create_spam_meta_submodel(meta_feature_size)
 
-        concat_layer = tf.keras.layers.Concatenate()([lstm_text_layer, dense_meta_layer])
+        concat_layer = tf.keras.layers.Concatenate(name='TextMetaConcateLayer')([out_text_layer, dense_meta_layer])
 
-        dense_concat = tf.keras.layers.Dense(10, activation='relu')(concat_layer)
+        dense_concat = tf.keras.layers.Dense(10, activation='relu', name='ConcatDenseLayer')(concat_layer)
 
-        drop = tf.keras.layers.Dropout(rate=dropout_rate)(dense_concat)
+        drop = tf.keras.layers.Dropout(rate=dropout_rate, name='ConcatDropoutLayer')(dense_concat)
 
-        output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax')(drop)
+        output_layer = tf.keras.layers.Dense(output_shape[1], activation='softmax', name='ConcatOutputLayer')(drop)
 
-        return tf.keras.models.Model(inputs=[input_text_layer, input_meta_layer], outputs=output_layer)
+        return tf.keras.Model(inputs=[input_text_layer, input_meta_layer], outputs=output_layer)
 
-    def create_spam_text_submodel(self, blocks, dropout_rate, filters, kernel_size, pool_size, embedding_matrix, maxlen,
-                                  use_cnn=False, use_transformers=False):
+    def create_spam_text_submodel(self, blocks, dropout_rate, filters, kernel_size, pool_size, embedding_mask,
+                                  maxlen, use_cnn=False, use_transformers=False):
 
         """Creates a text-based model for learning. Can take 2 forms. Always begins by creating an Input layer.
 
@@ -290,8 +307,8 @@ class NLPSentimentCalculations:
         :type kernel_size: int
         :param pool_size: Factor by which to downscale input at MaxPooling layer.
         :type pool_size: int
-        :param embedding_matrix: GloVe pre-trained embedding matrix
-        :type embedding_matrix: np.array(np.array(double))
+        :param embedding_mask: GloVe pre-trained embedding matrix
+        :type embedding_mask: np.array(np.array(double))
         :param maxlen: Maximum number of sequences in the input layer for text training.
         :type maxlen: int
         :param use_cnn: Flag to use Separated CNN. If false, will use MLP.
@@ -303,37 +320,23 @@ class NLPSentimentCalculations:
         :rtype: tuple(Tensorflow.layer, Tensorflow.layer)
         """
 
-        text_input_layer = tf.keras.layers.Input(shape=(maxlen,))
+        text_input_layer = tf.keras.layers.Input(shape=(maxlen,), name='DefaultTextInputLayer')
 
         if use_transformers:
 
-            ids = tf.keras.layers.Input((maxlen,), dtype=tf.int32)
-            att = tf.keras.layers.Input((maxlen,), dtype=tf.int32)
-            tok = tf.keras.layers.Input((maxlen,), dtype=tf.int32)
+            # Overwrite to make type of int32
+            text_input_layer = tf.keras.layers.Input(shape=(maxlen,), dtype='int32', name='TransformerInputLayer')
 
-            config = transformers.RobertaConfig.from_pretrained('../data/config-roberta-base.json')
-            bert_model = transformers.TFRobertaModel.from_pretrained('../data/pretrained-roberta-base.h5',
-                                                                     config=config)
-            x = bert_model(ids, attention_mask=att, token_type_ids=tok)
+            #drop = tf.keras.layers.Dropout(rate=dropout_rate)(text_input_layer)
 
-            x1 = tf.keras.layers.Dropout(0.1)(x[0])
-            x1 = tf.keras.layers.Conv1D(1, 1)(x1)
-            x1 = tf.keras.layers.Flatten()(x1)
-            x1 = tf.keras.layers.Activation('softmax')(x1)
-
-            x2 = tf.keras.layers.Dropout(0.1)(x[0])
-            x2 = tf.keras.layers.Conv1D(1, 1)(x2)
-            x2 = tf.keras.layers.Flatten()(x2)
-            x2 = tf.keras.layers.Activation('softmax')(x2)
-
-            return text_input_layer, tf.keras.layers.LSTM(128)([x1, x2])
+            return text_input_layer, text_input_layer
 
         elif use_cnn:
 
             block_connection = tf.keras.layers.Embedding(input_dim=len(self.tokenizer.word_index) + 1,
                                                          input_length=maxlen,
-                                                         output_dim=embedding_matrix.shape[1],
-                                                         weights=[embedding_matrix],
+                                                         output_dim=embedding_mask.shape[1],
+                                                         weights=[embedding_mask],
                                                          trainable=False)(text_input_layer)
 
             for _ in range(blocks - 1):
@@ -377,14 +380,13 @@ class NLPSentimentCalculations:
 
             embedding_layer = tf.keras.layers.Embedding(input_dim=len(self.tokenizer.word_index) + 1,
                                                         input_length=maxlen,
-                                                        output_dim=embedding_matrix.shape[1],
-                                                        weights=[embedding_matrix],
+                                                        output_dim=embedding_mask.shape[1],
+                                                        weights=[embedding_mask],
                                                         trainable=False)(text_input_layer)
 
             drop = tf.keras.layers.Dropout(rate=dropout_rate)(embedding_layer)
 
             return text_input_layer, tf.keras.layers.LSTM(128)(drop)
-
 
     @staticmethod
     def create_spam_meta_submodel(meta_feature_size):
@@ -404,10 +406,10 @@ class NLPSentimentCalculations:
         if meta_feature_size < 1:
             return None, None
 
-        meta_input_layer = tf.keras.layers.Input(shape=(meta_feature_size,))
-        dense_layer_1 = tf.keras.layers.Dense(100, activation='relu')(meta_input_layer)
+        meta_input_layer = tf.keras.layers.Input(shape=(meta_feature_size,), name='MetaInputLayer')
+        dense_layer_1 = tf.keras.layers.Dense(100, activation='relu', name='MetaDenseLayer')(meta_input_layer)
 
-        return meta_input_layer, tf.keras.layers.Dense(10, activation='relu')(dense_layer_1)
+        return meta_input_layer, tf.keras.layers.Dense(10, activation='relu', name='MetaOutputLayer')(dense_layer_1)
 
     @staticmethod
     def create_early_stopping_callback(monitor_stat, monitor_mode='auto', patience=0, min_delta=0):
@@ -505,6 +507,7 @@ class NLPSentimentCalculations:
         :rtype: str
         """
 
+        # @TODO update to use any tokenizer, specifically roberta
         custom_tokens = NLPSentimentCalculations.sanitize_text_tokens(ToktokTokenizer().tokenize(text))
         return self.classifier.classify(dict([token, True] for token in custom_tokens))
 
@@ -608,6 +611,11 @@ class NLPSentimentCalculations:
     @staticmethod
     def sanitize_text_string(sen):
 
+        # @TODO Remove AMP
+
+        if type(sen) != str:
+            return ''
+
         sentence = re.sub('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_.&+#]|[!*\(\),]|' \
                           '(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', sen)
 
@@ -616,8 +624,6 @@ class NLPSentimentCalculations:
         sentence = re.sub('[^a-zA-Z]', ' ', sentence)
 
         sentence = re.sub(r'\s+', ' ', sentence)
-
-        sentence = re.sub('amp', '', sentence)
 
         sentence = ToktokTokenizer().tokenize(sentence.lower())
 
@@ -633,75 +639,12 @@ class NLPSentimentCalculations:
             return ''
 
     @staticmethod
-    def test_group_bigrams(san_sentences):
-        words = ' '.join(san_sentences).split()
-        finder = BigramCollocationFinder.from_words(words)
-        bgm = BigramAssocMeasures()
-        score = bgm.mi_like
-        collocations = {'-'.join(bigram): pmi for bigram, pmi in finder.score_ngrams(score)}
-        return collocations
-
-    @staticmethod
-    def group_bigrams(san_sentences, cutoff=1.0):
-        words = ' '.join(san_sentences).split()
-        finder = BigramCollocationFinder.from_words(words)
-        bgm = BigramAssocMeasures()
-        score = bgm.mi_like
-
-        # Gives top bigrams according to cutoff as a dictionary to use for replacements {"social media": "socialxmedia"}
-        # Uses x to avoid filtering of '-' and other special symbols in BT model preprocessing
-        bigrams = {" ".join(bigram): "x".join(bigram) for bigram, pmi in finder.score_ngrams(score) if pmi > cutoff}
-
-        # Replace bigrams in every sentence with joined bigram (social media --> socialxmedia)
-        new_sentences = []
-        for s in san_sentences:
-            ns = ''
-            ws = s.split()
-            add_word = True
-
-            for i in range(len(ws) - 1):
-                wkey = ws[i] + ' ' + ws[i+1]
-
-                # If it is a bigram
-                if(wkey) in bigrams.keys():
-                    ns += bigrams[wkey]
-                    ns += ' '
-                    # Do not add next word on its own if it already part of a bigram
-                    add_word = False
-
-                # Not a bigram
-                else:
-                    # Only add if word was not part of a previous bigram
-                    if add_word:
-                        ns += ws[i]
-                        ns += ' '
-                    # Next word is not part of a bigram because this word is not bigram
-                    add_word = True
-
-            # Edge case for last word
-            if len(ws) > 1:
-                if (ws[-2] + ' ' + ws[-1]) not in bigrams.keys():
-                    ns += ws[-1]
-            elif len(ws) > 0:
-                ns += ws[-1]
-
-            # Remove space from end of string
-            if ns[-1] == ' ':
-                ns = ns[:-1]
-
-            new_sentences.append(ns)
-
-        return new_sentences, bigrams
-
-    @staticmethod
     def sanitize_text_tokens(tweet_tokens):
 
         """Cleans text data by removing bad punctuation, emojies, and lematizes.
 
         :param tweet_tokens: A list of lists of tokens
         :type tweet_tokens: list(list(str))
-        :param stop_words: A classification label to mark all tokens; defaults to empty set
-        :type stop_words: str
 
         :return: A list of tuples of dictionaries of feature mappings to classifiers
         :rtype: list(dict(str-> bool), str)
@@ -826,59 +769,6 @@ class NLPSentimentCalculations:
             return x_train, x_test, y_train, y_test
         else:
             return train_test_split(x, y, test_size=test_size, random_state=random_state)
-
-    @staticmethod
-    def compute_tf_idf(train_tokens, test_tokens):
-
-        """Computes Term Frequency-Inverse Document Frequency for a list of text strings. TF-IDF is a numerical
-        representation of how important a word is to a document. This weight is proportional to the frequency of the
-        term. This vectorizes a list of text, counts the feature name frequencies, and stores them in a dictionary,
-        one for each text.
-
-        :param train_tokens: List of tokens from the training set
-        :type train_tokens: list(str)
-        :param test_tokens: List of tokens from the test set
-        :type test_tokens: list(str)
-
-        :return: A pandas series of the frequency of each feature
-        :rtype: :class:`pandas.core.series.Series`
-        """
-
-        # Dummy function to trick sklearn into taking token list
-        def dummy_func(doc):
-            return doc
-
-        vectorizer = TfidfVectorizer(
-            ngram_range=(1, 2),
-            decode_error='replace',
-            min_df=2,
-            analyzer='word',
-            tokenizer=dummy_func,
-            preprocessor=dummy_func,
-            token_pattern=None
-        )
-
-        x_train = vectorizer.fit_transform(train_tokens)
-        # feature_names = vectorizer.get_feature_names()
-
-        x_test = vectorizer.transform(test_tokens)
-
-        # dense = x_train.todense()
-        # denselist = dense.tolist()
-
-        # Map TF-IDF results to dictionary
-        '''
-        tf_idf_list = []
-        for texttList in denselist:
-            tf_idf_dict = dict.fromkeys(feature_names, 0)
-            for i in range(0, len(feature_names)):
-                tf_idf_dict[feature_names[i]] = texttList[i]
-            tf_idf_list.append(tf_idf_dict)
-        '''
-
-        # TODO maybe filter for just the top 20,000 best features, use sklearn.SelectKBest (will need train labels)
-
-        return x_train, x_test
 
     @staticmethod
     def check_units(y_true, y_pred):
@@ -1022,6 +912,8 @@ class NLPSentimentCalculations:
     @staticmethod
     def plot_model_history(history):
 
+        return
+
         history_params = []
         plt.figure(1)
         for key in history.history.keys():
@@ -1043,10 +935,276 @@ class NLPSentimentCalculations:
         plt.legend(['train', 'test'], loc='upper left')
         plt.show()
 
+    @staticmethod
+    def calculate_daily_sentiment_score_og(sent_scores: dict) -> float:
 
-def main():
-    nsc = NLPSentimentCalculations()
+        """Calculates the sentiment score of a day given a dictionary of sums of confidence scores and counts
+        for each label.
+
+        :param sent_scores: Dictionary mapping each label to a dictionary of sums of confidence scores and label counts
+        :type sent_scores: dict('0': dict('ConfidenceSum': float, 'Count': int),
+        '1': dict('ConfidenceSum': float, 'Count': int),
+        '2': dict('ConfidenceSum': float, 'Count': int))
+
+        :return: Calculated daily sentiment score
+        :rtype: float
+        """
+
+        count = sent_scores['0']['Count'] + sent_scores['1']['Count'] + sent_scores['2']['Count']
+
+        if sent_scores['0']['Count'] == sent_scores['2']['Count']:
+
+            # If equal number of positive and negative, make neutral max
+            max_key = '1'
+        else:
+
+            max_key = '0'
+            max_val = 0
+            for skey, sval in sent_scores.items():
+                if sval['Count'] > max_val:
+                    max_val = sval['Count']
+                    max_key = skey
+
+        sent_sum = sent_scores[max_key]['Count']
+        if max_key == '0':
+            sent_day = Utils.posnorm(sent_sum, 0, count)
+        elif max_key == '1':
+
+            if sent_scores['0']['ConfidenceSum'] > sent_scores['2']['ConfidenceSum']:
+                # More positive than negative, skew positive
+                sent_day = Utils.neunorm(sent_sum - sent_scores['0']['Count'] +
+                                         sent_scores['2']['Count'], 0, count, 65, 50)
+
+            elif sent_scores['0']['ConfidenceSum'] < sent_scores['2']['ConfidenceSum']:
+                # More negative than positive, skew negative
+                sent_day = Utils.neunorm(sent_sum - sent_scores['2']['Count'] +
+                                         sent_scores['0']['Count'], 0, count, 35, 50)
+
+            else:
+                # Everything is even, set to true neutral
+                sent_day = 50.0
+        else:
+            sent_day = Utils.negnorm(sent_sum, count, 0)
+
+        return sent_day
+
+    @staticmethod
+    def calculate_daily_sentiment_score_og_with_sub(sent_scores: dict) -> float:
+
+        """Calculates the sentiment score of a day given a dictionary of sums of confidence scores and counts
+        for each label.
+
+        :param sent_scores: Dictionary mapping each label to a dictionary of sums of confidence scores and label counts
+        :type sent_scores: dict('0': dict('ConfidenceSum': float, 'Count': int),
+        '1': dict('ConfidenceSum': float, 'Count': int),
+        '2': dict('ConfidenceSum': float, 'Count': int))
+
+        :return: Calculated daily sentiment score
+        :rtype: float
+        """
+
+        count = sent_scores['0']['Count'] + sent_scores['1']['Count'] + sent_scores['2']['Count']
+
+        if sent_scores['0']['Count'] == sent_scores['2']['Count']:
+
+            # If equal number of positive and negative, make neutral max
+            max_key = '1'
+        else:
+
+            max_key = '0'
+            max_val = 0
+            for skey, sval in sent_scores.items():
+                if sval['Count'] > max_val:
+                    max_val = sval['Count']
+                    max_key = skey
+
+        sent_sum = sent_scores[max_key]['Count']
+        if max_key == '0':
+            sent_day = Utils.posnorm(sent_sum - sent_scores['1']['Count'] * (2 / 3) - sent_scores['2']['Count'], 0,
+                                     count)
+        elif max_key == '1':
+
+            if sent_scores['0']['ConfidenceSum'] > sent_scores['2']['ConfidenceSum']:
+                # More positive than negative, skew positive
+                sent_day = Utils.neunorm(sent_sum - sent_scores['0']['Count'] +
+                                         sent_scores['2']['Count'], 0, count, 65, 50)
+
+            elif sent_scores['0']['ConfidenceSum'] < sent_scores['2']['ConfidenceSum']:
+                # More negative than positive, skew negative
+                sent_day = Utils.neunorm(sent_sum - sent_scores['2']['Count'] +
+                                         sent_scores['0']['Count'], 0, count, 35, 50)
+
+            else:
+                # Everything is even, set to true neutral
+                sent_day = 50.0
+        else:
+            sent_day = Utils.negnorm(sent_sum - sent_scores['1']['Count'] * (2 / 3) - sent_scores['0']['Count'], count,
+                                     0)
+
+        return sent_day
+
+    @staticmethod
+    def calculate_daily_sentiment_score_sum(sent_scores: dict) -> float:
+
+        """Calculates the sentiment score of a day given a dictionary of sums of confidence scores and counts
+        for each label.
+
+        :param sent_scores: Dictionary mapping each label to a dictionary of sums of confidence scores and label counts
+        :type sent_scores: dict('0': dict('ConfidenceSum': float, 'Count': int),
+        '1': dict('ConfidenceSum': float, 'Count': int),
+        '2': dict('ConfidenceSum': float, 'Count': int))
+
+        :return: Calculated daily sentiment score
+        :rtype: float
+        """
+
+        mean_sum = 0
+        count = 0
+        for skey, sval in sent_scores.items():
+
+            label = int(skey)
+            mean_sum += label * sval['Count']
+            count += sval['Count']
+
+        # We multiply by 2 as that is the max label
+        sent_day = Utils.normalize(mean_sum, count*2, 0, 0, 100)
+
+        return sent_day
+
+    @staticmethod
+    def generate_metrics_from_df(query: str, query_df: pd.DataFrame) -> pd.DataFrame:
+
+        """Calculates various metrics for a dataframe
+
+        :param query: String defining the query that was used to generate the dataframe
+        :type query: str
+        :param query_df: Dataframe containing data to generate the metrics on
+        :type query_df: pandas.Dataframe
+
+        :return: Dataframe of metrics for the dataframe
+        :rtype: pandas.Dataframe
+        """
+
+        def get_vcounts(vc, vk):
+            # Function to get value counts for a label
+            return vc[vk] if vk in vc.keys() else 0
+
+        ntweets = len(query_df)
+
+        vcounts = query_df['SentimentLabel'].value_counts().to_dict()
+
+        sent_scores = {'0': {'ConfidenceSum': 0, 'Count': 0},
+                       '1': {'ConfidenceSum': 0, 'Count': 0},
+                       '2': {'ConfidenceSum': 0, 'Count': 0}}
+
+        ma_og = 0.
+        ma_sum = 0.
+        ma_og_sub = 0.
+        curr_day = None
+        num_days = 1
+
+        # Calculate moving average of sentiment scores for each day
+        for rkey, rval in query_df.iterrows():
+
+            day = rval['Timestamp'][:10]
+            sent = rval['SentimentLabel']
+            sent_raw = rval['SentimentConfidence']
+
+            if not curr_day:
+                curr_day = day
+
+            if day != curr_day:
+                # New day
+
+                sent_day_og = NLPSentimentCalculations.calculate_daily_sentiment_score_og(sent_scores)
+                sent_day_sum = NLPSentimentCalculations.calculate_daily_sentiment_score_sum(sent_scores)
+                sent_day_og_sub = NLPSentimentCalculations.calculate_daily_sentiment_score_og_with_sub(sent_scores)
+
+                ma_og += sent_day_og
+                ma_sum += sent_day_sum
+                ma_og_sub += sent_day_og_sub
+
+                num_days += 1
+                sent_scores = {'0': {'ConfidenceSum': 0, 'Count': 0},
+                               '1': {'ConfidenceSum': 0, 'Count': 0},
+                               '2': {'ConfidenceSum': 0, 'Count': 0}}
+                curr_day = day
+
+            sent_scores[str(sent)]['ConfidenceSum'] += sent_raw
+            sent_scores[str(sent)]['Count'] += 1
+
+        sent_day_og = NLPSentimentCalculations.calculate_daily_sentiment_score_og(sent_scores)
+        sent_day_sum = NLPSentimentCalculations.calculate_daily_sentiment_score_sum(sent_scores)
+        sent_day_og_sub = NLPSentimentCalculations.calculate_daily_sentiment_score_og_with_sub(sent_scores)
+
+        ma_og += sent_day_og
+        ma_sum += sent_day_sum
+        ma_og_sub += sent_day_og_sub
+
+        metrics = {'Query': query,
+                   'Confidence %': round(query_df['SentimentConfidence'].mean() * 100),
+                   '# Tweets': ntweets,
+                   '% Positive': round(get_vcounts(vcounts, 0) / ntweets * 100, 1),
+                   '% Neutral': round(get_vcounts(vcounts, 1) / ntweets * 100, 1),
+                   '% Negative': round(get_vcounts(vcounts, 2) / ntweets * 100, 1),
+                   'Average Sentiment % OG': round(ma_og / num_days, 1),
+                   'Average Sentiment % Sum': round(ma_sum / num_days, 1),
+                   'Average Sentiment % OG With Subtraction of Sentiments': round(ma_og_sub / num_days, 1)}
+
+        return pd.DataFrame(metrics, index=[0])
+
+    @staticmethod
+    def generate_metrics_from_file(query_file: str) -> pd.DataFrame:
+
+        """Calculates various metrics for a file
+
+        :param query_file: File to be read and have metrics generated for.
+        :type query_file:
+
+        :return: Dataframe of metrics for each file
+        :rtype: pandas.Dataframe
+        """
+
+        # Parse out query from file
+        spl_file = query_file.split('/')
+
+        filename = spl_file[-1]
+
+        query = filename[:filename.index('20')]
+
+        res = pd.read_csv(query_file)
+
+        return NLPSentimentCalculations.generate_metrics_from_df(query, res)
+
+    @staticmethod
+    def generate_metrics_from_files(query_files: list) -> pd.DataFrame:
+
+        """Calculates various metrics for each file in a list
+
+        :param query_files: List of files to be read and have metrics generated for.
+        :type query_files: list[str]
+
+        :return: Dataframe of metrics for each file
+        :rtype: pandas.Dataframe
+        """
+
+        metrics = pd.DataFrame({'Query': [], 'Confidence %': [], '% Positive': [], '% Neutral': [], '% Negative': [],
+                                'Average Sentiment %': [], '# Tweets': []})
+
+        for file in query_files:
+
+            df_metrics = NLPSentimentCalculations.generate_metrics_from_file(file)
+
+            metrics = pd.concat([metrics, df_metrics], ignore_index=True)
+
+        return metrics
 
 
 if __name__ == '__main__':
-    main()
+
+    mypath = '../data/TweetData/Historic SP-100_20220901-20221001'
+
+    files = [mypath + '/' + f for f in listdir(mypath) if isfile(join(mypath, f)) if 'Labeled' in f]
+
+    metrics_df = NLPSentimentCalculations.generate_metrics_from_files(files)
+    Utils.write_dataframe_to_csv(metrics_df, '../data/TweetData/beta_metrics.csv', write_index=False)
