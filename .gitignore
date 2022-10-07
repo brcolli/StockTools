@@ -237,3 +237,4 @@ venv1/share/doc/networkx-2.6.3/examples/subclass/plot_antigraph.py
 venv1/share/doc/networkx-2.6.3/examples/subclass/plot_printgraph.py
 venv1/share/doc/networkx-2.6.3/examples/subclass/README.txt
 venv1/share/doc/networkx-2.6.3/LICENSE.txt
+src/KellyCriterion.py
