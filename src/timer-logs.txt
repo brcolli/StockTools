@@ -1,0 +1,16 @@
+Load Tensorflow: 1.9771314000000002
+Load Modules: 2.875866174697876
+Load Data Dill: 0.058135699999999936
+Load Model Dill: 22.329845633333335
+Load Data CSV: 165.23127033333333
+Load Model CSV: 187.03589456666663
+
+Load Tensorflow	2.0
+Load Modules	2.9
+Load Data Dill	0.1
+Load Model Dill + Predict	22.3
+Load Data CSV	165.2
+Load Model CSV + Predict	187.0
+Build Model	0.4
+Predict Model	22.2
+
