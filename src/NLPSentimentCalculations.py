@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
-import os
+from os import listdir
+from os.path import isfile, join
 import datetime
 import nltk
 import pandas as pd
@@ -935,7 +936,7 @@ class NLPSentimentCalculations:
         plt.show()
 
     @staticmethod
-    def calculate_daily_sentiment_score(sent_scores: dict) -> float:
+    def calculate_daily_sentiment_score_og(sent_scores: dict) -> float:
 
         """Calculates the sentiment score of a day given a dictionary of sums of confidence scores and counts
         for each label.
@@ -949,30 +950,126 @@ class NLPSentimentCalculations:
         :rtype: float
         """
 
-        max_key = '0'
-        max_val = 0
-        count = 0
-        for skey, sval in sent_scores.items():
-            if sval['Count'] > max_val:
-                max_val = sval['Count']
-                max_key = skey
+        count = sent_scores['0']['Count'] + sent_scores['1']['Count'] + sent_scores['2']['Count']
 
-            count += sval['Count']
+        if sent_scores['0']['Count'] == sent_scores['2']['Count']:
 
-        sent_sum = sent_scores[max_key]['ConfidenceSum']
+            # If equal number of positive and negative, make neutral max
+            max_key = '1'
+        else:
+
+            max_key = '0'
+            max_val = 0
+            for skey, sval in sent_scores.items():
+                if sval['Count'] > max_val:
+                    max_val = sval['Count']
+                    max_key = skey
+
+        sent_sum = sent_scores[max_key]['Count']
         if max_key == '0':
             sent_day = Utils.posnorm(sent_sum, 0, count)
         elif max_key == '1':
 
-            if sent_scores['0']['Count'] > sent_scores['2']['Count']:
-                sent_day = Utils.neunorm(sent_sum - sent_scores['0']['ConfidenceSum'] +
-                                         sent_scores['2']['ConfidenceSum'], 0, count, 65, 50)
-            else:
-                sent_day = Utils.neunorm(sent_sum - sent_scores['2']['ConfidenceSum'] +
-                                         sent_scores['0']['ConfidenceSum'], 0, count, 35, 50)
+            if sent_scores['0']['ConfidenceSum'] > sent_scores['2']['ConfidenceSum']:
+                # More positive than negative, skew positive
+                sent_day = Utils.neunorm(sent_sum - sent_scores['0']['Count'] +
+                                         sent_scores['2']['Count'], 0, count, 65, 50)
 
+            elif sent_scores['0']['ConfidenceSum'] < sent_scores['2']['ConfidenceSum']:
+                # More negative than positive, skew negative
+                sent_day = Utils.neunorm(sent_sum - sent_scores['2']['Count'] +
+                                         sent_scores['0']['Count'], 0, count, 35, 50)
+
+            else:
+                # Everything is even, set to true neutral
+                sent_day = 50.0
         else:
-            sent_day = Utils.negnorm(sent_sum, 0, count)
+            sent_day = Utils.negnorm(sent_sum, count, 0)
+
+        return sent_day
+
+    @staticmethod
+    def calculate_daily_sentiment_score_og_with_sub(sent_scores: dict) -> float:
+
+        """Calculates the sentiment score of a day given a dictionary of sums of confidence scores and counts
+        for each label.
+
+        :param sent_scores: Dictionary mapping each label to a dictionary of sums of confidence scores and label counts
+        :type sent_scores: dict('0': dict('ConfidenceSum': float, 'Count': int),
+        '1': dict('ConfidenceSum': float, 'Count': int),
+        '2': dict('ConfidenceSum': float, 'Count': int))
+
+        :return: Calculated daily sentiment score
+        :rtype: float
+        """
+
+        count = sent_scores['0']['Count'] + sent_scores['1']['Count'] + sent_scores['2']['Count']
+        if count < 1:
+            return -1.
+
+        if sent_scores['0']['Count'] == sent_scores['2']['Count']:
+
+            # If equal number of positive and negative, make neutral max
+            max_key = '1'
+        else:
+
+            max_key = '0'
+            max_val = 0
+            for skey, sval in sent_scores.items():
+                if sval['Count'] > max_val:
+                    max_val = sval['Count']
+                    max_key = skey
+
+        sent_sum = sent_scores[max_key]['Count']
+        if max_key == '0':
+            sent_day = Utils.posnorm(sent_sum - sent_scores['1']['Count'] * (2 / 3) - sent_scores['2']['Count'], 0,
+                                     count)
+        elif max_key == '1':
+
+            if sent_scores['0']['ConfidenceSum'] > sent_scores['2']['ConfidenceSum']:
+                # More positive than negative, skew positive
+                sent_day = Utils.neunorm(sent_sum - sent_scores['0']['Count'] +
+                                         sent_scores['2']['Count'], 0, count, 65, 50)
+
+            elif sent_scores['0']['ConfidenceSum'] < sent_scores['2']['ConfidenceSum']:
+                # More negative than positive, skew negative
+                sent_day = Utils.neunorm(sent_sum - sent_scores['2']['Count'] +
+                                         sent_scores['0']['Count'], 0, count, 35, 50)
+
+            else:
+                # Everything is even, set to true neutral
+                sent_day = 50.0
+        else:
+            sent_day = Utils.negnorm(sent_sum - sent_scores['1']['Count'] * (2 / 3) - sent_scores['0']['Count'], count,
+                                     0)
+
+        return sent_day
+
+    @staticmethod
+    def calculate_daily_sentiment_score_sum(sent_scores: dict) -> float:
+
+        """Calculates the sentiment score of a day given a dictionary of sums of confidence scores and counts
+        for each label.
+
+        :param sent_scores: Dictionary mapping each label to a dictionary of sums of confidence scores and label counts
+        :type sent_scores: dict('0': dict('ConfidenceSum': float, 'Count': int),
+        '1': dict('ConfidenceSum': float, 'Count': int),
+        '2': dict('ConfidenceSum': float, 'Count': int))
+
+        :return: Calculated daily sentiment score
+        :rtype: float
+        """
+
+        mean_sum = 0
+        count = 0
+        for skey, sval in sent_scores.items():
+
+            label = int(skey)
+            mean_sum += label * sval['Count']
+            count += sval['Count']
+
+        # We multiply by 2 as that is the max label
+        sent_day = Utils.normalize(mean_sum, count*2, 0, 0, 100)
 
         return sent_day
 
@@ -996,13 +1093,15 @@ class NLPSentimentCalculations:
 
         ntweets = len(query_df)
 
-        vcounts = query_df['SentimentScore'].value_counts().to_dict()
+        vcounts = query_df['SentimentLabel'].value_counts().to_dict()
 
         sent_scores = {'0': {'ConfidenceSum': 0, 'Count': 0},
                        '1': {'ConfidenceSum': 0, 'Count': 0},
                        '2': {'ConfidenceSum': 0, 'Count': 0}}
 
-        ma = 0.
+        ma_og = 0.
+        ma_sum = 0.
+        ma_og_sub = 0.
         curr_day = None
         num_days = 1
 
@@ -1010,8 +1109,8 @@ class NLPSentimentCalculations:
         for rkey, rval in query_df.iterrows():
 
             day = rval['Timestamp'][:10]
-            sent = rval['SentimentScore']
-            sent_raw = rval['SentimentScoreRaw']
+            sent = rval['SentimentLabel']
+            sent_raw = rval['SentimentConfidence']
 
             if not curr_day:
                 curr_day = day
@@ -1019,9 +1118,14 @@ class NLPSentimentCalculations:
             if day != curr_day:
                 # New day
 
-                sent_day = NLPSentimentCalculations.calculate_daily_sentiment_score(sent_scores)
+                sent_day_og = NLPSentimentCalculations.calculate_daily_sentiment_score_og(sent_scores)
+                sent_day_sum = NLPSentimentCalculations.calculate_daily_sentiment_score_sum(sent_scores)
+                sent_day_og_sub = NLPSentimentCalculations.calculate_daily_sentiment_score_og_with_sub(sent_scores)
 
-                ma += sent_day
+                ma_og += sent_day_og
+                ma_sum += sent_day_sum
+                ma_og_sub += sent_day_og_sub
+
                 num_days += 1
                 sent_scores = {'0': {'ConfidenceSum': 0, 'Count': 0},
                                '1': {'ConfidenceSum': 0, 'Count': 0},
@@ -1031,17 +1135,23 @@ class NLPSentimentCalculations:
             sent_scores[str(sent)]['ConfidenceSum'] += sent_raw
             sent_scores[str(sent)]['Count'] += 1
 
-        sent_day = NLPSentimentCalculations.calculate_daily_sentiment_score(sent_scores)
+        sent_day_og = NLPSentimentCalculations.calculate_daily_sentiment_score_og(sent_scores)
+        sent_day_sum = NLPSentimentCalculations.calculate_daily_sentiment_score_sum(sent_scores)
+        sent_day_og_sub = NLPSentimentCalculations.calculate_daily_sentiment_score_og_with_sub(sent_scores)
 
-        ma += sent_day
+        ma_og += sent_day_og
+        ma_sum += sent_day_sum
+        ma_og_sub += sent_day_og_sub
 
         metrics = {'Query': query,
-                   'Confidence %': round(query_df['SentimentScoreRaw'].mean() * 100),
+                   'Confidence %': round(query_df['SentimentConfidence'].mean() * 100),
                    '# Tweets': ntweets,
                    '% Positive': round(get_vcounts(vcounts, 0) / ntweets * 100, 1),
                    '% Neutral': round(get_vcounts(vcounts, 1) / ntweets * 100, 1),
                    '% Negative': round(get_vcounts(vcounts, 2) / ntweets * 100, 1),
-                   'Average Sentiment %': round(ma / num_days, 1)}
+                   'Average Sentiment % OG': round(ma_og / num_days, 1),
+                   'Average Sentiment % Sum': round(ma_sum / num_days, 1),
+                   'Average Sentiment % OG With Subtraction of Sentiments': round(ma_og_sub / num_days, 1)}
 
         return pd.DataFrame(metrics, index=[0])
 
@@ -1090,3 +1200,13 @@ class NLPSentimentCalculations:
             metrics = pd.concat([metrics, df_metrics], ignore_index=True)
 
         return metrics
+
+
+if __name__ == '__main__':
+
+    mypath = '../data/TweetData/Historic SP-100_20220901-20221001'
+
+    files = [mypath + '/' + f for f in listdir(mypath) if isfile(join(mypath, f)) if 'Labeled' in f]
+
+    metrics_df = NLPSentimentCalculations.generate_metrics_from_files(files)
+    Utils.write_dataframe_to_csv(metrics_df, '../data/TweetData/beta_metrics.csv', write_index=False)

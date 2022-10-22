@@ -1,6 +1,4 @@
 import datetime
-from os import listdir
-from os.path import isfile, join
 import tweepy
 from bs4 import BeautifulSoup
 import requests
@@ -14,7 +12,6 @@ from TwitterModelInterface import TwitterSentimentModelInterface as tSEMI
 from typing import List
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from time import sleep
@@ -555,8 +552,8 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
 
         spam_score, spam_score_raw = spam_model_learning.predict(test_csv)
 
-        test_df['SpamScore'] = spam_score
-        test_df['SpamScoreRaw'] = spam_score_raw
+        test_df['SpamLabel'] = spam_score
+        test_df['SpamConfidence'] = spam_score_raw
 
     if train_sent:
 
@@ -576,8 +573,8 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
 
         sent_score, sent_score_raw = sentiment_model_learning.predict(test_csv)
 
-        test_df['SentimentScore'] = sent_score
-        test_df['SentimentScoreRaw'] = sent_score_raw
+        test_df['SentimentLabel'] = sent_score
+        test_df['SentimentConfidence'] = sent_score_raw
 
     Utils.write_dataframe_to_csv(test_df, test_file + 'Labeled' + '.csv', write_index=False)
 
@@ -608,9 +605,42 @@ def main(search_past: bool = False, search_stream: bool = False, train_spam: boo
 
 if __name__ == '__main__':
 
-    q_dir = '../data/TweetData/Historic SP-100_20220801-20220831'
-    queries = [join(q_dir, f).replace("\\", "/") for f in listdir(q_dir) if isfile(join(q_dir, f)) and 'Neu' in f]
+    from os import listdir
+    from os.path import isfile, join
 
-    mdf = nSC.generate_metrics_from_files(queries)
+    q_dir = '../data/TweetData/Historic SP-100_20220901-20221001/'
 
-    Utils.write_dataframe_to_csv(mdf, '../data/TweetData/sp-100-metrics.csv', write_index=False)
+    beta_companies = pd.read_csv('../doc/beta_companies_keywords.csv')
+    beta_queries = beta_companies.columns.to_list()
+    for _, row in beta_companies.iterrows():
+        for key, val in row.items():
+            query = key + ' ' + val
+            beta_queries.append(query)
+
+    files = [join(q_dir, f).replace("\\", "/") for f in listdir(q_dir) if isfile(join(q_dir, f)) and 'Scrape' in f]
+
+    queries = []
+    for filename in files:
+        f = filename.split('/')[-1]
+        q = f.split('20220901')[0]
+
+        if q in beta_queries:
+            queries.append(filename)
+
+    for f in queries:
+        f = f.replace('.csv', '')
+        main(train_spam=True, train_sent=True, test_file=f)
+
+    #mdf = nSC.generate_metrics_from_files(queries)
+
+    #Utils.write_dataframe_to_csv(mdf, '../data/TweetData/sp-100-metrics.csv', write_index=False)
+
+    '''
+    chosen = pd.read_csv('../doc/chosen_companies.csv')['Name']
+
+    for _, val in chosen.items():
+
+        filename = f'{q_dir}{val}20220901-20221001'
+
+        main(train_spam=True, train_sent=True, test_file=filename)
+    '''

@@ -801,7 +801,7 @@ class Utils:
 
     @staticmethod
     def posnorm(m, rmin, rmax):
-        return Utils.normalize(m, rmin, rmax, 65.1, 100)
+        return Utils.normalize(m, rmin, rmax, 66.7, 100)
 
     @staticmethod
     def neunorm(m, rmin, rmax, nmin, nmax):
@@ -809,7 +809,7 @@ class Utils:
 
     @staticmethod
     def negnorm(m, rmin, rmax):
-        return Utils.normalize(m, rmin, rmax, 0, 34.9)
+        return Utils.normalize(m, rmin, rmax, 0, 33.3)
 
     @staticmethod
     def tweet_data_analysis(df, df_path='', plot=False):
