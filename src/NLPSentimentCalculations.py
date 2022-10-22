@@ -1004,6 +1004,8 @@ class NLPSentimentCalculations:
         """
 
         count = sent_scores['0']['Count'] + sent_scores['1']['Count'] + sent_scores['2']['Count']
+        if count < 1:
+            return -1.
 
         if sent_scores['0']['Count'] == sent_scores['2']['Count']:
 

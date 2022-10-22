@@ -95,6 +95,9 @@ class TweetDatabaseManager:
 
         print(time.time() - start)
 
+        # Convert column name to full_text
+        data.rename(columns={'Embedded_text': 'full_text'}, inplace=True)
+
         return data
 
     def save_tweets(self, keyword: str, num: int, filename=None):
@@ -286,36 +289,36 @@ class TweetDatabaseManager:
 
 if __name__ == '__main__':
 
-    queries = pd.read_csv('../doc/chosen_companies.csv')['Name']
+    queries = pd.read_csv('../doc/beta_companies_keywords.csv')
 
     start_day = '2022-09-01'
     end_day = '2022-10-01'
 
     tm = TweetCollector.TwitterManager()
 
-    for _, val in queries.items():
+    for _, row in queries.iterrows():
 
-        if val == float('nan'):
-            # Escaping weird bug
-            break
+        for key, val in row.items():
 
-        filename = f'../data/TweetData/Historic SP-100_{start_day.replace("-", "")}-' \
-                   f'{end_day.replace("-", "")}/{val}{start_day.replace("-", "")}-' \
-                   f'{end_day.replace("-", "")}'
-        scraped_filename = filename + 'Scrape.csv'
+            query = key + ' ' + val
 
-        if not os.path.exists(filename + '.csv'):
+            print(f'Collecting data for {query}')
 
-            '''
-            if not os.path.exists(scraped_filename):
+            filename = f'../data/TweetData/Historic SP-100_{start_day.replace("-", "")}-' \
+                       f'{end_day.replace("-", "")}/{query}{start_day.replace("-", "")}-' \
+                       f'{end_day.replace("-", "")}'
+            scraped_filename = filename + 'Scrape.csv'
 
-                qdf = TweetDatabaseManager.req_past_tweets(val, start_day=start_day, end_day=end_day, interval=1)
+            if not os.path.exists(filename + '.csv'):
 
-                if qdf is None or qdf.empty:
-                    continue
+                if not os.path.exists(scraped_filename):
+    
+                    qdf = TweetDatabaseManager.req_past_tweets(query, start_day=start_day, end_day=end_day, interval=1)
+    
+                    if qdf is None or qdf.empty:
+                        continue
+    
+                    Utils.write_dataframe_to_csv(qdf, scraped_filename, write_index=False)
 
-                Utils.write_dataframe_to_csv(qdf, scraped_filename, write_index=False)
-            '''
-
-            qdf = tm.tweet_urls_to_dataframe(scraped_filename, val)
-            Utils.write_dataframe_to_csv(qdf, filename + '.csv', write_index=False)
+                #qdf = tm.tweet_urls_to_dataframe(scraped_filename, val)
+                #Utils.write_dataframe_to_csv(qdf, filename + '.csv', write_index=False)
