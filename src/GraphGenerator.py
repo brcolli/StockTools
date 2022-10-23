@@ -66,17 +66,11 @@ class GraphGenerator:
             mode='markers+text',
             hoverinfo='text',
             marker=dict(
-                showscale=True,
+                showscale=False,
                 colorscale='pinkyl',
                 reversescale=True,
                 color=[],
                 size=37,
-                colorbar=dict(
-                    thickness=1,
-                    title='Node Connections',
-                    xanchor='left',
-                    titleside='right'
-                ),
                 line=dict(width=0)))
 
         for node in graph.nodes():
@@ -116,5 +110,7 @@ if __name__ == '__main__':
     beta_companies = pd.read_csv('../doc/beta_companies_keywords.csv').T
     for company, row in beta_companies.iterrows():
 
+        print(f'Generating image for {company}')
+
         company_graph = GraphGenerator.root_node_with_branches(company, row.to_list())
-        company_graph.show()
+        company_graph.write_image(f'../doc/CloselyRelatedTopicsGraphs/{company}CloselyRelatedTopicsGraph.png')
